@@ -2,37 +2,53 @@
 
 ## Immediate next step
 
-Start workspace persistence planning only. Keep Firebase Auth route protection as-is and do not begin broad Firebase runtime integration yet.
+Implement workspace persistence in emulator-only mode with a strict first slice:
 
-## Practical sequence
+- workspace documents
+- session documents
+- message append/list documents
+- decision-log write contract
 
-1. Confirm Auth Emulator tests pass in your local environment:
-   - `npm run test:firebase:auth:emulators`
-2. Keep default verifier fail-closed in runtime and continue using explicit local test verification only.
-3. Plan workspace persistence boundaries (data ownership, write policy, and route contracts) before implementation.
-4. Keep Firestore persistence implementation in a dedicated follow-up PR after planning is approved.
-5. Keep Storage upload, Gemini, Genkit, retrieval, and learner memory persistence out of the next implementation PR.
+No other persistence domains should be added in that PR.
 
-## Decisions Nevo must make before workspace persistence implementation
+## Required scope for the next implementation PR
 
-1. First persisted entity order (workspace shell first vs session-first flow).
-2. Initial retention policy for session and decision-log records.
-3. Whether workspace creation must require authenticated users from day one.
-4. Rollout preference: emulator-only persistence milestone before any cloud planning.
+1. Keep `POST /api/tutor` auth-protected and preserve current mock tutor behavior.
+2. Add only workspace/session/message persistence boundaries and decision-log write path wiring.
+3. Enforce trusted auth ownership (`uid`) for all reads/writes.
+4. Keep Firestore writes local-emulator only for this phase.
+5. Add focused tests for ownership checks and write ordering.
 
-## Do not do yet
+## Explicitly out of scope for that PR
 
-- Do not connect Firebase cloud or add cloud credentials.
-- Do not add Firestore writes in the tutor route yet.
-- Do not add Storage upload integration.
-- Do not add Gemini, Genkit, retrieval, or persistent learner memory.
-- Do not add API keys, secrets, or `.env` files.
+- Storage upload integration
+- Gemini integration
+- Genkit integration
+- retrieval integration
+- learner memory persistence
+- academic knowledge persistence
+- cloud Firebase connection
+- secrets and env files
+
+## Sequencing guardrails
+
+1. Keep Codex as primary agent for implementation.
+2. Use Aider + DeepSeek only if Codex is interrupted.
+3. Keep package changes minimal and only if strictly required.
+4. Do not broaden to dashboard/account-system work.
+
+## Decisions to lock before implementation
+
+1. First persistence order inside the slice:
+   - workspace-first
+   - session-first
+2. Decision-log location for phase one:
+   - user-level with workspace/session references (recommended)
+   - workspace-scoped
+3. Session retention default:
+   - archive-first
+   - immediate hard delete support
 
 ## Readiness note
 
-The repo now has an auth-protected tutor route, explicit Auth Emulator tests, and local emulator scaffolding/rule tests. It is ready for workspace persistence planning, not broad Firebase runtime integration.
-
-## Agent execution note
-
-- Codex is the primary implementation agent.
-- Aider + DeepSeek are fallback only if Codex is interrupted or unavailable.
+Workspace persistence boundary planning is complete enough to start a narrow emulator-only implementation PR for workspace/session/message persistence and decision-log write contracts.
