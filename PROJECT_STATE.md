@@ -18,6 +18,7 @@ The original project documents are now present under `/docs` and are the source 
 - Backend transition planning for Firebase, Genkit, Gemini, retrieval, memory, and security boundaries.
 - Phase A backend boundary scaffolding for `POST /api/tutor` with validation and a mock provider wrapper.
 - Firebase emulator-first preparation documentation.
+- Firebase emulator scaffolding with local config and first-pass emulator rules.
 
 ## What is still mocked
 
@@ -45,6 +46,7 @@ The original project documents are now present under `/docs` and are the source 
 - Server-side model calls.
 - Firebase/Gemini/Genkit-backed API behavior.
 - Firebase emulator runtime connection.
+- Production-ready Firestore or Storage rules.
 
 ## What is ready
 
@@ -55,6 +57,7 @@ The original project documents are now present under `/docs` and are the source 
 - The repo is ready for Phase A backend boundary scaffolding with the mock provider only.
 - The repo is ready for Firebase project setup preparation and emulator decision planning.
 - The repo is ready for Firebase emulator scaffolding in a dedicated future PR.
+- The repo is ready for local Firebase emulator smoke testing after Firebase CLI is installed.
 
 ## What is not ready
 
@@ -64,6 +67,7 @@ The original project documents are now present under `/docs` and are the source 
 - Backend transition planning does not mean external services are configured or connected.
 - Phase A backend boundary scaffolding does not mean Firebase, Gemini, Genkit, retrieval, upload, or persistence is connected.
 - Firebase emulator-first preparation does not mean Firebase runtime is connected; the mock provider remains the default.
+- Firebase emulator scaffolding does not connect app runtime to Firebase; `demo-private-tutor` is a local placeholder and rules are first-pass emulator rules, not production-ready rules.
 
 ## How to run locally
 

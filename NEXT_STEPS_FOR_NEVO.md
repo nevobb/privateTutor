@@ -2,15 +2,15 @@
 
 ## Immediate next step
 
-Add Firebase emulator scaffolding in a dedicated PR. Nevo has chosen Firebase Emulator first, so the next step is local emulator config and rule-test scaffolding, not cloud runtime connection.
+Run local Firebase emulator smoke testing after Firebase CLI is installed. This should verify Emulator UI, Auth, Firestore rules, and Storage rules without connecting app runtime to Firebase cloud.
 
 ## Practical sequence
 
-1. Add Firebase emulator scaffolding files only when the implementation task explicitly requests them.
-2. Keep app runtime on the mock provider while emulator scaffolding is reviewed.
-3. Add draft rule tests before real cloud data exists.
-4. Keep placeholder environment variable names value-free until a later approved setup task.
-5. Do not connect Firebase cloud services from runtime code yet.
+1. Install Firebase CLI locally if it is not installed.
+2. Run emulators locally with the demo project.
+3. Verify Emulator UI opens.
+4. Verify Auth, Firestore, and Storage emulators start with local rules.
+5. Do not connect app runtime yet.
 
 ## Decisions Nevo must make before real setup
 
@@ -28,4 +28,4 @@ Add Firebase emulator scaffolding in a dedicated PR. Nevo has chosen Firebase Em
 
 ## Readiness note
 
-The repo has Phase A backend boundary scaffolding with mocks and Firebase emulator-first preparation docs. It is ready for emulator scaffolding, not direct Firebase runtime connection.
+The repo has Phase A backend boundary scaffolding with mocks and Firebase emulator scaffolding. It is ready for local emulator smoke testing, not direct Firebase runtime connection or cloud setup.
