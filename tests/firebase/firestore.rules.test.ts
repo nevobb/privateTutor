@@ -8,11 +8,32 @@ function firestoreFor(userId?: string) {
   return userId ? testEnv.authenticatedContext(userId).firestore() : testEnv.unauthenticatedContext().firestore();
 }
 
+const VALID_SHAPES: Record<string, Record<string, unknown>> = {
+  "users/alice/workspaces/workspace-1": {
+    userId: "alice",
+    name: "Test workspace",
+    status: "active",
+    updatedAt: Date.now(),
+  },
+  "users/alice/decisionLog/entry-1": {
+    userId: "alice",
+    decisionType: "mock_alignment",
+    title: "Test decision",
+    decision: "Do X",
+    rationale: "Because Y",
+    createdAt: new Date().toISOString(),
+  },
+};
+
+function dataFor(path: string): Record<string, unknown> {
+  return VALID_SHAPES[path] ?? { ownerId: "alice", updatedAt: Date.now() };
+}
+
 async function expectOwnDocAccess(path: string) {
   const db = firestoreFor("alice");
   const ref = db.doc(path);
 
-  await expectAllowed(ref.set({ ownerId: "alice", updatedAt: Date.now() }));
+  await expectAllowed(ref.set(dataFor(path)));
   await expectAllowed(ref.get());
 }
 
