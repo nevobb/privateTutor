@@ -10,18 +10,77 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // First-pass emulator rules only. These rules are not production-ready.
-    // Future backend-owned areas to review before cloud connection:
-    // - users/{userId}/learnerMemory/{memoryId}
-    // - users/{userId}/academicKnowledge/{knowledgeId}
-    // - users/{userId}/decisionLog/{entryId}
-    // - users/{userId}/sessionSummaries/{summaryId}
-    // - users/{userId}/uploadedFiles/{fileId}
-    // - users/{userId}/providerSettings/{providerId}
-    match /users/{userId}/{document=**} {
+    // User root document
+    match /users/{userId} {
       allow read, write: if isOwner(userId);
     }
 
+    // Workspace: owner read/write with field validation
+    match /users/{userId}/workspaces/{workspaceId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['userId', 'name', 'status'])
+        && request.resource.data.userId == userId;
+      allow update: if isOwner(userId)
+        && request.resource.data.userId == userId;
+      allow delete: if isOwner(userId);
+    }
+
+    // Session: owner read/write with field and path validation
+    match /users/{userId}/workspaces/{workspaceId}/sessions/{sessionId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['userId', 'workspaceId', 'title', 'status'])
+        && request.resource.data.userId == userId
+        && request.resource.data.workspaceId == workspaceId;
+      allow update: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.workspaceId == workspaceId;
+      allow delete: if isOwner(userId);
+    }
+
+    // Messages: owner create/read, NO client update or delete (append-only)
+    match /users/{userId}/workspaces/{workspaceId}/sessions/{sessionId}/messages/{messageId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['userId', 'workspaceId', 'sessionId', 'role', 'content'])
+        && request.resource.data.userId == userId
+        && request.resource.data.workspaceId == workspaceId
+        && request.resource.data.sessionId == sessionId;
+      allow update, delete: if false;
+    }
+
+    // Decision log: owner create/read in emulator phase
+    // NOTE: Production hardening requires Firebase Admin SDK (server-only writes).
+    // Deferred because current implementation uses Web SDK against emulator.
+    // update and delete denied to keep entries append-only.
+    match /users/{userId}/decisionLog/{entryId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['userId', 'decisionType', 'title'])
+        && request.resource.data.userId == userId;
+      allow update, delete: if false;
+    }
+
+    // Other user-owned subcollections not yet specifically modeled.
+    // Enumerated explicitly (not a catch-all wildcard) to avoid unintended access grants.
+    match /users/{userId}/learnerMemory/{document} {
+      allow read, write: if isOwner(userId);
+    }
+    match /users/{userId}/academicKnowledge/{document} {
+      allow read, write: if isOwner(userId);
+    }
+    match /users/{userId}/uploadedFiles/{document} {
+      allow read, write: if isOwner(userId);
+    }
+    match /users/{userId}/sessionSummaries/{document} {
+      allow read, write: if isOwner(userId);
+    }
+    match /users/{userId}/providerSettings/{document} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Deny everything else including root-level collections
     match /{document=**} {
       allow read, write: if false;
     }

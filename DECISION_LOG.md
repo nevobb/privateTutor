@@ -34,6 +34,12 @@
 **Scope:** Client auth state, server token verification, and trusted `userId` derivation for protected routes.
 **Status:** Planned.
 
+### 9. DecisionLog Emulator-Phase Write Policy
+**Decision:** Allow owner create + read for `users/{userId}/decisionLog/{entryId}` in Firestore rules during the emulator phase. Deny update and delete (append-only). Defer strict client-deny hardening until Firebase Admin SDK is available.
+**Rationale:** The ownership planning document specifies decisionLog as logically server-owned and client-inaccessible. However, the current persistence implementation uses the Firebase Web SDK (no Admin SDK). Enforcing client-deny now would break `workspacePersistence.emulator.test.ts`. The emulator-phase approach keeps the tests passing while preserving append-only semantics. Production hardening (deny all client writes, use server-side Admin SDK) is explicitly documented and deferred.
+**Scope:** Firestore rules for `users/{userId}/decisionLog/{entryId}` only. Does not affect Auth boundary, tutor provider, Storage, Gemini, or Genkit.
+**Status:** Accepted for emulator phase. Production hardening deferred.
+
 ### 8. Workspace Persistence Before Broader Integrations
 **Decision:** Implement workspace persistence boundaries before Storage upload, Gemini/Genkit integration, retrieval integration, and learner memory persistence.
 **Rationale:** Durable workspace/session/message ownership and write ordering must be stable before adding higher-risk integrations.
