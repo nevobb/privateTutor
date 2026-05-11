@@ -24,6 +24,7 @@ The original project documents are now present under `/docs` and are the source 
 - Firebase emulator rule tests pass locally against the running Auth, Firestore, and Storage emulators.
 - Firebase Auth runtime boundary planning exists.
 - Firebase Auth boundary implementation exists for `POST /api/tutor`.
+- Firebase Auth Emulator integration tests exist under `tests/firebase/` and run only with explicit flags.
 
 ## What is still mocked
 
@@ -36,6 +37,7 @@ The original project documents are now present under `/docs` and are the source 
 - Provider status is represented only by TypeScript types.
 - The backend tutor boundary still calls the mock provider only.
 - `POST /api/tutor` is auth-protected, but token verification is injectable and not connected to Firebase Admin/cloud verification yet.
+- Auth verifier default remains fail-closed unless an explicit verifier is injected for local or test flows.
 
 ## What is not connected
 
@@ -80,6 +82,7 @@ The original project documents are now present under `/docs` and are the source 
 - Firebase emulator rule tests passing does not make the rules production-ready; it only verifies first-pass local user isolation.
 - Firebase Auth boundary planning does not mean Firebase Auth runtime is connected; app runtime remains mock-only.
 - Firebase Auth boundary implementation protects the tutor route but does not connect Firestore, Storage, Gemini, Genkit, retrieval, learner memory persistence, or workspace persistence.
+- Firebase Auth Emulator integration tests validate local token flows and route auth behavior, but do not connect Firebase cloud or add production token verification.
 
 ## How to run locally
 
