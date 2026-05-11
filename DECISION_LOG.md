@@ -21,3 +21,9 @@
 ### 5. Security - Type Hardening
 **Decision:** Removed `apiKey` from `ProviderSettings` interface.
 **Rationale:** Prevent accidental leakage or storage of sensitive secrets in type structures during mock phases.
+
+### 6. Firebase Emulator First
+**Decision:** Use Firebase Emulator first before cloud/runtime Firebase connection.
+**Rationale:** Protect security, validate rules and data model locally, and avoid premature cloud coupling.
+**Scope:** Firebase Authentication, Firestore, and Firebase Storage preparation.
+**Status:** Accepted by Nevo.
