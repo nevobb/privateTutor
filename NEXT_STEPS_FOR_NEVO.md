@@ -2,16 +2,16 @@
 
 ## Immediate next step
 
-Plan Firebase runtime integration for the Authentication boundary only. Firestore and Storage user isolation now have local emulator rule tests, but the app runtime should still remain mock-only until a dedicated Auth-boundary integration plan is approved.
+Implement the Firebase Auth runtime boundary only. Firestore and Storage user isolation have local emulator rule tests, and Auth boundary planning is now defined, but the app runtime should remain mock-only outside the narrow Auth boundary.
 
 ## Practical sequence
 
 1. Install Firebase CLI locally if it is not installed.
 2. Install a local Java runtime if it is not installed.
-3. Review the Firebase emulator rule test results.
-4. Plan the Auth boundary for runtime integration.
-5. Keep Firestore, Storage, retrieval, memory persistence, and file upload for later dedicated PRs.
-6. Do not connect broad Firebase runtime yet.
+3. Implement narrow auth helper modules and tests.
+4. Add minimal AuthShell boundary work only if scoped to authentication state.
+5. Protect `POST /api/tutor` by deriving trusted `userId` from verified auth.
+6. Do not implement Firestore persistence, Storage upload, Gemini, Genkit, retrieval, or learner memory persistence.
 
 ## Decisions Nevo must make before real setup
 
@@ -29,4 +29,12 @@ Plan Firebase runtime integration for the Authentication boundary only. Firestor
 
 ## Readiness note
 
-The repo has Phase A backend boundary scaffolding with mocks, Firebase emulator scaffolding, a passing local emulator smoke test, and Firebase emulator rule tests for user isolation. It is ready for Firebase runtime integration planning for the Auth boundary only, not broad Firebase runtime connection or cloud setup.
+The repo has Phase A backend boundary scaffolding with mocks, Firebase emulator scaffolding, a passing local emulator smoke test, Firebase emulator rule tests for user isolation, and Firebase Auth boundary planning. It is ready for narrow Firebase Auth boundary implementation only, not broad Firebase runtime connection or cloud setup.
+
+## Suggested next subagent model
+
+- One writer for server auth helpers and route protection.
+- One writer for client auth shell boundary.
+- One writer for auth tests.
+- One reviewer for security and identity-spoofing risks.
+- Main Codex remains the integrator and final committer.
