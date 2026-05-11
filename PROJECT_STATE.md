@@ -15,6 +15,7 @@ The original project documents are now present under `/docs` and are the source 
 - Mock workspace, file, learner memory, academic knowledge, tutor messages, and decision log data.
 - Type-only structures for future model, retrieval, and web search providers.
 - Behavior tests covering mock tutor guardrails.
+- Backend transition planning for Firebase, Genkit, Gemini, retrieval, memory, and security boundaries.
 
 ## What is still mocked
 
@@ -46,12 +47,14 @@ The original project documents are now present under `/docs` and are the source 
 - The mock prototype is ready for review against `/docs`.
 - The type layer is ready to guide future provider abstractions without exposing secrets or connecting services.
 - Behavior tests are ready to protect the current mock guardrails.
+- The repo is ready for Phase A backend boundary scaffolding with the mock provider only.
 
 ## What is not ready
 
 - The repo is not ready to connect Firebase, Gemini, Genkit, retrieval, or persistent storage without a dedicated implementation plan.
 - The app is not an MVP-complete tutor yet.
 - Real file ingestion, retrieval budgets, memory writes, summaries, and decision logging still require implementation.
+- Backend transition planning does not mean external services are configured or connected.
 
 ## How to run locally
 
