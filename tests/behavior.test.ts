@@ -1,51 +1,74 @@
 import { describe, it, expect } from 'vitest';
 import { getMockTutorResponse } from '../src/lib/tutor';
-import { mockDecisionLogEntry } from '../src/mock/data';
+import { mockAcademicKnowledge, mockDecisionLogEntry, mockLearnerMemory } from '../src/mock/data';
 
 describe('Tutor Behavior Regressions', () => {
-  it('Tutor does not rush the learner', async () => {
-    // Structural test: ensure tutor message acknowledges the learning process rather than just giving an answer immediately.
+  it('does not rush the learner in default learning mode', async () => {
     const response = await getMockTutorResponse("I don't understand the theme.", "Learning", "Normal Learning");
     expect(response.message.content).toContain("מצב עבודה: Learning");
-    // Assert there's a structural separation from practice/research that implies pacing.
+    expect(response.mockRouting.stoppedAfterLocalAnswer).toBe(false);
     expect(response.message.content).not.toContain("ללא פתרון מלא");
   });
 
-  it('Tutor does not reveal full solution when asked for hint', async () => {
-    const response = await getMockTutorResponse("I need a hint", "Practice", "Normal Learning");
+  it('does not reveal a full solution when asked for a hint', async () => {
+    const response = await getMockTutorResponse("I need a hint, not the full solution", "Practice", "Normal Learning");
     expect(response.message.content).toContain("ללא פתרון מלא");
+    expect(response.message.content).not.toContain("התשובה הסופית");
+    expect(response.message.content).not.toContain("שלב 1");
+    expect(response.mockRouting.memoryWrite).toBe("candidate");
     expect(response.internalUpdates?.[0].observation).toContain("hint without full solution");
   });
 
-  it('Tutor separates learner memory from academic knowledge', () => {
-    // Verifying types through mock data presence
+  it('answers local why-style questions locally and stops', async () => {
+    const response = await getMockTutorResponse("למה המספר חשוב כאן?", "Learning", "Normal Learning");
+    expect(response.message.content).toContain("אני עוצר כאן");
+    expect(response.message.content).not.toContain("תרגול נוסף");
+    expect(response.mockRouting.stoppedAfterLocalAnswer).toBe(true);
+    expect(response.mockRouting.retrievalScope).toBe("none");
+  });
+
+  it('keeps learner memory separate from academic knowledge', () => {
     expect(mockDecisionLogEntry.rationale).toContain("objective factual base");
     expect(mockDecisionLogEntry.decision).toContain("strictly separate entities");
+    expect(mockLearnerMemory.observations[0]).toHaveProperty("confidence");
+    expect(mockAcademicKnowledge).toHaveProperty("sourceId");
+    expect(mockAcademicKnowledge).not.toHaveProperty("observation");
   });
 
-  it('Tutor respects Hebrew RTL UI assumption', () => {
-    // Since we don't have a DOM here, we verify that the mock tutor responds in Hebrew.
-    expect("זוהי תגובת תרגול. אני שם לב שאתה מתרגל את הנושא. הנה רמז ללא פתרון מלא: שים לב לשורש הפועל.").toMatch(/[\u0590-\u05FF]/);
+  it('represents the Hebrew RTL assumption through Hebrew tutor copy', async () => {
+    const response = await getMockTutorResponse("רק כיוון", "Practice", "Normal Learning");
+    expect(response.message.content).toMatch(/[\u0590-\u05FF]/);
   });
 
-  it('Tutor respects cost mode', async () => {
-    // Structural validation that the response handles CostMode.
+  it('keeps Cheap Practice local and source-light', async () => {
     const responseCheap = await getMockTutorResponse("Theme", "Learning", "Cheap Practice");
     expect(responseCheap.message.content).toContain("מצב עלות: Cheap Practice");
-
-    const responseDeep = await getMockTutorResponse("Theme", "Learning", "Deep Research");
-    expect(responseDeep.message.content).toContain("מצב עלות: Deep Research");
+    expect(responseCheap.message.citations).toBeUndefined();
+    expect(responseCheap.mockRouting.usedWebSearch).toBe(false);
+    expect(responseCheap.mockRouting.retrievalScope).toBe("none");
   });
 
-  it('Tutor respects work mode', async () => {
+  it('returns citations in Research mode without implying web search', async () => {
     const response = await getMockTutorResponse("What is the theme?", "Research", "Normal Learning");
     expect(response.message.content).toContain("מצב מחקר");
     expect(response.message.citations).toBeDefined();
     expect(response.message.citations?.length).toBeGreaterThan(0);
+    expect(response.mockRouting.retrievalScope).toBe("topic");
+    expect(response.mockRouting.usedWebSearch).toBe(false);
   });
 
-  it('Tutor uses sources when academic material is involved', async () => {
-    const response = await getMockTutorResponse("What is the theme?", "Research", "Normal Learning");
-    expect(response.message.citations).toBeDefined();
+  it('changes mock routing by cost and work mode', async () => {
+    const responseDeep = await getMockTutorResponse("Theme", "Research", "Deep Research");
+    expect(responseDeep.message.content).toContain("מצב עלות: Deep Research");
+    expect(responseDeep.mockRouting.workMode).toBe("Research");
+    expect(responseDeep.mockRouting.costMode).toBe("Deep Research");
+    expect(responseDeep.mockRouting.retrievalScope).toBe("workspace");
+  });
+
+  it('does not create permanent memory updates in Temporary Chat', async () => {
+    const response = await getMockTutorResponse("This is a throwaway question", "Temporary Chat", "Normal Learning");
+    expect(response.message.content).toContain("צ'אט זמני");
+    expect(response.internalUpdates).toBeUndefined();
+    expect(response.mockRouting.memoryWrite).toBe("none");
   });
 });

@@ -23,3 +23,7 @@
 ## Readiness Status
 - **Is the repo ready for human review?** Yes. The code compiles, tests pass, and the structure is clean.
 - **Is the repo ready for Firebase setup?** **No.** We must first locate and review the missing specification documents (especially `04_Firebase_Genkit_Backend_Architecture.md`) to ensure the mock types perfectly mirror the intended Firebase schema before making network connections.
+
+## Superseded by true docs-based alignment
+
+This report is preserved as historical context from an earlier pass when `/docs` was not available. The project documents have since been imported, and `TRUE_DOCS_ALIGNMENT_REPORT.md` is the current alignment report.

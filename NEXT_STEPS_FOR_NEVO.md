@@ -1,17 +1,24 @@
 # Next Steps For Nevo
 
-## Doc-Based Next Steps
-*Note: Due to the missing original documentation files during the alignment pass, these steps are based on general stabilization principles and the initial prompt.*
+## Immediate next step
 
-1. **Verify Source Specs:** Ensure the original 10 markdown specification documents are actually present in the repository so an AI agent can execute them.
-2. **Review Structural Alignment:** Review `src/types/index.ts` to confirm it matches the implicit schemas intended in `06_Retrieval_and_Memory_Technical_Spec.md`.
-3. **Review Mock Flows:** Run `npx vitest run` to see if the behaviors align with the missing `09_Behavior_Regression_Test_Suite.md`.
+Plan the Firebase/Genkit/Gemini mock-to-real backend transition from `/docs`, starting with server-side architecture and provider abstractions before any real external-service connection.
 
-## What Decisions Still Require Nevo
-1. How to handle the missing specification documents.
-2. Clarification on the exact JSON structures required by Genkit once we move past the mock phase.
+## Practical sequence
 
-## What Should NOT Be Implemented Yet
-- **Do not** connect Gemini, Firebase, or Genkit.
-- **Do not** build real persistent storage.
-- **Do not** redesign the UI layout.
+1. Define the server-side tutor response boundary from `docs/04_Firebase_Genkit_Backend_Architecture.md` and `docs/05_Gemini_API_Integration_Spec.md`.
+2. Add deterministic intent detection for hint, full solution, local conceptual question, broad query, and simple fact.
+3. Add retrieval routing as a pure local function before connecting any retrieval provider.
+4. Add Decision Log storage shape and hidden technical reporting before connecting Firebase.
+5. Add Firebase/Genkit/Gemini only in a dedicated integration task with server-side secrets handling.
+
+## Do not do yet
+
+- Do not connect Firebase, Firestore, Firebase Storage, Gemini, Genkit, Gemini File Search, Google Search Grounding, or real retrieval.
+- Do not add API keys, secrets, environment variables, or frontend provider credentials.
+- Do not redesign the app or turn it into an LMS/dashboard.
+- Do not implement persistent learner memory until the memory write policy and storage boundary are planned.
+
+## Readiness note
+
+The repo is docs-aligned enough for the next planning step. It is not yet ready for direct Firebase setup without a dedicated backend transition plan.

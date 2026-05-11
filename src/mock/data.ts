@@ -13,6 +13,8 @@ export const mockWorkspace: Workspace = {
   id: "ws-1",
   name: "Hebrew Literature Phase 2",
   description: "Advanced studies in modern Hebrew literature.",
+  path: ["BA Literature", "Year 2", "Hebrew Literature"],
+  stableIdentityNote: "Mock workspace identity stays stable even if the display path changes.",
 };
 
 export const mockFiles: UploadedFile[] = [
@@ -21,12 +23,20 @@ export const mockFiles: UploadedFile[] = [
     name: "Agnon_Stories.pdf",
     url: "/mock/Agnon_Stories.pdf",
     uploadedAt: new Date(),
+    workspaceId: "ws-1",
+    assignmentStatus: "assigned",
+    indexingStatus: "not-indexed",
+    sourceType: "pdf",
   },
   {
     id: "f-2",
     name: "Bialik_Poems.pdf",
     url: "/mock/Bialik_Poems.pdf",
     uploadedAt: new Date(),
+    workspaceId: "ws-1",
+    assignmentStatus: "assigned",
+    indexingStatus: "not-indexed",
+    sourceType: "pdf",
   },
 ];
 
@@ -38,6 +48,9 @@ export const mockLearnerMemory: LearnerMemory = {
       id: "obs-1",
       observation: "Struggles with future tense conjugation of Pa'al.",
       timestamp: new Date(),
+      confidence: 0.72,
+      state: "active",
+      source: "conversation",
     },
   ],
   masteryLevel: 65,
@@ -47,7 +60,10 @@ export const mockAcademicKnowledge: AcademicKnowledgeItem = {
   id: "ak-1",
   title: "The Role of the Narrator in Agnon's Work",
   content: "Agnon often employs an unreliable, traditional-seeming narrator who creates ironic distance from the modern themes of the story.",
-  source: "f-1",
+  sourceId: "f-1",
+  workspaceId: "ws-1",
+  sourceType: "uploaded_file",
+  citationLabel: "Agnon_Stories.pdf",
 };
 
 export const mockTutorMessages: TutorMessage[] = [
@@ -84,6 +100,7 @@ export const mockSession: Session = {
 
 export const mockDecisionLogEntry: DecisionLogEntry = {
   id: "dl-1",
+  decisionType: "mock_alignment",
   title: "Separate Academic Knowledge and Learner Memory",
   decision: "Decided to keep AcademicKnowledgeItem and LearnerMemory as strictly separate entities.",
   rationale: "To ensure that the tutor's assessment of the learner does not pollute the objective factual base of the academic material.",
