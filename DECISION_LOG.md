@@ -33,3 +33,9 @@
 **Rationale:** Establishes trusted user identity before any user-scoped data or provider behavior can become durable.
 **Scope:** Client auth state, server token verification, and trusted `userId` derivation for protected routes.
 **Status:** Planned.
+
+### 8. Workspace Persistence Before Broader Integrations
+**Decision:** Implement workspace persistence boundaries before Storage upload, Gemini/Genkit integration, retrieval integration, and learner memory persistence.
+**Rationale:** Durable workspace/session/message ownership and write ordering must be stable before adding higher-risk integrations.
+**Scope:** Workspace, session, message, and decision-log persistence boundaries in emulator-first mode.
+**Status:** Accepted by Nevo.

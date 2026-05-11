@@ -25,6 +25,7 @@ The original project documents are now present under `/docs` and are the source 
 - Firebase Auth runtime boundary planning exists.
 - Firebase Auth boundary implementation exists for `POST /api/tutor`.
 - Firebase Auth Emulator integration tests exist under `tests/firebase/` and run only with explicit flags.
+- Workspace persistence boundary planning exists.
 
 ## What is still mocked
 
@@ -38,6 +39,7 @@ The original project documents are now present under `/docs` and are the source 
 - The backend tutor boundary still calls the mock provider only.
 - `POST /api/tutor` is auth-protected, but token verification is injectable and not connected to Firebase Admin/cloud verification yet.
 - Auth verifier default remains fail-closed unless an explicit verifier is injected for local or test flows.
+- Workspace, session, message, and decision-log persistence remain planning-only and are not connected to runtime Firestore writes yet.
 
 ## What is not connected
 
@@ -83,6 +85,8 @@ The original project documents are now present under `/docs` and are the source 
 - Firebase Auth boundary planning does not mean Firebase Auth runtime is connected; app runtime remains mock-only.
 - Firebase Auth boundary implementation protects the tutor route but does not connect Firestore, Storage, Gemini, Genkit, retrieval, learner memory persistence, or workspace persistence.
 - Firebase Auth Emulator integration tests validate local token flows and route auth behavior, but do not connect Firebase cloud or add production token verification.
+- Workspace persistence boundary planning does not implement Firestore runtime persistence and does not change Firestore rules in this PR.
+- Storage upload, Gemini, Genkit, retrieval, learner memory persistence, and academic knowledge persistence remain unconnected.
 
 ## How to run locally
 
