@@ -27,3 +27,9 @@
 **Rationale:** Protect security, validate rules and data model locally, and avoid premature cloud coupling.
 **Scope:** Firebase Authentication, Firestore, and Firebase Storage preparation.
 **Status:** Accepted by Nevo.
+
+### 7. Firebase Auth Boundary Before Broader Runtime Integration
+**Decision:** Implement Firebase Authentication runtime integration as a narrow boundary before Firestore, Storage, Gemini, Genkit, retrieval, or learner memory persistence.
+**Rationale:** Establishes trusted user identity before any user-scoped data or provider behavior can become durable.
+**Scope:** Client auth state, server token verification, and trusted `userId` derivation for protected routes.
+**Status:** Planned.

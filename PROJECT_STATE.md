@@ -22,6 +22,7 @@ The original project documents are now present under `/docs` and are the source 
 - Firebase emulator smoke-test documentation showing local Auth, Firestore, Storage, Emulator UI, and Emulator Hub startup passed with `demo-private-tutor`.
 - Firebase emulator rule tests for Firestore and Storage user isolation.
 - Firebase emulator rule tests pass locally against the running Auth, Firestore, and Storage emulators.
+- Firebase Auth runtime boundary planning exists.
 
 ## What is still mocked
 
@@ -62,6 +63,7 @@ The original project documents are now present under `/docs` and are the source 
 - The repo is ready for Firebase emulator scaffolding in a dedicated future PR.
 - The repo is ready for Firebase emulator rule tests for Firestore and Storage user isolation.
 - The repo is ready for Firebase runtime integration planning for the Auth boundary.
+- The repo is ready for narrow Firebase Auth boundary implementation planning and implementation.
 
 ## What is not ready
 
@@ -74,6 +76,7 @@ The original project documents are now present under `/docs` and are the source 
 - Firebase emulator scaffolding does not connect app runtime to Firebase; `demo-private-tutor` is a local placeholder and rules are first-pass emulator rules, not production-ready rules.
 - Firebase emulator smoke testing passed locally, but Firebase runtime is still not connected and the first-pass Firestore/Storage rules are not production-ready yet.
 - Firebase emulator rule tests passing does not make the rules production-ready; it only verifies first-pass local user isolation.
+- Firebase Auth boundary planning does not mean Firebase Auth runtime is connected; app runtime remains mock-only.
 
 ## How to run locally
 
