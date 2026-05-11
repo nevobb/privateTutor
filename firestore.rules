@@ -1,0 +1,29 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // First-pass emulator rules only. These rules are not production-ready.
+    // Future backend-owned areas to review before cloud connection:
+    // - users/{userId}/learnerMemory/{memoryId}
+    // - users/{userId}/academicKnowledge/{knowledgeId}
+    // - users/{userId}/decisionLog/{entryId}
+    // - users/{userId}/sessionSummaries/{summaryId}
+    // - users/{userId}/uploadedFiles/{fileId}
+    // - users/{userId}/providerSettings/{providerId}
+    match /users/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
