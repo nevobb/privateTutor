@@ -19,6 +19,7 @@ The original project documents are now present under `/docs` and are the source 
 - Phase A backend boundary scaffolding for `POST /api/tutor` with validation and a mock provider wrapper.
 - Firebase emulator-first preparation documentation.
 - Firebase emulator scaffolding with local config and first-pass emulator rules.
+- Firebase emulator smoke-test documentation showing local startup is currently blocked by missing Firebase CLI and Java runtime.
 
 ## What is still mocked
 
@@ -68,6 +69,7 @@ The original project documents are now present under `/docs` and are the source 
 - Phase A backend boundary scaffolding does not mean Firebase, Gemini, Genkit, retrieval, upload, or persistence is connected.
 - Firebase emulator-first preparation does not mean Firebase runtime is connected; the mock provider remains the default.
 - Firebase emulator scaffolding does not connect app runtime to Firebase; `demo-private-tutor` is a local placeholder and rules are first-pass emulator rules, not production-ready rules.
+- Firebase emulator smoke testing has not started the emulators yet because the local environment is missing Firebase CLI and Java runtime.
 
 ## How to run locally
 
