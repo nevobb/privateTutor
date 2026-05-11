@@ -2,15 +2,15 @@
 
 ## Immediate next step
 
-Install Firebase CLI and Java locally, then rerun the Firebase emulator smoke test. The first smoke-test documentation pass confirmed that the current local environment is missing both tools, so the emulators were not started.
+Implement Firebase emulator rule tests for Firestore and Storage user isolation. The local emulator smoke test passed with Auth, Firestore, Storage, Emulator UI, and Emulator Hub running under `demo-private-tutor`.
 
 ## Practical sequence
 
 1. Install Firebase CLI locally if it is not installed.
 2. Install a local Java runtime if it is not installed.
-3. Rerun the Firebase emulator smoke test with `demo-private-tutor`.
-4. Verify Emulator UI opens.
-5. Verify Auth, Firestore, and Storage emulators start with local rules.
+3. Add local emulator rule tests for Firestore user isolation.
+4. Add local emulator rule tests for Storage user isolation.
+5. Keep the tests on the demo project and local emulators only.
 6. Do not connect app runtime yet.
 
 ## Decisions Nevo must make before real setup
@@ -29,4 +29,4 @@ Install Firebase CLI and Java locally, then rerun the Firebase emulator smoke te
 
 ## Readiness note
 
-The repo has Phase A backend boundary scaffolding with mocks and Firebase emulator scaffolding. The scaffold is ready for local emulator smoke testing after Firebase CLI and Java are installed; it is not ready for direct Firebase runtime connection or cloud setup.
+The repo has Phase A backend boundary scaffolding with mocks and Firebase emulator scaffolding. The local emulator smoke test has passed, so the repo is ready for Firebase emulator rule tests; it is not ready for direct Firebase runtime connection or cloud setup.

@@ -19,7 +19,7 @@ The original project documents are now present under `/docs` and are the source 
 - Phase A backend boundary scaffolding for `POST /api/tutor` with validation and a mock provider wrapper.
 - Firebase emulator-first preparation documentation.
 - Firebase emulator scaffolding with local config and first-pass emulator rules.
-- Firebase emulator smoke-test documentation showing local startup is currently blocked by missing Firebase CLI and Java runtime.
+- Firebase emulator smoke-test documentation showing local Auth, Firestore, Storage, Emulator UI, and Emulator Hub startup passed with `demo-private-tutor`.
 
 ## What is still mocked
 
@@ -58,7 +58,7 @@ The original project documents are now present under `/docs` and are the source 
 - The repo is ready for Phase A backend boundary scaffolding with the mock provider only.
 - The repo is ready for Firebase project setup preparation and emulator decision planning.
 - The repo is ready for Firebase emulator scaffolding in a dedicated future PR.
-- The repo is ready for local Firebase emulator smoke testing after Firebase CLI is installed.
+- The repo is ready for Firebase emulator rule tests for Firestore and Storage user isolation.
 
 ## What is not ready
 
@@ -69,7 +69,7 @@ The original project documents are now present under `/docs` and are the source 
 - Phase A backend boundary scaffolding does not mean Firebase, Gemini, Genkit, retrieval, upload, or persistence is connected.
 - Firebase emulator-first preparation does not mean Firebase runtime is connected; the mock provider remains the default.
 - Firebase emulator scaffolding does not connect app runtime to Firebase; `demo-private-tutor` is a local placeholder and rules are first-pass emulator rules, not production-ready rules.
-- Firebase emulator smoke testing has not started the emulators yet because the local environment is missing Firebase CLI and Java runtime.
+- Firebase emulator smoke testing passed locally, but Firebase runtime is still not connected and the first-pass Firestore/Storage rules are not production-ready yet.
 
 ## How to run locally
 

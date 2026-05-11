@@ -2,7 +2,7 @@
 
 ## 1. Branch used
 
-`chore/firebase-emulator-smoke-test`
+`chore/firebase-emulator-smoke-test-pass`
 
 ## 2. Files read
 
@@ -23,7 +23,7 @@
 
 ## 3. Firebase CLI availability
 
-Firebase CLI is not available in this local environment.
+Firebase CLI is available.
 
 Command:
 
@@ -34,12 +34,12 @@ firebase --version
 Result:
 
 ```text
-zsh:1: command not found: firebase
+15.17.0
 ```
 
 ## 4. Java availability
 
-Java runtime is not available in this local environment.
+Java runtime is available.
 
 Command:
 
@@ -50,8 +50,9 @@ java -version
 Result:
 
 ```text
-The operation couldn't be completed. Unable to locate a Java Runtime.
-Please visit http://www.java.com for information on installing Java.
+openjdk version "26.0.1" 2026-04-21
+OpenJDK Runtime Environment Temurin-26.0.1+8
+OpenJDK 64-Bit Server VM Temurin-26.0.1+8
 ```
 
 ## 5. Exact commands run
@@ -64,90 +65,112 @@ npx vitest run
 git diff --check
 firebase --version
 java -version
-git status --short
-```
-
-The bounded emulator startup command was not run because Firebase CLI is missing:
-
-```bash
 firebase emulators:start --only auth,firestore,storage --project demo-private-tutor
 ```
 
 ## 6. Whether emulators started
 
-No. Emulator startup was blocked because Firebase CLI is not installed.
+Yes. The local Firebase emulators started successfully using the demo project ID `demo-private-tutor`.
 
 ## 7. Whether Emulator UI started
 
-No. Emulator UI startup was not attempted because Firebase CLI is not installed.
+Yes. Emulator UI started at:
+
+```text
+http://127.0.0.1:4000/
+```
 
 ## 8. Whether Auth emulator started
 
-No. Auth emulator startup was not attempted because Firebase CLI is not installed.
+Yes. Authentication emulator started at:
+
+```text
+127.0.0.1:9099
+```
 
 ## 9. Whether Firestore emulator started
 
-No. Firestore emulator startup was not attempted because Firebase CLI is not installed.
+Yes. Firestore emulator started at:
+
+```text
+127.0.0.1:8080
+```
 
 ## 10. Whether Storage emulator started
 
-No. Storage emulator startup was not attempted because Firebase CLI is not installed.
+Yes. Storage emulator started at:
 
-## 11. Whether `firestore.rules` loaded
+```text
+127.0.0.1:9199
+```
 
-Not verified. Rules loading requires a Firebase emulator startup attempt, which was blocked by missing Firebase CLI.
+## 11. Whether Emulator Hub started
 
-## 12. Whether `storage.rules` loaded
+Yes. Emulator Hub started at:
 
-Not verified. Rules loading requires a Firebase emulator startup attempt, which was blocked by missing Firebase CLI.
+```text
+127.0.0.1:4400
+```
 
-## 13. Whether any emulator startup errors occurred
+## 12. Whether `firestore.rules` loaded
 
-No emulator startup errors occurred because startup was not attempted. The blocking tooling errors are:
+Yes. `firestore.rules` loaded sufficiently for emulator startup.
 
-- Firebase CLI missing.
-- Java runtime missing.
+## 13. Whether `storage.rules` loaded
 
-## 14. Whether `package.json` changed
+Yes. `storage.rules` loaded sufficiently for emulator startup.
 
-No.
+## 14. Whether any emulator startup warnings occurred
 
-## 15. Whether packages were installed
+Yes. Warnings were observed, but they did not block emulator startup:
 
-No.
+- Node `url.parse` deprecation warning.
+- Java `sun.misc.Unsafe` warning from the Storage rules runtime.
 
-## 16. Whether app runtime code changed
+## 15. Whether any emulator startup errors occurred
 
-No.
+No blocking emulator startup errors were reported.
 
-## 17. Whether Firebase SDK/Admin imports were added
-
-No.
-
-## 18. Whether env files were added
-
-No.
-
-## 19. Whether secrets were added
+## 16. Whether `package.json` changed
 
 No.
 
-## 20. Whether real project IDs were added
-
-No. The existing scaffold still uses only the local demo project ID `demo-private-tutor`.
-
-## 21. Whether Firebase cloud was connected
+## 17. Whether packages were installed
 
 No.
 
-## 22. Whether app remains mock-only
+## 18. Whether app runtime code changed
+
+No.
+
+## 19. Whether Firebase SDK/Admin imports were added
+
+No.
+
+## 20. Whether env files were added
+
+No.
+
+## 21. Whether secrets were added
+
+No.
+
+## 22. Whether real project IDs were added
+
+No. The scaffold still uses only the local demo project ID `demo-private-tutor`.
+
+## 23. Whether Firebase cloud was connected
+
+No.
+
+## 24. Whether app remains mock-only
 
 Yes. `POST /api/tutor` remains mock-provider only, and no Firebase runtime connection was added.
 
-## 23. Whether repo is ready for Firebase emulator rule tests
+## 25. Whether repo is ready for Firebase emulator rule tests
 
-Not yet. The repo is ready for another local smoke-test attempt after Firebase CLI and Java are installed. Firebase emulator rule tests should wait until the emulators can start and load `firestore.rules` and `storage.rules`.
+Yes. The repo is ready for Firebase emulator rule tests for Firestore and Storage user isolation, still without connecting app runtime to Firebase cloud.
 
-## 24. Exact next recommended task
+## 26. Exact next recommended task
 
-Install Firebase CLI and Java locally, then rerun the Firebase emulator smoke test without connecting app runtime to Firebase cloud.
+Implement Firebase emulator rule tests for Firestore and Storage user isolation, still without connecting app runtime to Firebase cloud.
