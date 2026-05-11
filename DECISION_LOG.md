@@ -4,24 +4,20 @@
 
 ### 1. Framework Selection
 **Decision:** Used Next.js with App Router, TypeScript, and Tailwind CSS.
-**Rationale:** Provides a robust, standard foundation for a responsive web app. Easy to drop in RTL styling using standard HTML attributes and Tailwind utility classes.
+**Rationale:** Provides a robust, standard foundation for a responsive web app.
 
 ### 2. Type Segregation
-**Decision:** Kept `AcademicKnowledgeItem` strictly separate from `LearnerMemory` in `src/types/index.ts`.
-**Rationale:** Adhered to the core product principle. We must prevent subjective student performance metrics from polluting the objective factual corpus of academic texts.
+**Decision:** Kept `AcademicKnowledgeItem` strictly separate from `LearnerMemory`.
+**Rationale:** Core product principle. Prevents subjective student performance metrics from polluting objective facts.
 
 ### 3. Mock Flow Architecture
-**Decision:** Abstracted the LLM integration into a mock `getMockTutorResponse` function inside `src/lib/tutor.ts`.
-**Rationale:** Allows the UI to be developed and tested for state management (isTyping, citations display) without incurring real API costs or dealing with network latency, adhering strictly to the "Do not connect Gemini yet" rule.
+**Decision:** Abstracted the LLM integration into a mock `getMockTutorResponse` function.
+**Rationale:** Adheres strictly to the "Do not connect Gemini yet" rule for stabilization.
 
 ### 4. UI Layout Direction (RTL)
-**Decision:** Implemented a fixed grid layout with the Materials panel on the right (primary sidebar in RTL) and Memory/Status on the left.
-**Rationale:** Native Hebrew speakers naturally scan from right to left; putting the source materials on the right feels structurally correct for a research environment.
+**Decision:** Fixed grid layout with Materials panel on the right and Memory on the left.
+**Rationale:** Follows native Hebrew RTL reading patterns for research environments.
 
-### 5. Testing Framework
-**Decision:** Chose `Vitest` for behavior regression tests.
-**Rationale:** Lightweight, fast, and works seamlessly with TypeScript and modern ESM setups out of the box, perfect for establishing the skeleton tests requested.
-
-### 6. Documentation Location
-**Decision:** Moved documentation (`PROJECT_STATE.md`, `NEXT_STEPS_FOR_NEVO.md`, `JULES_OVERNIGHT_REPORT.md`, `DECISION_LOG.md`) to the project root.
-**Rationale:** Standardizes project visibility and complies with the stabilization and handoff requirements.
+### 5. Security - Type Hardening
+**Decision:** Removed `apiKey` from `ProviderSettings` interface.
+**Rationale:** Prevent accidental leakage or storage of sensitive secrets in type structures during mock phases.

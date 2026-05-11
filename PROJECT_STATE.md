@@ -7,7 +7,11 @@
 - **Testing:** Vitest
 
 ## Current Branch
-- `feat/nevo-tutor-mvp` (or `main` depending on local branch checkout state)
+- `feat/nevo-tutor-mvp` (or `main`)
+
+## Alignment Status
+- **GAPS IDENTIFIED:** The source documents (`00_README_START_HERE.md` through `09_Behavior_Regression_Test_Suite.md`) were **not found** in the environment during the alignment pass.
+- Therefore, the app adheres to the strictly provided prompt rules (RTL, separation of Memory/Knowledge, no external services) but cannot be guaranteed aligned against the missing spec files.
 
 ## How to Run Locally
 1. Run `npm install`
@@ -17,35 +21,17 @@
 
 ## Existing Screens / Components
 - **Main Layout (`MainLayout.tsx`):** Fixed RTL grid structure separating materials (right) and status (left).
-- **Workspace Selector (`WorkspaceSelector.tsx`):** Header component to choose active workspace.
-- **Tutor Conversation (`TutorConversation.tsx`):** Central chat area handling interactions, rendering citations, and updating states.
-- **Cost Mode Selector (`CostModeSelector.tsx`):** Toggles between Cheap Practice, Normal Learning, and Deep Research.
-- **Work Mode Selector (`WorkModeSelector.tsx`):** Tabs for Learning, Practice, Research, Build, and Temporary Chat.
-- **File Panel (`FilePanel.tsx`):** Right sidebar for academic knowledge base (PDFs).
-- **Memory Panel (`MemoryPanel.tsx`):** Left sidebar to track learner performance and observations.
+- **Workspace Selector (`WorkspaceSelector.tsx`):** Header component.
+- **Tutor Conversation (`TutorConversation.tsx`):** Central chat area.
+- **Cost Mode Selector (`CostModeSelector.tsx`):** Cheap Practice, Normal Learning, Deep Research.
+- **Work Mode Selector (`WorkModeSelector.tsx`):** Learning, Practice, Research, Build, Temporary Chat.
+- **Side Panels:** `FilePanel.tsx` and `MemoryPanel.tsx`.
 
 ## Existing Mock Flows
-- A mock tutor flow is implemented in `src/lib/tutor.ts`.
-- When the user sends a message, it intercepts the input, evaluates the selected `WorkMode` and `CostMode`, and returns a simulated tutor response after a 1-second delay.
-- The simulation includes citations mapping to mocked source documents when in "Research" mode, and hints without full solutions when in "Practice" mode.
+- Implemented in `src/lib/tutor.ts`. Evaluates `WorkMode` and `CostMode` to return a simulated response without calling LLMs.
 
 ## What is Mocked
-- `User` profile.
-- `Workspace` data.
-- `UploadedFile` (Academic Knowledge Base).
-- `LearnerMemory` and internal tracking updates.
-- The Tutor AI logic (LLM responses).
+- All user, workspace, file, memory, and tutor response data.
 
 ## What is Not Connected Yet
-- Gemini LLM or OpenAI API integrations.
-- Genkit orchestration.
-- Firebase Authentication.
-- Firestore Database.
-- Firebase Storage (for real file uploads).
-- Retrieval-Augmented Generation (RAG) and PDF parsing.
-- Real persistent Learner Memory.
-- Web Search Grounding.
-
-## Known Limitations
-- The project documentation in `/tmp/file_attachments` or `/docs` was initially missing, so requirements were inferred directly from prompt specifications.
-- Currently, interaction is entirely hardcoded locally for UI review purposes.
+- Gemini LLM, Genkit, Firebase Auth/Firestore/Storage, Retrieval / Vector DB.

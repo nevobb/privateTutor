@@ -91,5 +91,4 @@ export interface BehaviorTest {
 export interface ProviderSettings {
   id: string;
   providerName: string;
-  apiKey?: string; // mocked
 }
