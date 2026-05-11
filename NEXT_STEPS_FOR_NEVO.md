@@ -2,22 +2,23 @@
 
 ## Immediate next step
 
-Implement workspace persistence in emulator-only mode with a strict first slice:
+Tighten Firestore rules for the newly implemented persistence slice, then expand emulator rule tests for:
 
-- workspace documents
-- session documents
-- message append/list documents
-- decision-log write contract
+- `users/{userId}/workspaces/{workspaceId}`
+- `users/{userId}/workspaces/{workspaceId}/sessions/{sessionId}`
+- `users/{userId}/workspaces/{workspaceId}/sessions/{sessionId}/messages/{messageId}`
+- `users/{userId}/decisionLog/{entryId}`
 
-No other persistence domains should be added in that PR.
+## Why this is next
 
-## Required scope for the next implementation PR
+The first emulator-only persistence slice is now implemented.
+Before UI workspace integration, we should lock authorization constraints in Firestore rules so repository contracts and security boundaries stay aligned.
 
-1. Keep `POST /api/tutor` auth-protected and preserve current mock tutor behavior.
-2. Add only workspace/session/message persistence boundaries and decision-log write path wiring.
-3. Enforce trusted auth ownership (`uid`) for all reads/writes.
-4. Keep Firestore writes local-emulator only for this phase.
-5. Add focused tests for ownership checks and write ordering.
+## Scope for the next PR (keep narrow)
+
+1. Firestore rule tightening for workspace/session/message/decisionLog paths.
+2. Emulator rule tests proving own-user allow + cross-user deny on those paths.
+3. No route behavior redesign and no tutor-provider change.
 
 ## Explicitly out of scope for that PR
 
@@ -27,28 +28,16 @@ No other persistence domains should be added in that PR.
 - retrieval integration
 - learner memory persistence
 - academic knowledge persistence
-- cloud Firebase connection
-- secrets and env files
+- Firebase cloud connection
+- env files and secrets
 
 ## Sequencing guardrails
 
-1. Keep Codex as primary agent for implementation.
+1. Keep Codex as primary agent.
 2. Use Aider + DeepSeek only if Codex is interrupted.
-3. Keep package changes minimal and only if strictly required.
-4. Do not broaden to dashboard/account-system work.
-
-## Decisions to lock before implementation
-
-1. First persistence order inside the slice:
-   - workspace-first
-   - session-first
-2. Decision-log location for phase one:
-   - user-level with workspace/session references (recommended)
-   - workspace-scoped
-3. Session retention default:
-   - archive-first
-   - immediate hard delete support
+3. Keep package changes minimal and only if strictly required for rules testing.
+4. Keep the tutor response provider mock-only.
 
 ## Readiness note
 
-Workspace persistence boundary planning is complete enough to start a narrow emulator-only implementation PR for workspace/session/message persistence and decision-log write contracts.
+The repo is ready for Firestore rules tightening as the safest next step after this first persistence implementation slice.

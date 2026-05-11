@@ -9,6 +9,8 @@
     "lint": "eslint",
     "test:firebase:auth": "FIREBASE_AUTH_EMULATOR_TEST=1 vitest run tests/firebase/auth.emulator.test.ts tests/firebase/tutorRouteAuth.emulator.test.ts",
     "test:firebase:auth:emulators": "firebase emulators:exec --only auth --project demo-private-tutor \"npm run test:firebase:auth\"",
+    "test:firebase:workspace": "FIREBASE_WORKSPACE_EMULATOR_TEST=1 vitest run --fileParallelism=false tests/firebase/workspacePersistence.emulator.test.ts tests/firebase/workspaceRoutePersistence.emulator.test.ts tests/server/workspaces/workspaceRepository.test.ts tests/server/workspaces/messageRepository.test.ts tests/server/workspaces/decisionLogRepository.test.ts",
+    "test:firebase:workspace:emulators": "firebase emulators:exec --only firestore --project demo-private-tutor \"npm run test:firebase:workspace\"",
     "test:firebase:rules": "FIREBASE_RULES_TEST=1 vitest run tests/firebase",
     "test:firebase:rules:emulators": "FIREBASE_RULES_TEST=1 firebase emulators:exec --only auth,firestore,storage --project demo-private-tutor \"vitest run tests/firebase\""
   },

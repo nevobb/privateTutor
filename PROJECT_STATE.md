@@ -26,6 +26,7 @@ The original project documents are now present under `/docs` and are the source 
 - Firebase Auth boundary implementation exists for `POST /api/tutor`.
 - Firebase Auth Emulator integration tests exist under `tests/firebase/` and run only with explicit flags.
 - Workspace persistence boundary planning exists.
+- Workspace persistence emulator-first implementation slice exists for workspace/session/message/decision-log writes.
 
 ## What is still mocked
 
@@ -39,12 +40,12 @@ The original project documents are now present under `/docs` and are the source 
 - The backend tutor boundary still calls the mock provider only.
 - `POST /api/tutor` is auth-protected, but token verification is injectable and not connected to Firebase Admin/cloud verification yet.
 - Auth verifier default remains fail-closed unless an explicit verifier is injected for local or test flows.
-- Workspace, session, message, and decision-log persistence remain planning-only and are not connected to runtime Firestore writes yet.
+- Tutor provider responses remain mock-only (`getMockTutorResponse`) even when persistence is enabled.
 
 ## What is not connected
 
 - Firebase Authentication.
-- Firestore.
+- Firebase cloud Firestore.
 - Firebase Storage.
 - Gemini.
 - Genkit.
@@ -55,7 +56,6 @@ The original project documents are now present under `/docs` and are the source 
 - Persistent learner memory.
 - Server-side model calls.
 - Firebase/Gemini/Genkit-backed API behavior.
-- Firebase emulator runtime connection.
 - Production-ready Firestore or Storage rules.
 
 ## What is ready
@@ -86,6 +86,7 @@ The original project documents are now present under `/docs` and are the source 
 - Firebase Auth boundary implementation protects the tutor route but does not connect Firestore, Storage, Gemini, Genkit, retrieval, learner memory persistence, or workspace persistence.
 - Firebase Auth Emulator integration tests validate local token flows and route auth behavior, but do not connect Firebase cloud or add production token verification.
 - Workspace persistence boundary planning does not implement Firestore runtime persistence and does not change Firestore rules in this PR.
+- Workspace persistence emulator slice adds local-demo Firestore writes only; it does not connect Firebase cloud and does not make rules production-ready.
 - Storage upload, Gemini, Genkit, retrieval, learner memory persistence, and academic knowledge persistence remain unconnected.
 
 ## How to run locally

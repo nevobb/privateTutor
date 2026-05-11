@@ -1,6 +1,29 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createTutorPostHandler } from "../../../src/app/api/tutor/route";
 import { AuthResult } from "../../../src/server/auth/authTypes";
+
+vi.mock("../../../src/server/workspaces/workspacePersistenceService", () => ({
+  workspacePersistenceService: {
+    persistTutorExchange: vi.fn(async ({ request }) => ({
+      ok: true,
+      response: {
+        message: {
+          id: "tutor-message",
+          role: "tutor",
+          content: `Tutor response: ${request.message}`,
+        },
+        mockRouting: {
+          workMode: request.workMode,
+          costMode: request.costMode,
+          retrievalScope: "none",
+          usedWebSearch: false,
+          memoryWrite: "none",
+          stoppedAfterLocalAnswer: false,
+        },
+      },
+    })),
+  },
+}));
 
 const baseBody = {
   userId: "alice",

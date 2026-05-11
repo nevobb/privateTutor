@@ -2,6 +2,9 @@ import { handleTutorRequest } from "../../../server/tutor/handleTutorRequest";
 import { assertRequestUserMatchesAuthUser } from "../../../server/auth/assertRequestUserMatchesAuthUser";
 import { resolveAuthenticatedUser } from "../../../server/auth/resolveAuthenticatedUser";
 import { AuthResult } from "../../../server/auth/authTypes";
+import { validateTutorRequest } from "../../../server/tutor/validateTutorRequest";
+import { workspacePersistenceService } from "../../../server/workspaces/workspacePersistenceService";
+import { isFirestoreEmulatorUnavailableError } from "../../../server/firebase/firestoreEmulatorClient";
 
 type AuthResolver = (request: Request) => Promise<AuthResult>;
 
@@ -32,7 +35,26 @@ export function createTutorPostHandler(authResolver: AuthResolver = resolveAuthe
       userId: authResult.user.userId,
     };
 
-    const result = await handleTutorRequest(trustedBody);
+    const validation = validateTutorRequest(trustedBody);
+
+    if (!validation.ok || !validation.request) {
+      return Response.json({ error: "Invalid tutor request." }, { status: 400 });
+    }
+
+    let result;
+    try {
+      result = await workspacePersistenceService.persistTutorExchange({
+        user: authResult.user,
+        request: validation.request,
+        tutorHandler: handleTutorRequest,
+      });
+    } catch (error: unknown) {
+      if (isFirestoreEmulatorUnavailableError(error)) {
+        return Response.json({ error: "Firestore emulator is unavailable." }, { status: 503 });
+      }
+
+      return Response.json({ error: "Failed to persist tutor exchange." }, { status: 500 });
+    }
 
     if (!result.ok) {
       return Response.json(result.error, { status: result.status });
