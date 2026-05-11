@@ -2,23 +2,22 @@
 
 ## Immediate next step
 
-Prepare Firebase project setup documentation and decide whether to use Firebase Emulator first. Do not connect the app runtime to Firebase yet.
+Add Firebase emulator scaffolding in a dedicated PR. Nevo has chosen Firebase Emulator first, so the next step is local emulator config and rule-test scaffolding, not cloud runtime connection.
 
 ## Practical sequence
 
-1. Choose whether Firebase Emulator is required before any cloud project connection.
-2. Document Firebase console setup steps for Authentication, Firestore, and Storage.
-3. Document local placeholder environment variable names without values.
-4. Draft Firestore and Storage security-rule requirements.
-5. Keep the mock provider as the runtime default until Firebase setup is explicitly requested.
+1. Add Firebase emulator scaffolding files only when the implementation task explicitly requests them.
+2. Keep app runtime on the mock provider while emulator scaffolding is reviewed.
+3. Add draft rule tests before real cloud data exists.
+4. Keep placeholder environment variable names value-free until a later approved setup task.
+5. Do not connect Firebase cloud services from runtime code yet.
 
 ## Decisions Nevo must make before real setup
 
 1. Firebase project name.
-2. Whether to use Firebase Emulator first.
-3. Deployment target later.
-4. Whether authentication starts with Google login only.
-5. Whether file upload is delayed until after the tutor API route.
+2. Auth provider for MVP: Google only or email/password too.
+3. Storage size limit for MVP.
+4. Deployment target later.
 
 ## Do not do yet
 
@@ -29,4 +28,4 @@ Prepare Firebase project setup documentation and decide whether to use Firebase 
 
 ## Readiness note
 
-The repo has Phase A backend boundary scaffolding with mocks. It is ready for Firebase setup preparation and emulator decision planning, not direct Firebase runtime connection.
+The repo has Phase A backend boundary scaffolding with mocks and Firebase emulator-first preparation docs. It is ready for emulator scaffolding, not direct Firebase runtime connection.
