@@ -2,15 +2,15 @@
 
 ## Immediate next step
 
-Implement Phase A: backend boundary scaffolding with the mock provider only. This means request/response schemas, validation shapes, and tests before any Firebase, Genkit, Gemini, retrieval, upload, or persistence connection.
+Prepare Firebase project setup documentation and decide whether to use Firebase Emulator first. Do not connect the app runtime to Firebase yet.
 
 ## Practical sequence
 
-1. Add a server-side tutor response boundary that still calls the existing mock tutor behavior.
-2. Add request and response validation shapes for work mode, cost mode, workspace scope, visible response, citations, memory candidates, and decision log events.
-3. Add tests for valid requests, invalid requests, guidance-only behavior, local question stop behavior, Cheap Practice behavior, Research citations, and Temporary Chat no-memory behavior.
-4. Keep the mock provider as the default until schemas and tests are stable.
-5. Plan Firebase/Genkit/Gemini setup only after the backend boundary is proven with mocks.
+1. Choose whether Firebase Emulator is required before any cloud project connection.
+2. Document Firebase console setup steps for Authentication, Firestore, and Storage.
+3. Document local placeholder environment variable names without values.
+4. Draft Firestore and Storage security-rule requirements.
+5. Keep the mock provider as the runtime default until Firebase setup is explicitly requested.
 
 ## Decisions Nevo must make before real setup
 
@@ -29,4 +29,4 @@ Implement Phase A: backend boundary scaffolding with the mock provider only. Thi
 
 ## Readiness note
 
-The repo has a backend transition plan. It is ready for backend boundary scaffolding with mocks, not direct Firebase setup.
+The repo has Phase A backend boundary scaffolding with mocks. It is ready for Firebase setup preparation and emulator decision planning, not direct Firebase runtime connection.

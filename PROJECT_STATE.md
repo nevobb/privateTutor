@@ -16,6 +16,7 @@ The original project documents are now present under `/docs` and are the source 
 - Type-only structures for future model, retrieval, and web search providers.
 - Behavior tests covering mock tutor guardrails.
 - Backend transition planning for Firebase, Genkit, Gemini, retrieval, memory, and security boundaries.
+- Phase A backend boundary scaffolding for `POST /api/tutor` with validation and a mock provider wrapper.
 
 ## What is still mocked
 
@@ -26,6 +27,7 @@ The original project documents are now present under `/docs` and are the source 
 - Decision Log entries are static mock data.
 - Retrieval routing is represented only as mock metadata.
 - Provider status is represented only by TypeScript types.
+- The backend tutor boundary still calls the mock provider only.
 
 ## What is not connected
 
@@ -40,6 +42,7 @@ The original project documents are now present under `/docs` and are the source 
 - Real file upload.
 - Persistent learner memory.
 - Server-side model calls.
+- Firebase/Gemini/Genkit-backed API behavior.
 
 ## What is ready
 
@@ -48,6 +51,7 @@ The original project documents are now present under `/docs` and are the source 
 - The type layer is ready to guide future provider abstractions without exposing secrets or connecting services.
 - Behavior tests are ready to protect the current mock guardrails.
 - The repo is ready for Phase A backend boundary scaffolding with the mock provider only.
+- The repo is ready for Firebase project setup preparation and emulator decision planning.
 
 ## What is not ready
 
@@ -55,6 +59,7 @@ The original project documents are now present under `/docs` and are the source 
 - The app is not an MVP-complete tutor yet.
 - Real file ingestion, retrieval budgets, memory writes, summaries, and decision logging still require implementation.
 - Backend transition planning does not mean external services are configured or connected.
+- Phase A backend boundary scaffolding does not mean Firebase, Gemini, Genkit, retrieval, upload, or persistence is connected.
 
 ## How to run locally
 
