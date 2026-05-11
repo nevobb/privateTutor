@@ -2,16 +2,16 @@
 
 ## Immediate next step
 
-Implement the Firebase Auth runtime boundary only. Firestore and Storage user isolation have local emulator rule tests, and Auth boundary planning is now defined, but the app runtime should remain mock-only outside the narrow Auth boundary.
+Add Auth Emulator integration tests or emulator token verification wiring for the Firebase Auth boundary. The route is protected by an injectable auth boundary, but real Firebase Admin/cloud verification is intentionally not connected.
 
 ## Practical sequence
 
 1. Install Firebase CLI locally if it is not installed.
 2. Install a local Java runtime if it is not installed.
-3. Implement narrow auth helper modules and tests.
-4. Add minimal AuthShell boundary work only if scoped to authentication state.
-5. Protect `POST /api/tutor` by deriving trusted `userId` from verified auth.
-6. Do not implement Firestore persistence, Storage upload, Gemini, Genkit, retrieval, or learner memory persistence.
+3. Add explicit Auth Emulator tests for local token issuance and verification.
+4. Decide whether the next verifier uses emulator-only Admin wiring or remains mocked.
+5. Keep Firestore persistence, Storage upload, Gemini, Genkit, retrieval, and learner memory persistence for later PRs.
+6. Do not connect broad Firebase runtime yet.
 
 ## Decisions Nevo must make before real setup
 
@@ -29,7 +29,7 @@ Implement the Firebase Auth runtime boundary only. Firestore and Storage user is
 
 ## Readiness note
 
-The repo has Phase A backend boundary scaffolding with mocks, Firebase emulator scaffolding, a passing local emulator smoke test, Firebase emulator rule tests for user isolation, and Firebase Auth boundary planning. It is ready for narrow Firebase Auth boundary implementation only, not broad Firebase runtime connection or cloud setup.
+The repo has Phase A backend boundary scaffolding with mocks, Firebase emulator scaffolding, a passing local emulator smoke test, Firebase emulator rule tests for user isolation, Firebase Auth boundary planning, and a narrow Auth-protected tutor route. It is ready for Auth Emulator integration tests or emulator token verification wiring, not broad Firebase runtime connection or cloud setup.
 
 ## Suggested next subagent model
 

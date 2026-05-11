@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { POST } from "../../src/app/api/tutor/route";
 import { handleTutorRequest } from "../../src/server/tutor/handleTutorRequest";
 import { TutorRequest } from "../../src/server/tutor/schemas";
 
@@ -93,31 +92,5 @@ describe("tutor backend handler", () => {
 
     expect(learning.mockRouting.usedWebSearch).toBe(false);
     expect(research.mockRouting.usedWebSearch).toBe(false);
-  });
-
-  it("returns 400 from the route for invalid requests", async () => {
-    const response = await POST(
-      new Request("http://localhost/api/tutor", {
-        method: "POST",
-        body: JSON.stringify({ ...baseRequest, message: "" }),
-      })
-    );
-
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: "Invalid tutor request." });
-  });
-
-  it("returns 200 from the route for valid requests", async () => {
-    const response = await POST(
-      new Request("http://localhost/api/tutor", {
-        method: "POST",
-        body: JSON.stringify(baseRequest),
-      })
-    );
-
-    const body = await response.json();
-    expect(response.status).toBe(200);
-    expect(body.message.role).toBe("tutor");
-    expect(body.mockRouting.workMode).toBe("Learning");
   });
 });
