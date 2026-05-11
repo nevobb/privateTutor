@@ -2,16 +2,16 @@
 
 ## Immediate next step
 
-Implement Firebase emulator rule tests for Firestore and Storage user isolation. The local emulator smoke test passed with Auth, Firestore, Storage, Emulator UI, and Emulator Hub running under `demo-private-tutor`.
+Plan Firebase runtime integration for the Authentication boundary only. Firestore and Storage user isolation now have local emulator rule tests, but the app runtime should still remain mock-only until a dedicated Auth-boundary integration plan is approved.
 
 ## Practical sequence
 
 1. Install Firebase CLI locally if it is not installed.
 2. Install a local Java runtime if it is not installed.
-3. Add local emulator rule tests for Firestore user isolation.
-4. Add local emulator rule tests for Storage user isolation.
-5. Keep the tests on the demo project and local emulators only.
-6. Do not connect app runtime yet.
+3. Review the Firebase emulator rule test results.
+4. Plan the Auth boundary for runtime integration.
+5. Keep Firestore, Storage, retrieval, memory persistence, and file upload for later dedicated PRs.
+6. Do not connect broad Firebase runtime yet.
 
 ## Decisions Nevo must make before real setup
 
@@ -29,4 +29,4 @@ Implement Firebase emulator rule tests for Firestore and Storage user isolation.
 
 ## Readiness note
 
-The repo has Phase A backend boundary scaffolding with mocks and Firebase emulator scaffolding. The local emulator smoke test has passed, so the repo is ready for Firebase emulator rule tests; it is not ready for direct Firebase runtime connection or cloud setup.
+The repo has Phase A backend boundary scaffolding with mocks, Firebase emulator scaffolding, a passing local emulator smoke test, and Firebase emulator rule tests for user isolation. It is ready for Firebase runtime integration planning for the Auth boundary only, not broad Firebase runtime connection or cloud setup.
