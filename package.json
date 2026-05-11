@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:firebase:auth": "FIREBASE_AUTH_EMULATOR_TEST=1 vitest run tests/firebase/auth.emulator.test.ts tests/firebase/tutorRouteAuth.emulator.test.ts",
+    "test:firebase:auth:emulators": "firebase emulators:exec --only auth --project demo-private-tutor \"npm run test:firebase:auth\"",
     "test:firebase:rules": "FIREBASE_RULES_TEST=1 vitest run tests/firebase",
     "test:firebase:rules:emulators": "FIREBASE_RULES_TEST=1 firebase emulators:exec --only auth,firestore,storage --project demo-private-tutor \"vitest run tests/firebase\""
   },

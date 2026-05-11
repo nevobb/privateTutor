@@ -2,39 +2,37 @@
 
 ## Immediate next step
 
-Add Auth Emulator integration tests or emulator token verification wiring for the Firebase Auth boundary. The route is protected by an injectable auth boundary, but real Firebase Admin/cloud verification is intentionally not connected.
+Start workspace persistence planning only. Keep Firebase Auth route protection as-is and do not begin broad Firebase runtime integration yet.
 
 ## Practical sequence
 
-1. Install Firebase CLI locally if it is not installed.
-2. Install a local Java runtime if it is not installed.
-3. Add explicit Auth Emulator tests for local token issuance and verification.
-4. Decide whether the next verifier uses emulator-only Admin wiring or remains mocked.
-5. Keep Firestore persistence, Storage upload, Gemini, Genkit, retrieval, and learner memory persistence for later PRs.
-6. Do not connect broad Firebase runtime yet.
+1. Confirm Auth Emulator tests pass in your local environment:
+   - `npm run test:firebase:auth:emulators`
+2. Keep default verifier fail-closed in runtime and continue using explicit local test verification only.
+3. Plan workspace persistence boundaries (data ownership, write policy, and route contracts) before implementation.
+4. Keep Firestore persistence implementation in a dedicated follow-up PR after planning is approved.
+5. Keep Storage upload, Gemini, Genkit, retrieval, and learner memory persistence out of the next implementation PR.
 
-## Decisions Nevo must make before real setup
+## Decisions Nevo must make before workspace persistence implementation
 
-1. Firebase project name.
-2. Auth provider for MVP: Google only or email/password too.
-3. Storage size limit for MVP.
-4. Deployment target later.
+1. First persisted entity order (workspace shell first vs session-first flow).
+2. Initial retention policy for session and decision-log records.
+3. Whether workspace creation must require authenticated users from day one.
+4. Rollout preference: emulator-only persistence milestone before any cloud planning.
 
 ## Do not do yet
 
-- Do not connect Firebase, Firestore, Firebase Storage, Gemini, Genkit, Gemini File Search, Google Search Grounding, or real retrieval.
-- Do not add API keys, secrets, environment variables, or frontend provider credentials.
-- Do not redesign the app or turn it into an LMS/dashboard.
-- Do not implement persistent learner memory until the memory write policy and storage boundary are planned.
+- Do not connect Firebase cloud or add cloud credentials.
+- Do not add Firestore writes in the tutor route yet.
+- Do not add Storage upload integration.
+- Do not add Gemini, Genkit, retrieval, or persistent learner memory.
+- Do not add API keys, secrets, or `.env` files.
 
 ## Readiness note
 
-The repo has Phase A backend boundary scaffolding with mocks, Firebase emulator scaffolding, a passing local emulator smoke test, Firebase emulator rule tests for user isolation, Firebase Auth boundary planning, and a narrow Auth-protected tutor route. It is ready for Auth Emulator integration tests or emulator token verification wiring, not broad Firebase runtime connection or cloud setup.
+The repo now has an auth-protected tutor route, explicit Auth Emulator tests, and local emulator scaffolding/rule tests. It is ready for workspace persistence planning, not broad Firebase runtime integration.
 
-## Suggested next subagent model
+## Agent execution note
 
-- One writer for server auth helpers and route protection.
-- One writer for client auth shell boundary.
-- One writer for auth tests.
-- One reviewer for security and identity-spoofing risks.
-- Main Codex remains the integrator and final committer.
+- Codex is the primary implementation agent.
+- Aider + DeepSeek are fallback only if Codex is interrupted or unavailable.
