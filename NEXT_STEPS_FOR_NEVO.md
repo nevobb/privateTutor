@@ -2,44 +2,50 @@
 
 ## Immediate next step
 
-Define the workspace API boundary — HTTP endpoints for workspace CRUD operations.
+UI workspace integration — wire the workspace list and workspace creation to the
+new `GET /api/workspaces` and `POST /api/workspaces` API routes.
 
-Suggested scope for that PR:
-- `POST /api/workspaces` — create workspace
-- `GET /api/workspaces` — list owner's workspaces
-- `GET /api/workspaces/:id` — get single workspace
-- Auth-verified userId derivation (trust the token, not client-provided userId)
-- Tests against the Firestore emulator with auth token injection
-- No Firebase cloud, no real Admin token verification yet
+Smallest safe UI slice for the next PR:
+1. Replace static mock workspace data with a real fetch from `GET /api/workspaces`
+2. Add a workspace creation flow that calls `POST /api/workspaces`
+3. Keep existing mock tutor provider and session flow unchanged
+4. No file upload, no retrieval, no memory, no Gemini, no Genkit
 
 ## Why this is next
 
-Firestore workspace rules are now tightened and emulator-tested. The next safe step
-is defining the HTTP API contract before wiring any UI. This keeps the implementation
-incremental and ensures the route surface matches the Firestore ownership model before
-client state management is added.
+The workspace API boundary is now in place with auth-verified userId derivation,
+Firestore emulator persistence, and full unit + emulator test coverage. The next
+safe step is to wire the UI to the real API so workspace state becomes durable.
+
+## Scope for that PR (keep narrow)
+
+1. Workspace list loading from `GET /api/workspaces` on page load
+2. Workspace creation via `POST /api/workspaces`
+3. Workspace selection (switching active workspace)
+4. No session UI changes yet
+5. No tutor provider change
+6. No file upload integration
 
 ## Explicitly out of scope for that PR
 
+- Session creation UI (wire later)
+- Message/transcript UI persistence (wire later)
 - Firebase cloud connection
-- Real Firebase Admin SDK token verification
-- Storage upload integration
-- Gemini integration
-- Genkit integration
-- Retrieval integration
+- Firebase Admin SDK
+- Storage upload
+- Gemini, Genkit, retrieval
 - Learner memory persistence
 - Academic knowledge persistence
-- UI component wiring
 
 ## Sequencing guardrails
 
 1. Keep Codex as primary agent.
 2. Use Aider + DeepSeek only if Codex is interrupted.
-3. Keep package changes minimal and only if strictly required.
+3. Keep package changes minimal.
 4. Keep the tutor response provider mock-only.
 5. Do not claim production readiness.
 
 ## Readiness note
 
-The repo is ready for workspace API boundary implementation as the safest next step
-after Firestore rules tightening.
+The repo is ready for UI workspace integration as the next step after the workspace
+API boundary is in place.
