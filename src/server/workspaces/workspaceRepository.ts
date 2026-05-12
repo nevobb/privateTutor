@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { collection, doc, getDocs, getDoc, orderBy, query, setDoc } from "firebase/firestore";
 import { withFirestoreEmulatorClient } from "../firebase/firestoreEmulatorClient";
 import type { CreateWorkspaceInput, WorkspaceRecord } from "./workspaceTypes";
 import { toDate } from "./workspaceTypes";
@@ -63,6 +63,16 @@ export async function createWorkspaceWithId(
 
     await setDoc(ref, compactRecord(record));
     return record;
+  });
+}
+
+export async function listWorkspaces(userId: string): Promise<WorkspaceRecord[]> {
+  return withFirestoreEmulatorClient(async ({ db }) => {
+    const ref = collection(db, "users", userId, "workspaces");
+    const snapshot = await getDocs(query(ref, orderBy("updatedAt", "desc")));
+    return snapshot.docs
+      .filter((d) => d.data().userId === userId)
+      .map((d) => mapWorkspaceRecord(d.id, d.data()));
   });
 }
 

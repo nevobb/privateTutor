@@ -29,6 +29,7 @@ The original project documents are now present under `/docs` and are the source 
 - Workspace persistence emulator-first implementation slice exists for workspace/session/message/decision-log writes.
 - Firestore rules tightened for workspace/session/message/decisionLog paths with field validation and path identity checks.
 - Emulator rule tests exist for workspace/session/message/decisionLog allow/deny cases.
+- Workspace API boundary exists: POST /api/workspaces, GET /api/workspaces, GET /api/workspaces/[workspaceId].
 
 ## What is still mocked
 
@@ -90,6 +91,7 @@ The original project documents are now present under `/docs` and are the source 
 - Workspace persistence boundary planning does not implement Firestore runtime persistence and does not change Firestore rules in this PR.
 - Workspace persistence emulator slice adds local-demo Firestore writes only; it does not connect Firebase cloud and does not make rules production-ready.
 - Firestore workspace rules are tightened for emulator phase but are not production-ready; decisionLog hardening requires Firebase Admin SDK which is not yet present.
+- Workspace API routes are emulator-backed only; they are not connected to Firebase cloud and are not production-ready.
 - Storage upload, Gemini, Genkit, retrieval, learner memory persistence, and academic knowledge persistence remain unconnected.
 
 ## How to run locally
