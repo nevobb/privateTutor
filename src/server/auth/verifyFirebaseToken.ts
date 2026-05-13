@@ -1,6 +1,6 @@
-import { VerifiedFirebaseToken } from "./authTypes";
+import type { VerifiedFirebaseToken } from "./authTypes";
+import { verifyFirebaseTokenEmulator } from "./verifyFirebaseTokenEmulator";
 
 export async function verifyFirebaseToken(token: string): Promise<VerifiedFirebaseToken | null> {
-  void token;
-  throw new Error("Firebase token verification is not configured.");
+  return verifyFirebaseTokenEmulator(token);
 }

@@ -2,45 +2,42 @@
 
 ## Immediate next step
 
-Implement an emulator-compatible Firebase token verifier so workspace API calls
-from the UI succeed in local development.
+Manual browser smoke test of the full local workspace flow.
 
-### Why this is the blocker
+### What to verify
 
-The workspace UI is now wired to `GET /api/workspaces` and `POST /api/workspaces`.
-Firebase Auth client wiring is in place (auth hook, sign-in, token retrieval).
-However, `src/server/auth/verifyFirebaseToken.ts` throws by default — it is not
-configured to verify tokens. All API calls from the UI return 401.
+1. Start the Firebase Auth emulator: `firebase emulators:start --only auth,firestore`
+2. Start the dev server: `npm run dev`
+3. Open the browser at `http://localhost:3000`
+4. Sign in with Google (Auth emulator intercepts — uses emulator sign-in flow)
+5. Workspace list loads from `GET /api/workspaces` (returns empty list for new user)
+6. Create a workspace via the "+ מרחב חדש" button
+7. Workspace appears in the selector
+8. Refresh — workspace persists (loaded from Firestore emulator on next sign-in)
 
-### What the next step requires
+### If sign-in fails
 
-Create `src/server/auth/verifyFirebaseTokenEmulator.ts` that verifies Firebase Auth
-emulator tokens by calling the emulator's REST lookup endpoint:
+- Check Auth emulator is running at `http://127.0.0.1:9099`
+- Check Firestore emulator is running at `http://127.0.0.1:8080`
+- Check browser console for 401 or 503 errors
 
-```
-POST http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:lookup?key=demo-key
-Body: { "idToken": "<token>" }
-```
+## After the smoke test
 
-Wire this verifier into the route handlers when running with `demo-private-tutor`.
-No Firebase Admin SDK is needed. No new npm packages needed (uses `fetch`).
+### Session API boundary (next PR)
 
-### Scope for that PR
+Wire session creation and selection to a new `/api/sessions` API boundary.
+This is the next persistence slice after workspaces:
+- `POST /api/sessions` — create session within a workspace
+- `GET /api/sessions?workspaceId=<id>` — list sessions for a workspace
+- Keep tutor provider mock-only
 
-1. `src/server/auth/verifyFirebaseTokenEmulator.ts` — REST-based emulator verifier
-2. Wire via environment detection: use emulator verifier when project is `demo-private-tutor`
-3. Unit tests for the emulator verifier (mock fetch)
-4. Emulator integration test proving end-to-end sign-in → workspace list works
+### Then: Session UI integration
 
-### After that
+Wire the session selector in the UI to the session API.
 
-Wire the Auth Emulator sign-in in the browser UI so Nevo can actually test:
-sign in → workspace list loads → create workspace → selection persists.
+## Explicitly out of scope until after session boundary
 
-## Explicitly out of scope until token verifier is done
-
-- Session creation UI
-- Message/transcript UI persistence
+- Message/transcript persistence UI
 - Firebase cloud connection
 - Firebase Admin SDK
 - Storage, Gemini, Genkit, retrieval
@@ -57,4 +54,5 @@ sign in → workspace list loads → create workspace → selection persists.
 
 ## Readiness note
 
-The repo is ready for the emulator token verifier as the next step.
+The repo is ready for a manual browser smoke test. If the smoke test passes,
+the session API boundary is the next implementation step.

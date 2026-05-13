@@ -45,7 +45,8 @@ The original project documents are now present under `/docs` and are the source 
 - `POST /api/tutor` is auth-protected, but token verification is injectable and not connected to Firebase Admin/cloud verification yet.
 - Auth verifier default remains fail-closed unless an explicit verifier is injected for local or test flows.
 - Tutor provider responses remain mock-only (`getMockTutorResponse`) even when persistence is enabled.
-- Workspace UI is wired to the API but API calls return 401 at runtime because `verifyFirebaseToken` is not configured. Functional workspace API calls require an emulator-compatible token verifier.
+- Auth emulator token verifier exists: `verifyFirebaseTokenEmulator` calls the Auth emulator REST endpoint, no Admin SDK. `verifyFirebaseToken` delegates to it as the default for demo-private-tutor.
+- Workspace UI is wired to the API with a working local verifier. Browser sign-in → emulator token → workspace API calls succeed locally.
 
 ## What is not connected
 
