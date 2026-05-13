@@ -2,15 +2,21 @@
 
 ## Immediate next step
 
-**PR 33C — Behavior regression rewrite against `internalUpdate`**
+**Manual browser smoke test (recommended before more backend expansion)**
 
-PR 33B is done: mock tutor responses now return `internalUpdate` and legacy `mockRouting/internalUpdates` are removed.
+PR 33C is done: behavior regression tests now validate structured `internalUpdate` semantics.
 
-### What PR 33C changes
+### Recommended now
 
-1. Rewrite `tests/behavior.test.ts` to assert structured `internalUpdate.*` behavior semantics rather than legacy mock routing/text-only expectations.
-2. Add coverage for spec behavior tests T001–T013 from `docs/09_Behavior_Regression_Test_Suite.md`.
-3. Keep provider mock-only (no Gemini, no Genkit, no real retrieval, no memory persistence).
+1. Run a manual browser smoke test on the tutor flow (desktop RTL layout + mock tutor responses) to confirm user-facing behavior is still sane after the behavior test rewrite.
+2. Verify work mode / cost mode switches still produce expected conversational output at a UX level.
+
+### Alternative next backend step
+
+If smoke test is clean, proceed to the **Session API boundary**:
+- `POST /api/sessions` — create session within a workspace
+- `GET /api/sessions?workspaceId=<id>` — list sessions for a workspace
+- Keep tutor provider mock-only
 
 ---
 
@@ -20,16 +26,9 @@ PR 33B is done: mock tutor responses now return `internalUpdate` and legacy `moc
 
 ---
 
-## After 33C
+## After manual smoke + session boundary
 
-### Session API boundary
-
-Wire session creation and selection to `/api/sessions` API boundary.
-- `POST /api/sessions` — create session within a workspace
-- `GET /api/sessions?workspaceId=<id>` — list sessions for a workspace
-- Keep tutor provider mock-only
-
-### Then: Session UI integration
+### Session UI integration
 
 Wire the session selector in the UI to the session API.
 
