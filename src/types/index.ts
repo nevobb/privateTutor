@@ -165,19 +165,10 @@ export interface TutorMessage {
 
 export interface TutorResponse {
   message: TutorMessage;
-  internalUpdates?: LearnerMemoryObservation[];
-  mockRouting: {
-    workMode: WorkMode;
-    costMode: CostMode;
-    retrievalScope: RetrievalScope;
-    usedWebSearch: boolean;
-    memoryWrite: "none" | "candidate";
-    stoppedAfterLocalAnswer: boolean;
-  };
+  internalUpdate: TutorInternalUpdate;
 }
 
-// Spec-aligned structured internal update type for Gemini/real-provider responses.
-// TutorResponse.internalUpdates (legacy flat array) will be replaced by this in PR 33B.
+// Spec-aligned structured internal update type for mock and real provider responses.
 export interface TutorInternalUpdate {
   detected_intent: string;
   confidence: number;

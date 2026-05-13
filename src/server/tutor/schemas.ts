@@ -1,6 +1,6 @@
 import {
   CostMode,
-  LearnerMemoryObservation,
+  DecisionLogEntry,
   RetrievalScope,
   SourceCitation,
   TutorResponse,
@@ -66,15 +66,15 @@ function isCitation(value: unknown): value is SourceCitation {
   return typeof value.id === "string" && typeof value.referenceText === "string" && typeof value.sourceId === "string";
 }
 
-function isMemoryObservation(value: unknown): value is LearnerMemoryObservation {
+function isDecisionLogEntry(value: unknown): value is DecisionLogEntry {
   if (!isRecord(value)) return false;
   return (
     typeof value.id === "string" &&
-    typeof value.observation === "string" &&
-    value.timestamp instanceof Date &&
-    typeof value.confidence === "number" &&
-    typeof value.state === "string" &&
-    typeof value.source === "string"
+    typeof value.decisionType === "string" &&
+    typeof value.title === "string" &&
+    typeof value.decision === "string" &&
+    typeof value.rationale === "string" &&
+    typeof value.date === "string"
   );
 }
 
@@ -84,10 +84,10 @@ function isDecisionLogEvent(value: unknown): value is DecisionLogEvent {
 }
 
 export function validateTutorResponse(response: unknown): response is TutorBoundaryResponse {
-  if (!isRecord(response) || !isRecord(response.message) || !isRecord(response.mockRouting)) return false;
+  if (!isRecord(response) || !isRecord(response.message) || !isRecord(response.internalUpdate)) return false;
 
   const message = response.message;
-  const routing = response.mockRouting;
+  const internalUpdate = response.internalUpdate;
 
   const messageIsValid =
     typeof message.id === "string" &&
@@ -96,17 +96,46 @@ export function validateTutorResponse(response: unknown): response is TutorBound
     message.content.trim().length > 0 &&
     (message.citations === undefined || (Array.isArray(message.citations) && message.citations.every(isCitation)));
 
-  const updatesAreValid =
-    response.internalUpdates === undefined ||
-    (Array.isArray(response.internalUpdates) && response.internalUpdates.every(isMemoryObservation));
+  const localQuestionIsValid =
+    isRecord(internalUpdate.local_question) &&
+    typeof internalUpdate.local_question.detected === "boolean" &&
+    typeof internalUpdate.local_question.reason === "string";
 
-  const routingIsValid =
-    isWorkMode(routing.workMode) &&
-    isCostMode(routing.costMode) &&
-    isRetrievalScope(routing.retrievalScope) &&
-    typeof routing.usedWebSearch === "boolean" &&
-    (routing.memoryWrite === "none" || routing.memoryWrite === "candidate") &&
-    typeof routing.stoppedAfterLocalAnswer === "boolean";
+  const retrievalIsValid =
+    isRecord(internalUpdate.retrieval) &&
+    typeof internalUpdate.retrieval.used === "boolean" &&
+    isRetrievalScope(internalUpdate.retrieval.scope) &&
+    isStringArray(internalUpdate.retrieval.source_ids) &&
+    typeof internalUpdate.retrieval.why === "string";
+
+  const learnerMemoryUpdateIsValid =
+    isRecord(internalUpdate.learner_memory_update) &&
+    typeof internalUpdate.learner_memory_update.needed === "boolean" &&
+    (internalUpdate.learner_memory_update.update_type === "none" ||
+      internalUpdate.learner_memory_update.update_type === "small_auto" ||
+      internalUpdate.learner_memory_update.update_type === "requires_approval") &&
+    typeof internalUpdate.learner_memory_update.memory_type === "string" &&
+    typeof internalUpdate.learner_memory_update.content === "string" &&
+    typeof internalUpdate.learner_memory_update.confidence === "number";
+
+  const knowledgeBaseActionIsValid =
+    isRecord(internalUpdate.knowledge_base_action) &&
+    typeof internalUpdate.knowledge_base_action.needed === "boolean" &&
+    typeof internalUpdate.knowledge_base_action.action === "string" &&
+    typeof internalUpdate.knowledge_base_action.confidence === "number" &&
+    typeof internalUpdate.knowledge_base_action.requires_user_confirmation === "boolean";
+
+  const internalUpdateIsValid =
+    typeof internalUpdate.detected_intent === "string" &&
+    internalUpdate.detected_intent.trim().length > 0 &&
+    typeof internalUpdate.confidence === "number" &&
+    typeof internalUpdate.should_stop_progression === "boolean" &&
+    localQuestionIsValid &&
+    retrievalIsValid &&
+    learnerMemoryUpdateIsValid &&
+    knowledgeBaseActionIsValid &&
+    Array.isArray(internalUpdate.decision_log_entries) &&
+    internalUpdate.decision_log_entries.every(isDecisionLogEntry);
 
   const logsAreValid =
     response.decisionLogEvents === undefined ||
@@ -114,5 +143,5 @@ export function validateTutorResponse(response: unknown): response is TutorBound
 
   const errorsAreValid = response.errors === undefined || isStringArray(response.errors);
 
-  return messageIsValid && updatesAreValid && routingIsValid && logsAreValid && errorsAreValid;
+  return messageIsValid && internalUpdateIsValid && logsAreValid && errorsAreValid;
 }

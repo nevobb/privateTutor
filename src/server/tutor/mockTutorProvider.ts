@@ -7,10 +7,17 @@ export async function callMockTutorProvider(request: TutorRequest): Promise<Tuto
 
   return {
     ...response,
-    internalUpdates: isTemporary ? undefined : response.internalUpdates,
-    mockRouting: {
-      ...response.mockRouting,
-      memoryWrite: isTemporary ? "none" : response.mockRouting.memoryWrite,
+    internalUpdate: {
+      ...response.internalUpdate,
+      learner_memory_update: isTemporary
+        ? {
+            needed: false,
+            update_type: "none",
+            memory_type: "none",
+            content: "",
+            confidence: 0,
+          }
+        : response.internalUpdate.learner_memory_update,
     },
     decisionLogEvents: [
       {
