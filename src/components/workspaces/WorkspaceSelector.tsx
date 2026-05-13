@@ -40,7 +40,7 @@ export default function WorkspaceSelector({
   creatingSession,
   createSessionError,
 }: WorkspaceSelectorProps) {
-  const [showCreate, setShowCreate] = useState(false);
+  const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
   const [newName, setNewName] = useState("");
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
   const [createWorkspaceError, setCreateWorkspaceError] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export default function WorkspaceSelector({
     try {
       await onCreate(trimmed);
       setNewName("");
-      setShowCreate(false);
+      setShowCreateWorkspace(false);
     } catch (err: unknown) {
       setCreateWorkspaceError(err instanceof Error ? err.message : "יצירה נכשלה.");
     } finally {
@@ -63,134 +63,258 @@ export default function WorkspaceSelector({
   };
 
   return (
-    <div className="flex items-center gap-5" dir="rtl">
-      <span className="font-semibold font-serif text-xl text-[#041632]">משכן מחקר</span>
+    <div className="flex flex-col py-2" dir="rtl">
+      {/* Section: Topics / Workspaces */}
+      <div className="px-4 pt-1 pb-1.5">
+        <p
+          className="text-[10px] font-semibold uppercase tracking-wider"
+          style={{ color: "var(--tutor-text-muted)" }}
+        >
+          נושאים
+        </p>
+      </div>
 
       {loadState.status === "loading" && (
-        <span className="text-sm text-[#75777e]">טוען מרחבים...</span>
+        <p className="px-4 py-2 text-xs" style={{ color: "var(--tutor-text-muted)" }}>
+          טוען...
+        </p>
       )}
 
       {loadState.status === "error" && (
-        <span className="text-sm text-red-600">{loadState.message}</span>
+        <p className="px-4 py-2 text-xs" style={{ color: "#C0392B" }}>
+          {loadState.message}
+        </p>
       )}
 
       {loadState.status === "ready" && (
         <>
           {loadState.workspaces.length === 0 ? (
-            <span className="text-sm text-[#75777e]">אין מרחבים</span>
+            <p className="px-4 py-2 text-xs italic" style={{ color: "var(--tutor-text-muted)" }}>
+              אין נושאים עדיין
+            </p>
           ) : (
-            <select
-              className="border border-[#c5c6ce] bg-transparent rounded px-3 py-1.5 text-sm outline-none focus:border-[#506354]"
-              value={selectedWorkspaceId ?? ""}
-              onChange={(e) => onSelect(e.target.value)}
-              aria-label="בחירת מרחב"
-            >
-              {loadState.workspaces.map((ws) => (
-                <option key={ws.id} value={ws.id}>
-                  {ws.name}
-                </option>
-              ))}
-            </select>
+            <ul className="space-y-0.5 px-2">
+              {loadState.workspaces.map((ws) => {
+                const isSelected = selectedWorkspaceId === ws.id;
+                return (
+                  <li key={ws.id}>
+                    <button
+                      type="button"
+                      onClick={() => onSelect(ws.id)}
+                      className="w-full text-right flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors"
+                      style={{
+                        background: isSelected
+                          ? "var(--tutor-sidebar-active)"
+                          : "transparent",
+                        color: isSelected ? "var(--tutor-accent-text)" : "var(--tutor-text)",
+                        fontWeight: isSelected ? 500 : 400,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected)
+                          (e.currentTarget as HTMLButtonElement).style.background =
+                            "var(--tutor-sidebar-hover)";
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected)
+                          (e.currentTarget as HTMLButtonElement).style.background =
+                            "transparent";
+                      }}
+                    >
+                      <span
+                        className="text-base leading-none flex-shrink-0"
+                        aria-hidden="true"
+                      >
+                        {isSelected ? "📂" : "📁"}
+                      </span>
+                      <span className="truncate">{ws.name}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           )}
 
-          {!showCreate && (
-            <button
-              type="button"
-              onClick={() => setShowCreate(true)}
-              className="text-sm text-[#506354] hover:underline"
-            >
-              + מרחב חדש
-            </button>
-          )}
-
-          {showCreate && (
-            <form
-              onSubmit={handleCreateWorkspace}
-              className="flex items-center space-x-2 space-x-reverse"
-            >
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="שם המרחב"
-                className="border border-[#c5c6ce] rounded px-2 py-1 text-sm outline-none focus:border-[#506354]"
-                autoFocus
-                disabled={creatingWorkspace}
-              />
-              <button
-                type="submit"
-                disabled={creatingWorkspace || !newName.trim()}
-                className="text-sm bg-[#041632] text-white px-3 py-1 rounded disabled:opacity-50"
-              >
-                {creatingWorkspace ? "יוצר..." : "צור"}
-              </button>
+          <div className="px-2 mt-1">
+            {!showCreateWorkspace ? (
               <button
                 type="button"
-                onClick={() => {
-                  setShowCreate(false);
-                  setNewName("");
-                  setCreateWorkspaceError(null);
-                }}
-                className="text-sm text-[#75777e] hover:underline"
+                onClick={() => setShowCreateWorkspace(true)}
+                className="w-full text-right flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors"
+                style={{ color: "var(--tutor-text-muted)" }}
+                onMouseEnter={(e) =>
+                  ((e.currentTarget as HTMLButtonElement).style.color =
+                    "var(--tutor-accent)")
+                }
+                onMouseLeave={(e) =>
+                  ((e.currentTarget as HTMLButtonElement).style.color =
+                    "var(--tutor-text-muted)")
+                }
               >
-                ביטול
+                <span>＋</span>
+                <span>נושא חדש</span>
               </button>
-              {createWorkspaceError && (
-                <span className="text-xs text-red-600">{createWorkspaceError}</span>
-              )}
-            </form>
+            ) : (
+              <form
+                onSubmit={handleCreateWorkspace}
+                className="px-1 py-2 space-y-2"
+              >
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="שם הנושא"
+                  className="w-full rounded-lg px-3 py-1.5 text-sm outline-none"
+                  style={{
+                    border: "1px solid var(--tutor-border)",
+                    background: "var(--tutor-surface)",
+                    color: "var(--tutor-text)",
+                  }}
+                  autoFocus
+                  disabled={creatingWorkspace}
+                  dir="rtl"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={creatingWorkspace || !newName.trim()}
+                    className="flex-1 rounded-lg py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-40"
+                    style={{ background: "var(--tutor-accent)" }}
+                  >
+                    {creatingWorkspace ? "יוצר..." : "צור"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateWorkspace(false);
+                      setNewName("");
+                      setCreateWorkspaceError(null);
+                    }}
+                    className="flex-1 rounded-lg py-1.5 text-xs transition-colors"
+                    style={{
+                      border: "1px solid var(--tutor-border)",
+                      color: "var(--tutor-text-secondary)",
+                    }}
+                  >
+                    ביטול
+                  </button>
+                </div>
+                {createWorkspaceError && (
+                  <p className="text-xs" style={{ color: "#C0392B" }}>
+                    {createWorkspaceError}
+                  </p>
+                )}
+              </form>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Section: Conversations / Sessions */}
+      {selectedWorkspaceId && (
+        <>
+          <div className="px-4 pt-4 pb-1.5">
+            <p
+              className="text-[10px] font-semibold uppercase tracking-wider"
+              style={{ color: "var(--tutor-text-muted)" }}
+            >
+              שיחות
+            </p>
+          </div>
+
+          {sessionState.status === "disabled" && (
+            <p className="px-4 py-2 text-xs italic" style={{ color: "var(--tutor-text-muted)" }}>
+              {sessionState.message}
+            </p>
           )}
 
-          <div className="h-6 w-px bg-[#d8dbe5]" aria-hidden="true" />
+          {sessionState.status === "loading" && (
+            <p className="px-4 py-2 text-xs" style={{ color: "var(--tutor-text-muted)" }}>
+              טוען שיחות...
+            </p>
+          )}
 
-          <div className="flex items-center gap-2">
-            {sessionState.status === "disabled" && (
-              <span className="text-sm text-[#75777e]">{sessionState.message}</span>
-            )}
+          {sessionState.status === "error" && (
+            <p className="px-4 py-2 text-xs" style={{ color: "#C0392B" }}>
+              {sessionState.message}
+            </p>
+          )}
 
-            {sessionState.status === "loading" && (
-              <span className="text-sm text-[#75777e]">טוען שיחות...</span>
-            )}
+          {sessionState.status === "ready" && (
+            <>
+              {sessionState.sessions.length === 0 ? (
+                <p className="px-4 py-2 text-xs italic" style={{ color: "var(--tutor-text-muted)" }}>
+                  אין שיחות פעילות
+                </p>
+              ) : (
+                <ul className="space-y-0.5 px-2">
+                  {sessionState.sessions.map((session, index) => {
+                    const isActive = selectedSessionId === session.id;
+                    const label = session.title?.trim() || `שיחה ${index + 1}`;
+                    return (
+                      <li key={session.id}>
+                        <button
+                          type="button"
+                          onClick={() => onSessionSelect(session.id)}
+                          className="w-full text-right flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors"
+                          style={{
+                            background: isActive
+                              ? "var(--tutor-accent-light)"
+                              : "transparent",
+                            color: isActive ? "var(--tutor-accent-text)" : "var(--tutor-text-secondary)",
+                            fontWeight: isActive ? 500 : 400,
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isActive)
+                              (e.currentTarget as HTMLButtonElement).style.background =
+                                "var(--tutor-sidebar-hover)";
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isActive)
+                              (e.currentTarget as HTMLButtonElement).style.background =
+                                "transparent";
+                          }}
+                        >
+                          <span className="text-sm leading-none flex-shrink-0" aria-hidden="true">
+                            💬
+                          </span>
+                          <span className="truncate text-xs">{label}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
 
-            {sessionState.status === "error" && (
-              <span className="text-sm text-red-600">{sessionState.message}</span>
-            )}
-
-            {sessionState.status === "ready" && (
-              <>
-                {sessionState.sessions.length === 0 ? (
-                  <span className="text-sm text-[#75777e]">אין שיחות פעילות</span>
-                ) : (
-                  <select
-                    className="border border-[#c5c6ce] bg-transparent rounded px-3 py-1.5 text-sm outline-none focus:border-[#506354]"
-                    value={selectedSessionId ?? ""}
-                    onChange={(e) => onSessionSelect(e.target.value)}
-                    aria-label="בחירת שיחה"
-                  >
-                    {sessionState.sessions.map((session, index) => (
-                      <option key={session.id} value={session.id}>
-                        {session.title?.trim() || `שיחה ${index + 1}`}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
+              <div className="px-2 mt-1">
                 <button
                   type="button"
                   onClick={() => {
                     void onCreateSession();
                   }}
                   disabled={creatingSession}
-                  className="text-sm text-[#506354] hover:underline disabled:opacity-50"
+                  className="w-full text-right flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors disabled:opacity-40"
+                  style={{ color: "var(--tutor-text-muted)" }}
+                  onMouseEnter={(e) => {
+                    if (!creatingSession)
+                      (e.currentTarget as HTMLButtonElement).style.color =
+                        "var(--tutor-accent)";
+                  }}
+                  onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLButtonElement).style.color =
+                      "var(--tutor-text-muted)")
+                  }
                 >
-                  {creatingSession ? "יוצר שיחה..." : "+ שיחה חדשה"}
+                  <span>＋</span>
+                  <span>{creatingSession ? "יוצר שיחה..." : "שיחה חדשה"}</span>
                 </button>
-              </>
-            )}
-          </div>
+              </div>
 
-          {createSessionError && (
-            <span className="text-xs text-red-600">{createSessionError}</span>
+              {createSessionError && (
+                <p className="px-4 text-xs" style={{ color: "#C0392B" }}>
+                  {createSessionError}
+                </p>
+              )}
+            </>
           )}
         </>
       )}

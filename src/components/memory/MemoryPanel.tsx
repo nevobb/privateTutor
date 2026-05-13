@@ -7,28 +7,48 @@ interface MemoryPanelProps {
 
 export default function MemoryPanel({ memory }: MemoryPanelProps) {
   return (
-    <div className="flex flex-col h-full">
-      <h2 className="text-lg font-serif font-bold text-[#041632] mb-4">סטטוס למידה</h2>
-      <div className="mb-6">
-        <h3 className="text-sm font-semibold mb-2">רמת שליטה (Mastery)</h3>
-        <div className="w-full bg-[#c5c6ce] rounded-full h-2">
+    <div className="space-y-3" dir="rtl">
+      {/* Mastery bar */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] font-medium" style={{ color: "var(--tutor-text-muted)" }}>
+            שליטה
+          </span>
+          <span className="text-[10px]" style={{ color: "var(--tutor-accent)" }}>
+            {memory.masteryLevel}%
+          </span>
+        </div>
+        <div
+          className="h-1.5 rounded-full overflow-hidden"
+          style={{ background: "var(--tutor-border)" }}
+        >
           <div
-            className="bg-[#506354] h-2 rounded-full"
-            style={{ width: `${memory.masteryLevel}%` }}
+            className="h-full rounded-full transition-all"
+            style={{
+              width: `${memory.masteryLevel}%`,
+              background: "var(--tutor-accent)",
+            }}
           />
         </div>
-        <p className="text-xs mt-1 text-left" dir="ltr">{memory.masteryLevel}%</p>
       </div>
-      <div>
-        <h3 className="text-sm font-semibold mb-2">תובנות אחרונות</h3>
-        <ul className="space-y-3">
-          {memory.observations.map((obs) => (
-            <li key={obs.id} className="text-sm bg-white p-3 rounded border border-[#e5eeff] text-[#44474d] shadow-sm">
+
+      {/* Observations */}
+      {memory.observations.length > 0 && (
+        <ul className="space-y-1.5">
+          {memory.observations.slice(0, 4).map((obs) => (
+            <li
+              key={obs.id}
+              className="text-[11px] px-2.5 py-2 rounded-lg leading-relaxed"
+              style={{
+                background: "var(--tutor-sidebar-hover)",
+                color: "var(--tutor-text-secondary)",
+              }}
+            >
               {obs.observation}
             </li>
           ))}
         </ul>
-      </div>
+      )}
     </div>
   );
 }

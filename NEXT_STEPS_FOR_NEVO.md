@@ -2,47 +2,67 @@
 
 ## Immediate next step
 
-**Focused UX redesign pass for workspace/session/tutor layout (recommended)**
+**Manual browser UX smoke test**
 
-Session API boundary and session UI wiring now exist:
-- `POST /api/sessions`
-- `GET /api/sessions?workspaceId=<id>`
+The UX redesign pass is complete on branch `design/personal-tutor-ux-redesign`.
+Build and tests pass. Manual browser verification is the blocker before merging.
 
-### Recommended now
+### Smoke test procedure
 
-1. Run a focused visual/interaction cleanup for workspace/session/tutor layout only.
-2. Keep the newly wired session flow intact (load sessions on workspace change, create session, active session state).
-3. Improve usability and clarity in RTL flow without expanding backend scope.
-4. Keep tutor provider mock-only during the redesign pass.
+1. Start emulators:
+   ```
+   firebase emulators:start --only auth,firestore,storage --project demo-private-tutor
+   ```
+2. Start dev server:
+   ```
+   npm run dev
+   ```
+3. Verify checklist:
+   - [ ] Sign-in screen: warm background, Lora wordmark "מורה פרטי", green button
+   - [ ] After sign-in: left sidebar with app name + avatar appears
+   - [ ] Workspaces load as folder list (📁 items)
+   - [ ] Create workspace → new folder item appears, no raw UUID visible
+   - [ ] Select workspace → sessions section appears below
+   - [ ] Create session → session appears in list as "שיחה 1", no raw UUID as primary text
+   - [ ] Send a tutor message → chat-first layout, message bubbles align correctly
+   - [ ] Hebrew message text flows RTL, English stays LTR
+   - [ ] Switch Learn/Practice → pill buttons update correctly
+   - [ ] Click "עוד" → Research/Build/Temp dropdown appears, accessible
+   - [ ] Click cost mode badge → dropdown shows Normal/Cheap/Deep options
+   - [ ] Collapse/expand "חומרי לימוד" panel in sidebar
+   - [ ] Collapse/expand "זיכרון למידה" panel in sidebar
+   - [ ] Layout feels chat-first (chat is dominant, sidebar is secondary)
+   - [ ] No raw UUIDs displayed as primary UI text
 
-### Alternative next step (only if redesign is intentionally deferred)
+---
 
-Add the next backend boundary for session transcript/messages.
+## After smoke test passes
+
+### Session transcript/message API boundary
+
+Add next narrow backend slice for session transcript boundaries:
+- `POST /api/sessions/[sessionId]/messages` — append a message to a session
+- `GET /api/sessions/[sessionId]/messages` — list messages for a session
+- Auth-protected, workspace-owned, same pattern as existing session API
+- No Gemini/Genkit yet — store and return mock/user messages only
 
 ---
 
 ## Route decision recorded (GAP-005)
 
-`POST /api/tutor` is the canonical tutor endpoint. `/api/tutor/respond` is not created — the path follows Next.js App Router resource convention. This divergence from early spec planning is accepted. A DECISION_LOG entry will be added in a future cleanup PR.
+`POST /api/tutor` is the canonical tutor endpoint. `/api/tutor/respond` is not created — the path follows Next.js App Router resource convention. Accepted. DECISION_LOG entry to be added in future cleanup PR.
 
 ---
 
-## After focused redesign pass
+## Explicitly out of scope until after message API boundary
 
-### Session transcript/message API boundary
-
-Add the next narrow backend slice for session transcript boundaries (list/create session messages through authenticated, workspace-owned paths).
-
----
-
-## Explicitly out of scope until after focused redesign pass
-
-- Message/transcript persistence UI
+- Real Gemini model calls
 - Firebase cloud connection
 - Firebase Admin SDK
-- Storage, Gemini, Genkit, retrieval
-- Learner memory persistence
+- Storage, Genkit, retrieval
+- Persistent learner memory
 - Academic knowledge persistence
+- Live theme switching UI
 
 ## Sequencing guardrails
 

@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import React, { useState, useRef, useEffect } from "react";
 import { CostMode } from "../../types";
 
 interface CostModeSelectorProps {
@@ -6,24 +8,80 @@ interface CostModeSelectorProps {
   onChange: (mode: CostMode) => void;
 }
 
-const modes: CostMode[] = ["Cheap Practice", "Normal Learning", "Deep Research"];
+const modeLabels: Record<CostMode, string> = {
+  "Normal Learning": "רגיל",
+  "Cheap Practice": "תרגול בסיסי",
+  "Deep Research": "מחקר עמוק",
+};
+
+/* Only "Normal Learning" is the visible default; others behind advanced */
+const advancedModes: CostMode[] = ["Cheap Practice", "Deep Research"];
 
 export default function CostModeSelector({ currentMode, onChange }: CostModeSelectorProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const isAdvanced = advancedModes.includes(currentMode);
+
   return (
-    <div className="flex space-x-2 space-x-reverse bg-[#eaf1ff] p-1 rounded-md border border-[#c5c6ce]">
-      {modes.map((mode) => (
-        <button
-          key={mode}
-          onClick={() => onChange(mode)}
-          className={`px-3 py-1.5 text-xs rounded transition-colors ${
-            currentMode === mode
-              ? "bg-[#041632] text-white shadow-sm"
-              : "text-[#44474d] hover:bg-[#dce9ff]"
-          }`}
+    <div ref={ref} className="relative" dir="rtl">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all"
+        style={{
+          background: isAdvanced ? "var(--tutor-accent-light)" : "var(--tutor-border-subtle)",
+          color: isAdvanced ? "var(--tutor-accent-text)" : "var(--tutor-text-muted)",
+          border: `1px solid ${isAdvanced ? "var(--tutor-accent)" : "var(--tutor-border)"}`,
+        }}
+        title="איכות תשובה"
+        aria-label="בחר איכות תשובה"
+        aria-expanded={open}
+      >
+        <span style={{ fontSize: "11px" }}>⚙</span>
+        <span>{modeLabels[currentMode]}</span>
+        <span style={{ fontSize: "9px", opacity: 0.6 }}>▾</span>
+      </button>
+
+      {open && (
+        <div
+          className="absolute top-full mt-1 rounded-xl py-1 z-50 min-w-[130px]"
+          style={{
+            background: "var(--tutor-surface)",
+            border: "1px solid var(--tutor-border)",
+            boxShadow: "var(--tutor-shadow)",
+            right: 0,
+          }}
         >
-          {mode}
-        </button>
-      ))}
+          {(["Normal Learning", "Cheap Practice", "Deep Research"] as CostMode[]).map((mode) => {
+            const isActive = currentMode === mode;
+            return (
+              <button
+                key={mode}
+                onClick={() => {
+                  onChange(mode);
+                  setOpen(false);
+                }}
+                className="w-full text-right px-3 py-2 text-xs transition-colors"
+                style={{
+                  background: isActive ? "var(--tutor-accent-light)" : "transparent",
+                  color: isActive ? "var(--tutor-accent-text)" : "var(--tutor-text-secondary)",
+                  fontWeight: isActive ? 500 : 400,
+                }}
+              >
+                {modeLabels[mode]}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

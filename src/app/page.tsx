@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import MainLayout from "../components/layout/MainLayout";
+import CollapsiblePanel from "../components/layout/CollapsiblePanel";
 import WorkspaceSelector, {
   type SessionLoadState,
   type WorkspaceLoadState,
@@ -64,7 +65,7 @@ export default function Home() {
 
   const [sessionState, setSessionState] = useState<SessionLoadState>({
     status: "disabled",
-    message: "בחר מרחב כדי לטעון שיחות.",
+    message: "בחר נושא כדי לטעון שיחות.",
   });
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [creatingSession, setCreatingSession] = useState(false);
@@ -101,7 +102,7 @@ export default function Home() {
       } catch (err: unknown) {
         if (cancelled) return;
         const message =
-          err instanceof WorkspaceApiError ? err.message : "שגיאה בטעינת המרחבים.";
+          err instanceof WorkspaceApiError ? err.message : "שגיאה בטעינת הנושאים.";
         setWorkspaceState({ status: "error", message });
       }
     })();
@@ -126,7 +127,7 @@ export default function Home() {
       if (!activeWorkspaceId) {
         if (!cancelled) {
           setActiveSessionId(null);
-          setSessionState({ status: "disabled", message: "בחר מרחב כדי לטעון שיחות." });
+          setSessionState({ status: "disabled", message: "בחר נושא כדי לטעון שיחות." });
         }
         return;
       }
@@ -182,7 +183,7 @@ export default function Home() {
 
   const handleCreateSession = useCallback(async (): Promise<void> => {
     if (!activeWorkspaceId) {
-      setCreateSessionError("בחר מרחב לפני יצירת שיחה חדשה.");
+      setCreateSessionError("בחר נושא לפני יצירת שיחה חדשה.");
       return;
     }
 
@@ -227,38 +228,75 @@ export default function Home() {
       ? (authState.user?.displayName?.[0]?.toUpperCase() ?? "N")
       : "N";
 
-  const header = (
-    <div className="flex items-center justify-between w-full">
-      <WorkspaceSelector
-        loadState={workspaceState}
-        selectedWorkspaceId={activeWorkspaceId}
-        onSelect={handleWorkspaceSelect}
-        onCreate={handleCreateWorkspace}
-        sessionState={sessionState}
-        selectedSessionId={activeSessionId}
-        onSessionSelect={setActiveSessionId}
-        onCreateSession={handleCreateSession}
-        creatingSession={creatingSession}
-        createSessionError={createSessionError}
-      />
-      <div className="flex items-center space-x-4 space-x-reverse">
-        {displayName && (
-          <span className="text-sm font-medium text-[#44474d]">{displayName}</span>
+  const sidebar = (
+    <div className="flex flex-col h-full" dir="rtl">
+      {/* Sidebar header: app name + user */}
+      <div
+        className="flex items-center justify-between px-4 py-4 flex-shrink-0"
+        style={{ borderBottom: "1px solid var(--tutor-border)" }}
+      >
+        <span
+          className="text-lg font-semibold"
+          style={{
+            fontFamily: "'Lora', Georgia, serif",
+            color: "var(--tutor-text)",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          מורה פרטי
+        </span>
+        {authState.status === "signed-in" && (
+          <div className="flex items-center gap-2">
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+              style={{ background: "var(--tutor-accent)" }}
+              title={displayName ?? undefined}
+              aria-label={displayName ?? "משתמש"}
+            >
+              {avatarLetter}
+            </div>
+          </div>
         )}
-        <div className="w-8 h-8 rounded-full bg-[#dce9ff] flex items-center justify-center text-[#041632] font-bold text-sm">
-          {avatarLetter}
-        </div>
+      </div>
+
+      {/* Navigation: workspaces + sessions */}
+      <div className="flex-1 overflow-y-auto py-1">
+        <WorkspaceSelector
+          loadState={workspaceState}
+          selectedWorkspaceId={activeWorkspaceId}
+          onSelect={handleWorkspaceSelect}
+          onCreate={handleCreateWorkspace}
+          sessionState={sessionState}
+          selectedSessionId={activeSessionId}
+          onSessionSelect={setActiveSessionId}
+          onCreateSession={handleCreateSession}
+          creatingSession={creatingSession}
+          createSessionError={createSessionError}
+        />
+      </div>
+
+      {/* Collapsible support panels */}
+      <div className="flex-shrink-0">
+        <CollapsiblePanel
+          title="חומרי לימוד"
+          itemCount={mockFiles.length}
+          defaultOpen={false}
+        >
+          <FilePanel files={mockFiles} />
+        </CollapsiblePanel>
+        <CollapsiblePanel
+          title="זיכרון למידה"
+          defaultOpen={false}
+        >
+          <MemoryPanel memory={mockLearnerMemory} />
+        </CollapsiblePanel>
       </div>
     </div>
   );
 
   return (
     <AuthShell authState={authState} onSignIn={signIn}>
-      <MainLayout
-        header={header}
-        rightSidebar={<FilePanel files={mockFiles} />}
-        leftSidebar={<MemoryPanel memory={mockLearnerMemory} />}
-      >
+      <MainLayout sidebar={sidebar}>
         <TutorConversation
           initialMessages={mockTutorMessages}
           activeSessionId={activeSessionId}

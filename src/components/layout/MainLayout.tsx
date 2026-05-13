@@ -2,33 +2,40 @@ import React, { ReactNode } from "react";
 
 interface MainLayoutProps {
   children: ReactNode;
-  rightSidebar: ReactNode;
-  leftSidebar: ReactNode;
-  header: ReactNode;
+  sidebar: ReactNode;
 }
 
-export default function MainLayout({ children, rightSidebar, leftSidebar, header }: MainLayoutProps) {
+export default function MainLayout({ children, sidebar }: MainLayoutProps) {
   return (
-    <div className="flex h-screen w-full flex-col bg-[#f8f9ff] text-[#0b1c30] overflow-hidden">
-      <header className="flex h-16 items-center justify-between border-b border-[#c5c6ce] bg-white px-6">
-        {header}
-      </header>
-      <div className="flex flex-1 overflow-hidden">
-        {/* Right Sidebar (Materials in RTL) */}
-        <aside className="w-80 flex-shrink-0 border-l border-[#c5c6ce] bg-[#eff4ff] p-4 overflow-y-auto">
-          {rightSidebar}
-        </aside>
+    /*
+     * dir="ltr" here so the flex row is predictably left→right
+     * at the layout level, regardless of the global RTL default.
+     * Individual content areas set their own dir as needed.
+     */
+    <div
+      dir="ltr"
+      className="flex h-screen w-full overflow-hidden"
+      style={{ background: "var(--tutor-bg)" }}
+    >
+      {/* Left sidebar */}
+      <aside
+        className="flex-shrink-0 flex flex-col overflow-hidden"
+        style={{
+          width: "var(--tutor-sidebar-width)",
+          background: "var(--tutor-sidebar)",
+          borderRight: "1px solid var(--tutor-border)",
+        }}
+      >
+        {sidebar}
+      </aside>
 
-        {/* Center Column (Tutor) */}
-        <main className="flex flex-1 flex-col overflow-y-auto px-8 py-6">
-          {children}
-        </main>
-
-        {/* Left Sidebar (Status in RTL) */}
-        <aside className="w-80 flex-shrink-0 border-r border-[#c5c6ce] bg-[#eff4ff] p-4 overflow-y-auto">
-          {leftSidebar}
-        </aside>
-      </div>
+      {/* Main chat area */}
+      <main
+        className="flex flex-1 flex-col overflow-hidden"
+        style={{ background: "var(--tutor-bg)" }}
+      >
+        {children}
+      </main>
     </div>
   );
 }

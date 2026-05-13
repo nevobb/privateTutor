@@ -18,22 +18,38 @@ export function AuthShell({ authState, children, labels, onSignIn, onRetry, temp
 
   if (authState.status === "loading") {
     return (
-      <main dir="rtl" lang="he" className="flex min-h-screen items-center justify-center bg-[#f7f3ea] px-6 text-[#1e1b16]">
-        <p className="text-sm font-medium">{copy.loading}</p>
+      <main
+        dir="rtl"
+        lang="he"
+        className="flex min-h-screen items-center justify-center px-6"
+        style={{ background: "var(--tutor-bg)", color: "var(--tutor-text)" }}
+      >
+        <p className="text-sm" style={{ color: "var(--tutor-text-muted)" }}>
+          {copy.loading}
+        </p>
       </main>
     );
   }
 
   if (authState.status === "auth-error") {
     return (
-      <main dir="rtl" lang="he" className="flex min-h-screen items-center justify-center bg-[#f7f3ea] px-6 text-[#1e1b16]">
-        <section className="w-full max-w-md space-y-4 text-center">
-          <h1 className="text-xl font-semibold">{copy.authErrorTitle}</h1>
+      <main
+        dir="rtl"
+        lang="he"
+        className="flex min-h-screen items-center justify-center px-6"
+        style={{ background: "var(--tutor-bg)", color: "var(--tutor-text)" }}
+      >
+        <section className="w-full max-w-md space-y-5 text-center">
+          <h1 className="text-lg font-semibold">{copy.authErrorTitle}</h1>
           {onRetry ? (
             <button
               type="button"
               onClick={onRetry}
-              className="rounded-md border border-[#c8bca9] px-4 py-2 text-sm font-medium hover:bg-[#efe6d7]"
+              className="rounded-xl px-5 py-2.5 text-sm font-medium transition-colors"
+              style={{
+                border: "1px solid var(--tutor-border)",
+                color: "var(--tutor-text-secondary)",
+              }}
             >
               {copy.retryAction}
             </button>
@@ -45,22 +61,42 @@ export function AuthShell({ authState, children, labels, onSignIn, onRetry, temp
 
   if (authState.status === "signed-out") {
     return (
-      <main dir="rtl" lang="he" className="flex min-h-screen items-center justify-center bg-[#f7f3ea] px-6 text-[#1e1b16]">
-        <section className="w-full max-w-md space-y-5 text-center">
+      <main
+        dir="rtl"
+        lang="he"
+        className="flex min-h-screen items-center justify-center px-6"
+        style={{ background: "var(--tutor-bg)", color: "var(--tutor-text)" }}
+      >
+        <section className="w-full max-w-sm space-y-8 text-center">
+          {/* Wordmark */}
           <div className="space-y-2">
-            <h1 className="text-2xl font-semibold">{copy.signedOutTitle}</h1>
-            <p className="text-sm leading-6 text-[#6f675c]">{copy.signedOutBody}</p>
+            <h1
+              className="font-display text-3xl"
+              style={{ color: "var(--tutor-text)", fontFamily: "'Lora', Georgia, serif" }}
+            >
+              מורה פרטי
+            </h1>
+            <p className="text-sm leading-6" style={{ color: "var(--tutor-text-secondary)" }}>
+              {copy.signedOutBody}
+            </p>
           </div>
+
           {onSignIn ? (
             <button
               type="button"
               onClick={onSignIn}
-              className="rounded-md bg-[#1f5f5b] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#164946]"
+              className="rounded-xl px-8 py-3 text-sm font-semibold text-white transition-all hover:opacity-90"
+              style={{ background: "var(--tutor-accent)" }}
             >
               {copy.signInAction}
             </button>
           ) : null}
-          <p className="text-xs leading-5 text-[#7a7165]">{copy.temporaryChatNote}</p>
+
+          {copy.temporaryChatNote && (
+            <p className="text-xs" style={{ color: "var(--tutor-text-muted)" }}>
+              {copy.temporaryChatNote}
+            </p>
+          )}
           {temporaryChatEntry}
         </section>
       </main>
