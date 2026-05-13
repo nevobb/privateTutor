@@ -32,6 +32,7 @@ The original project documents are now present under `/docs` and are the source 
 - Workspace API boundary exists: POST /api/workspaces, GET /api/workspaces, GET /api/workspaces/[workspaceId].
 - Session API boundary exists: POST /api/sessions and GET /api/sessions?workspaceId=<id>, with auth-derived userId and workspace ownership checks.
 - Workspace UI integration exists: WorkspaceSelector wired to API, AuthShell in page.tsx, Firebase Auth client hook, workspace API client helper.
+- Session UI integration exists: active workspace now loads sessions from API, session creation is wired to API, and active session is tracked in local UI state.
 
 ## What is still mocked
 
@@ -48,7 +49,7 @@ The original project documents are now present under `/docs` and are the source 
 - Tutor provider responses remain mock-only (`getMockTutorResponse`) even when persistence is enabled.
 - Auth emulator token verifier exists: `verifyFirebaseTokenEmulator` calls the Auth emulator REST endpoint, no Admin SDK. `verifyFirebaseToken` delegates to it as the default for demo-private-tutor.
 - Workspace UI is wired to the API with a working local verifier. Browser sign-in → emulator token → workspace API calls succeed locally.
-- Session API persistence remains emulator-backed and is not wired to session UI flows yet.
+- Session API persistence is emulator-backed and now wired to basic session UI flows.
 
 ## What is not connected
 
@@ -101,6 +102,7 @@ The original project documents are now present under `/docs` and are the source 
 - Firestore workspace rules are tightened for emulator phase but are not production-ready; decisionLog hardening requires Firebase Admin SDK which is not yet present.
 - Workspace API routes are emulator-backed only; they are not connected to Firebase cloud and are not production-ready.
 - Session API routes are emulator-backed only; they are not connected to Firebase cloud and are not production-ready.
+- Session UI now uses Session API boundary flows, but the current visual system is still transitional and not the final UX direction.
 - Storage upload, Gemini, Genkit, retrieval, learner memory persistence, and academic knowledge persistence remain unconnected.
 
 ## How to run locally
