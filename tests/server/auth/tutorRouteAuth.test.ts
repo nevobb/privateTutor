@@ -12,13 +12,34 @@ vi.mock("../../../src/server/workspaces/workspacePersistenceService", () => ({
           role: "tutor",
           content: `Tutor response: ${request.message}`,
         },
-        mockRouting: {
-          workMode: request.workMode,
-          costMode: request.costMode,
-          retrievalScope: "none",
-          usedWebSearch: false,
-          memoryWrite: "none",
-          stoppedAfterLocalAnswer: false,
+        internalUpdate: {
+          detected_intent: "factual_or_regular",
+          confidence: 0.74,
+          should_stop_progression: false,
+          local_question: {
+            detected: false,
+            reason: "",
+          },
+          retrieval: {
+            used: false,
+            scope: "none",
+            source_ids: [],
+            why: `auth-test-mock:${request.workMode}:${request.costMode}`,
+          },
+          learner_memory_update: {
+            needed: false,
+            update_type: "none",
+            memory_type: "none",
+            content: "",
+            confidence: 0,
+          },
+          knowledge_base_action: {
+            needed: false,
+            action: "none",
+            confidence: 0,
+            requires_user_confirmation: false,
+          },
+          decision_log_entries: [],
         },
       },
     })),
@@ -108,7 +129,7 @@ describe("POST /api/tutor auth boundary", () => {
 
     expect(response.status).toBe(200);
     expect(body.message.role).toBe("tutor");
-    expect(body.mockRouting.workMode).toBe("Learning");
+    expect(body.internalUpdate.detected_intent).toBe("factual_or_regular");
   });
 
   it("returns 200 for valid auth and missing body userId by using trusted uid", async () => {
@@ -119,7 +140,7 @@ describe("POST /api/tutor auth boundary", () => {
 
     expect(response.status).toBe(200);
     expect(body.message.role).toBe("tutor");
-    expect(body.mockRouting.costMode).toBe("Normal Learning");
+    expect(body.internalUpdate.retrieval.scope).toBe("none");
   });
 
   it("returns 403 for spoofed body userId", async () => {

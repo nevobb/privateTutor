@@ -20,13 +20,34 @@ function tutorOk(content: string): TutorHandlerResult {
         role: "tutor",
         content,
       },
-      mockRouting: {
-        workMode: "Learning",
-        costMode: "Normal Learning",
-        retrievalScope: "none",
-        usedWebSearch: false,
-        memoryWrite: "none",
-        stoppedAfterLocalAnswer: false,
+      internalUpdate: {
+        detected_intent: "factual_or_regular",
+        confidence: 0.74,
+        should_stop_progression: false,
+        local_question: {
+          detected: false,
+          reason: "",
+        },
+        retrieval: {
+          used: false,
+          scope: "none",
+          source_ids: [],
+          why: "test_mock_no_retrieval",
+        },
+        learner_memory_update: {
+          needed: false,
+          update_type: "none",
+          memory_type: "none",
+          content: "",
+          confidence: 0,
+        },
+        knowledge_base_action: {
+          needed: false,
+          action: "none",
+          confidence: 0,
+          requires_user_confirmation: false,
+        },
+        decision_log_entries: [],
       },
     },
   };

@@ -6,7 +6,7 @@ describe('Tutor Behavior Regressions', () => {
   it('does not rush the learner in default learning mode', async () => {
     const response = await getMockTutorResponse("I don't understand the theme.", "Learning", "Normal Learning");
     expect(response.message.content).toContain("מצב עבודה: Learning");
-    expect(response.mockRouting.stoppedAfterLocalAnswer).toBe(false);
+    expect(response.internalUpdate.should_stop_progression).toBe(false);
     expect(response.message.content).not.toContain("ללא פתרון מלא");
   });
 
@@ -15,16 +15,16 @@ describe('Tutor Behavior Regressions', () => {
     expect(response.message.content).toContain("ללא פתרון מלא");
     expect(response.message.content).not.toContain("התשובה הסופית");
     expect(response.message.content).not.toContain("שלב 1");
-    expect(response.mockRouting.memoryWrite).toBe("candidate");
-    expect(response.internalUpdates?.[0].observation).toContain("hint without full solution");
+    expect(response.internalUpdate.detected_intent).toBe("guidance_only");
+    expect(response.internalUpdate.learner_memory_update.needed).toBe(false);
   });
 
   it('answers local why-style questions locally and stops', async () => {
     const response = await getMockTutorResponse("למה המספר חשוב כאן?", "Learning", "Normal Learning");
     expect(response.message.content).toContain("אני עוצר כאן");
     expect(response.message.content).not.toContain("תרגול נוסף");
-    expect(response.mockRouting.stoppedAfterLocalAnswer).toBe(true);
-    expect(response.mockRouting.retrievalScope).toBe("none");
+    expect(response.internalUpdate.should_stop_progression).toBe(true);
+    expect(response.internalUpdate.retrieval.scope).toBe("none");
   });
 
   it('keeps learner memory separate from academic knowledge', () => {
@@ -44,8 +44,8 @@ describe('Tutor Behavior Regressions', () => {
     const responseCheap = await getMockTutorResponse("Theme", "Learning", "Cheap Practice");
     expect(responseCheap.message.content).toContain("מצב עלות: Cheap Practice");
     expect(responseCheap.message.citations).toBeUndefined();
-    expect(responseCheap.mockRouting.usedWebSearch).toBe(false);
-    expect(responseCheap.mockRouting.retrievalScope).toBe("none");
+    expect(responseCheap.internalUpdate.retrieval.used).toBe(false);
+    expect(responseCheap.internalUpdate.retrieval.scope).toBe("none");
   });
 
   it('returns citations in Research mode without implying web search', async () => {
@@ -53,22 +53,20 @@ describe('Tutor Behavior Regressions', () => {
     expect(response.message.content).toContain("מצב מחקר");
     expect(response.message.citations).toBeDefined();
     expect(response.message.citations?.length).toBeGreaterThan(0);
-    expect(response.mockRouting.retrievalScope).toBe("topic");
-    expect(response.mockRouting.usedWebSearch).toBe(false);
+    expect(response.internalUpdate.retrieval.scope).toBe("topic");
+    expect(response.internalUpdate.retrieval.used).toBe(true);
   });
 
   it('changes mock routing by cost and work mode', async () => {
     const responseDeep = await getMockTutorResponse("Theme", "Research", "Deep Research");
     expect(responseDeep.message.content).toContain("מצב עלות: Deep Research");
-    expect(responseDeep.mockRouting.workMode).toBe("Research");
-    expect(responseDeep.mockRouting.costMode).toBe("Deep Research");
-    expect(responseDeep.mockRouting.retrievalScope).toBe("workspace");
+    expect(responseDeep.internalUpdate.detected_intent).toBe("research_request");
+    expect(responseDeep.internalUpdate.retrieval.scope).toBe("workspace");
   });
 
   it('does not create permanent memory updates in Temporary Chat', async () => {
     const response = await getMockTutorResponse("This is a throwaway question", "Temporary Chat", "Normal Learning");
     expect(response.message.content).toContain("צ'אט זמני");
-    expect(response.internalUpdates).toBeUndefined();
-    expect(response.mockRouting.memoryWrite).toBe("none");
+    expect(response.internalUpdate.learner_memory_update.needed).toBe(false);
   });
 });

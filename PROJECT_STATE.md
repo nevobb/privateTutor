@@ -39,7 +39,7 @@ The original project documents are now present under `/docs` and are the source 
 - Learner Memory is static mock data.
 - Academic Knowledge Base items are static mock data.
 - Decision Log entries are static mock data.
-- Retrieval routing is represented only as mock metadata.
+- Retrieval routing is represented only as deterministic mock `internalUpdate` metadata.
 - Provider status is represented only by TypeScript types.
 - The backend tutor boundary still calls the mock provider only.
 - `POST /api/tutor` is auth-protected, but token verification is injectable and not connected to Firebase Admin/cloud verification yet.
@@ -67,8 +67,8 @@ The original project documents are now present under `/docs` and are the source 
 ## What is ready
 
 - Domain types in `src/types/index.ts` now include spec-aligned shapes: `TutorInternalUpdate`, extended `LearnerMemoryObservation` (type/scope/requiresApproval), richer `Workspace` (type/status/courseContext), richer `UploadedFile` (filePolicy/topic/indexing fields), richer `Session` (workMode/costMode/activeTopic/status). Mock data in `src/mock/data.ts` satisfies all new required fields.
-- Structured mock tutor response (`TutorResponse` using `TutorInternalUpdate`) is NOT yet wired — that is PR 33B.
-- Behavior regression tests using `internal_update.*` assertions are NOT yet written — that is PR 33C.
+- Structured mock tutor response is wired: `TutorResponse` now returns `{ message, internalUpdate }` from the mock tutor pipeline (lib/provider/schema/handler path).
+- Behavior regression tests from `docs/09_Behavior_Regression_Test_Suite.md` are still pending full rewrite in PR 33C (this PR only applied minimal compatibility updates).
 - The repo is ready for docs-based planning and staged implementation.
 - The mock prototype is ready for review against `/docs`.
 - The type layer is ready to guide future provider abstractions without exposing secrets or connecting services.

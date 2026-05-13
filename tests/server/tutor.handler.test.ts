@@ -25,8 +25,9 @@ describe("tutor backend handler", () => {
 
     expect(response.message.role).toBe("tutor");
     expect(response.message.content).toContain("מצב עבודה: Learning");
-    expect(response.mockRouting.workMode).toBe("Learning");
-    expect(response.mockRouting.costMode).toBe("Normal Learning");
+    expect(typeof response.internalUpdate.detected_intent).toBe("string");
+    expect(typeof response.internalUpdate.retrieval.used).toBe("boolean");
+    expect(typeof response.internalUpdate.learner_memory_update.needed).toBe("boolean");
     expect(response.decisionLogEvents?.[0].type).toBe("mock_provider");
   });
 
@@ -39,7 +40,9 @@ describe("tutor backend handler", () => {
 
     expect(response.message.content).toContain("ללא פתרון מלא");
     expect(response.message.content).not.toContain("התשובה הסופית");
-    expect(response.mockRouting.memoryWrite).toBe("candidate");
+    expect(response.internalUpdate.detected_intent).toBe("guidance_only");
+    expect(response.internalUpdate.should_stop_progression).toBe(true);
+    expect(response.internalUpdate.learner_memory_update.needed).toBe(false);
   });
 
   it("preserves local question stop behavior", async () => {
@@ -49,8 +52,9 @@ describe("tutor backend handler", () => {
     });
 
     expect(response.message.content).toContain("אני עוצר כאן");
-    expect(response.mockRouting.stoppedAfterLocalAnswer).toBe(true);
-    expect(response.mockRouting.retrievalScope).toBe("none");
+    expect(response.internalUpdate.should_stop_progression).toBe(true);
+    expect(response.internalUpdate.local_question.detected).toBe(true);
+    expect(response.internalUpdate.retrieval.scope).toBe("none");
   });
 
   it("keeps Cheap Practice source-light", async () => {
@@ -60,8 +64,8 @@ describe("tutor backend handler", () => {
     });
 
     expect(response.message.citations).toBeUndefined();
-    expect(response.mockRouting.usedWebSearch).toBe(false);
-    expect(response.mockRouting.retrievalScope).toBe("none");
+    expect(response.internalUpdate.retrieval.used).toBe(false);
+    expect(response.internalUpdate.retrieval.scope).toBe("none");
   });
 
   it("returns mock citations in Research mode", async () => {
@@ -71,7 +75,8 @@ describe("tutor backend handler", () => {
     });
 
     expect(response.message.citations?.length).toBeGreaterThan(0);
-    expect(response.mockRouting.retrievalScope).toBe("topic");
+    expect(response.internalUpdate.retrieval.used).toBe(true);
+    expect(response.internalUpdate.retrieval.scope).toBe("topic");
   });
 
   it("preserves Temporary Chat no-memory behavior", async () => {
@@ -81,8 +86,7 @@ describe("tutor backend handler", () => {
       temporary: true,
     });
 
-    expect(response.internalUpdates).toBeUndefined();
-    expect(response.mockRouting.memoryWrite).toBe("none");
+    expect(response.internalUpdate.learner_memory_update.needed).toBe(false);
     expect(response.decisionLogEvents?.some((event) => event.type === "memory_not_written")).toBe(true);
   });
 
@@ -90,7 +94,9 @@ describe("tutor backend handler", () => {
     const learning = await expectOkResponse(baseRequest);
     const research = await expectOkResponse({ ...baseRequest, workMode: "Research", costMode: "Deep Research" });
 
-    expect(learning.mockRouting.usedWebSearch).toBe(false);
-    expect(research.mockRouting.usedWebSearch).toBe(false);
+    expect(learning.internalUpdate.retrieval.scope).toBe("none");
+    expect(learning.internalUpdate.retrieval.used).toBe(false);
+    expect(research.internalUpdate.retrieval.scope).toBe("workspace");
+    expect(research.internalUpdate.retrieval.used).toBe(true);
   });
 });

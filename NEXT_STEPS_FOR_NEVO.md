@@ -2,24 +2,15 @@
 
 ## Immediate next step
 
-**PR 33B — Structured mock tutor response**
+**PR 33C — Behavior regression rewrite against `internalUpdate`**
 
-Domain types are now spec-aligned. The next step is wiring `TutorInternalUpdate` into the mock tutor response pipeline.
+PR 33B is done: mock tutor responses now return `internalUpdate` and legacy `mockRouting/internalUpdates` are removed.
 
-### What PR 33B changes
+### What PR 33C changes
 
-1. `src/lib/tutor.ts` — update `getMockTutorResponse` to return `TutorInternalUpdate` instead of flat `internalUpdates`; add optional `conversationHistory` parameter stub
-2. `src/types/index.ts` — update `TutorResponse` shape: add `internalUpdate: TutorInternalUpdate`, remove legacy `internalUpdates` and `mockRouting`
-3. `src/server/tutor/schemas.ts` — update `validateTutorResponse` for new `TutorResponse` shape
-4. `src/server/tutor/mockTutorProvider.ts` — map to new internal update shape
-5. `tests/server/tutor.handler.test.ts` — update for new shape
-
-No Gemini. No retrieval. Provider stays mock-only.
-
-### What PR 33C changes (after 33B)
-
-Rewrite `tests/behavior.test.ts` to validate `internalUpdate.*` semantic fields instead of Hebrew string content.
-Add coverage for spec behavior tests T001–T013 from `docs/09_Behavior_Regression_Test_Suite.md`.
+1. Rewrite `tests/behavior.test.ts` to assert structured `internalUpdate.*` behavior semantics rather than legacy mock routing/text-only expectations.
+2. Add coverage for spec behavior tests T001–T013 from `docs/09_Behavior_Regression_Test_Suite.md`.
+3. Keep provider mock-only (no Gemini, no Genkit, no real retrieval, no memory persistence).
 
 ---
 
@@ -29,7 +20,7 @@ Add coverage for spec behavior tests T001–T013 from `docs/09_Behavior_Regressi
 
 ---
 
-## After 33B + 33C
+## After 33C
 
 ### Session API boundary
 

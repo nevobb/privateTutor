@@ -75,7 +75,7 @@ describeAuthEmulator("POST /api/tutor auth boundary with the Auth Emulator", () 
 
     expect(response.status).toBe(200);
     expect(body.message.role).toBe("tutor");
-    expect(body.mockRouting.workMode).toBe("Learning");
+    expect(typeof body.internalUpdate?.detected_intent).toBe("string");
   });
 
   it("returns 403 for a spoofed body userId", async () => {
