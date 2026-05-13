@@ -63,12 +63,12 @@ export default function WorkspaceSelector({
   };
 
   return (
-    <div className="flex flex-col py-2" dir="rtl">
-      {/* Section: Topics / Workspaces */}
-      <div className="px-4 pt-1 pb-1.5">
+    <div className="flex flex-col py-3" dir="rtl">
+      {/* ── Topics section ── */}
+      <div className="px-4 pb-1.5">
         <p
-          className="text-[10px] font-semibold uppercase tracking-wider"
-          style={{ color: "var(--tutor-text-muted)" }}
+          className="text-[10px] font-bold uppercase tracking-widest select-none"
+          style={{ color: "var(--tutor-text-muted)", letterSpacing: "0.1em" }}
         >
           נושאים
         </p>
@@ -101,13 +101,16 @@ export default function WorkspaceSelector({
                     <button
                       type="button"
                       onClick={() => onSelect(ws.id)}
-                      className="w-full text-right flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors"
+                      className="w-full text-right flex items-center px-3 py-2 rounded-lg text-sm transition-colors"
                       style={{
                         background: isSelected
                           ? "var(--tutor-sidebar-active)"
                           : "transparent",
                         color: isSelected ? "var(--tutor-accent-text)" : "var(--tutor-text)",
                         fontWeight: isSelected ? 500 : 400,
+                        borderRight: isSelected
+                          ? "2px solid var(--tutor-accent)"
+                          : "2px solid transparent",
                       }}
                       onMouseEnter={(e) => {
                         if (!isSelected)
@@ -120,12 +123,6 @@ export default function WorkspaceSelector({
                             "transparent";
                       }}
                     >
-                      <span
-                        className="text-base leading-none flex-shrink-0"
-                        aria-hidden="true"
-                      >
-                        {isSelected ? "📂" : "📁"}
-                      </span>
                       <span className="truncate">{ws.name}</span>
                     </button>
                   </li>
@@ -134,12 +131,12 @@ export default function WorkspaceSelector({
             </ul>
           )}
 
-          <div className="px-2 mt-1">
+          <div className="px-2 mt-0.5">
             {!showCreateWorkspace ? (
               <button
                 type="button"
                 onClick={() => setShowCreateWorkspace(true)}
-                className="w-full text-right flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors"
+                className="w-full text-right flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors"
                 style={{ color: "var(--tutor-text-muted)" }}
                 onMouseEnter={(e) =>
                   ((e.currentTarget as HTMLButtonElement).style.color =
@@ -150,14 +147,11 @@ export default function WorkspaceSelector({
                     "var(--tutor-text-muted)")
                 }
               >
-                <span>＋</span>
+                <span style={{ fontSize: "16px", lineHeight: 1 }}>+</span>
                 <span>נושא חדש</span>
               </button>
             ) : (
-              <form
-                onSubmit={handleCreateWorkspace}
-                className="px-1 py-2 space-y-2"
-              >
+              <form onSubmit={handleCreateWorkspace} className="px-1 py-2 space-y-2">
                 <input
                   type="text"
                   value={newName}
@@ -209,13 +203,13 @@ export default function WorkspaceSelector({
         </>
       )}
 
-      {/* Section: Conversations / Sessions */}
+      {/* ── Conversations section ── */}
       {selectedWorkspaceId && (
         <>
-          <div className="px-4 pt-4 pb-1.5">
+          <div className="px-4 pt-5 pb-1.5">
             <p
-              className="text-[10px] font-semibold uppercase tracking-wider"
-              style={{ color: "var(--tutor-text-muted)" }}
+              className="text-[10px] font-bold uppercase tracking-widest select-none"
+              style={{ color: "var(--tutor-text-muted)", letterSpacing: "0.1em" }}
             >
               שיחות
             </p>
@@ -255,13 +249,18 @@ export default function WorkspaceSelector({
                         <button
                           type="button"
                           onClick={() => onSessionSelect(session.id)}
-                          className="w-full text-right flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors"
+                          className="w-full text-right flex items-center px-3 py-2 rounded-lg text-sm transition-colors"
                           style={{
                             background: isActive
                               ? "var(--tutor-accent-light)"
                               : "transparent",
-                            color: isActive ? "var(--tutor-accent-text)" : "var(--tutor-text-secondary)",
+                            color: isActive
+                              ? "var(--tutor-accent-text)"
+                              : "var(--tutor-text-secondary)",
                             fontWeight: isActive ? 500 : 400,
+                            borderRight: isActive
+                              ? "2px solid var(--tutor-accent)"
+                              : "2px solid transparent",
                           }}
                           onMouseEnter={(e) => {
                             if (!isActive)
@@ -274,9 +273,6 @@ export default function WorkspaceSelector({
                                 "transparent";
                           }}
                         >
-                          <span className="text-sm leading-none flex-shrink-0" aria-hidden="true">
-                            💬
-                          </span>
                           <span className="truncate text-xs">{label}</span>
                         </button>
                       </li>
@@ -285,14 +281,14 @@ export default function WorkspaceSelector({
                 </ul>
               )}
 
-              <div className="px-2 mt-1">
+              <div className="px-2 mt-0.5">
                 <button
                   type="button"
                   onClick={() => {
                     void onCreateSession();
                   }}
                   disabled={creatingSession}
-                  className="w-full text-right flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors disabled:opacity-40"
+                  className="w-full text-right flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-40"
                   style={{ color: "var(--tutor-text-muted)" }}
                   onMouseEnter={(e) => {
                     if (!creatingSession)
@@ -304,7 +300,7 @@ export default function WorkspaceSelector({
                       "var(--tutor-text-muted)")
                   }
                 >
-                  <span>＋</span>
+                  <span style={{ fontSize: "16px", lineHeight: 1 }}>+</span>
                   <span>{creatingSession ? "יוצר שיחה..." : "שיחה חדשה"}</span>
                 </button>
               </div>

@@ -53,14 +53,19 @@
 
 ## 6. Workspace/session sidebar changes
 
-- Workspaces displayed as clickable folder-style list items (📁 / 📂 selected)
-- Selected workspace highlighted with `--tutor-sidebar-active` background
-- Sessions displayed as conversation list (💬) below selected workspace section
-- Active session highlighted with `--tutor-accent-light` background
-- Create workspace: inline form, not a popup
-- Create session: subtle "+ שיחה חדשה" link
+**Step 37D correction (Stitch design applied):**
+
+- Emoji folder icons (📁, 📂, 💬) removed — no longer primary visual language
+- Topics: clean text rows, no icon prefix, mature typography
+- Active topic: `--tutor-sidebar-active` background + `2px solid --tutor-accent` right border indicator
+- Sessions (conversations): clean text rows, no icon prefix, indented conceptually under selected topic
+- Active session: `--tutor-accent-light` background + `2px solid --tutor-accent` right border indicator
+- Section labels ("נושאים", "שיחות"): `10px bold uppercase tracking-widest` — quiet, structural
+- "+" buttons: plain `+` character + Hebrew label, subtle muted color, hover transitions to accent
+- Create workspace: inline form unchanged
 - Raw UUIDs never displayed as primary visible text
 - All loading/error/empty states preserved
+- All props/behavior/API surface unchanged
 
 ## 7. Tutor conversation changes
 
@@ -106,21 +111,26 @@ CSS variables defined in `:root` in `globals.css`:
 - Could expose a small JSON config object that writes to CSS variables at runtime
 - No large theme system built — just the token layer
 
-## 9b. Appearance panel (Steps 37B + 37C)
+## 9b. Appearance panel (Steps 37B + 37C + 37D)
 
 **Component:** `src/components/settings/ThemePicker.tsx`
 
-**What's in the panel (collapsible "Appearance" section at sidebar bottom):**
+**Step 37D upgrade (Stitch appearance design applied):**
 
-1. **Preset row:** Sage · Blue · Warm · Slate · Rose — labeled buttons with accent swatch dot. Selecting a preset applies all 16 CSS variable tokens and clears manual overrides.
-2. **Custom color controls:** 4 manual `<input type="color">` rows — Accent, Background, Sidebar, User msg. Each shows the native color picker on click plus hex value display. Changes apply live immediately.
-3. **Reset button:** Returns to default Sage preset and clears all overrides.
+1. **Mood Presets section** — each preset now shows a split-circle preview (left half = background color, right half = accent color), matching the Stitch appearance settings design. Label below each circle. Active preset gets accent-color border.
+2. **Fine Tuning section** — 4 color rows for Accent, Background, Sidebar, User msg. Each row:
+   - Visible colored swatch (click opens native color picker)
+   - Editable hex text input (live validation, applies on valid 6-char hex, resets on blur if invalid)
+   - When preset changes, hex input syncs automatically via focus-based derived state (no lint-banned effect pattern)
+3. **Reset button** — Returns to default Sage preset, clears all overrides.
+4. **Manrope font** added to `globals.css` via Google Fonts import (Stitch typography spec).
 
 **How it works:**
 - Lazy `useState` initializer reads `localStorage["tutor-theme-customization"]` on mount
 - Backwards compat: migrates from old `localStorage["tutor-theme"]` key if new key absent
 - `useEffect` calls `applyCustomization(custom)` (base preset vars + overrides) when state changes
-- `input[type=color] onChange` also calls `setProperty` immediately for smooth live drag preview
+- Native color picker `onChange` also calls `setProperty` immediately for smooth live drag preview
+- Editable hex input uses focus-based pattern: shows prop value when not focused, local state when editing
 - Saved structure: `{ preset: "sage", overrides: { "--tutor-accent": "#...", ... } }`
 
 **Persistence:** `localStorage["tutor-theme-customization"]` only. No Firestore, no API, no auth required.
@@ -174,6 +184,14 @@ CSS variables defined in `:root` in `globals.css`:
 | `npm run lint` | ✓ 0 errors (9 pre-existing warnings in test files) |
 | `npx vitest run` | ✓ 146 passed, 0 failed |
 | `git diff --check` | ✓ No whitespace errors |
+
+**Step 37D (sidebar + appearance correction):**
+
+| Command | Result |
+|---------|--------|
+| `npm run build` | ✓ Compiled successfully |
+| `npm run lint` | ✓ 0 errors (9 pre-existing warnings in test files) |
+| `npx vitest run` | ✓ 146 passed, 0 failed |
 
 ## 15. Manual smoke result
 

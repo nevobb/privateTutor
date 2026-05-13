@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
 export type ThemeKey = "sage" | "blue" | "warm" | "slate" | "rose";
 
@@ -126,7 +126,6 @@ const DEFAULT_PRESET: ThemeKey = "sage";
 const LS_KEY = "tutor-theme-customization";
 const LS_KEY_LEGACY = "tutor-theme";
 
-/* Exposed color controls — the four most impactful custom knobs */
 const COLOR_CONTROLS: Array<{ label: string; varKey: string }> = [
   { label: "Accent", varKey: "--tutor-accent" },
   { label: "Background", varKey: "--tutor-bg" },
@@ -159,7 +158,6 @@ function loadCustomization(): ThemeCustomization {
     }
   }
 
-  /* Backwards compat: migrate from old "tutor-theme" key */
   const legacy = localStorage.getItem(LS_KEY_LEGACY) as ThemeKey | null;
   if (legacy && legacy in THEMES) return { preset: legacy, overrides: {} };
 
@@ -201,7 +199,6 @@ export default function ThemePicker() {
   };
 
   const handleColorChange = (varKey: string, value: string) => {
-    /* Apply immediately for smooth live preview during color picker drag */
     document.documentElement.style.setProperty(varKey, value);
     setCustom((prev) => {
       const next: ThemeCustomization = {
@@ -223,7 +220,11 @@ export default function ThemePicker() {
   const accentColor = effectiveColor(custom, "--tutor-accent");
 
   return (
-    <div style={{ borderTop: "1px solid var(--tutor-border-subtle)" }}>
+    <div
+      style={{
+        borderTop: "1px solid var(--tutor-border-subtle)",
+      }}
+    >
       {/* Collapse toggle */}
       <button
         type="button"
@@ -248,32 +249,37 @@ export default function ThemePicker() {
           </span>
           Appearance
         </span>
-        {/* Live accent preview dot */}
+        {/* Live accent swatch */}
         <span
           aria-hidden="true"
           className="w-3 h-3 rounded-full flex-shrink-0"
-          style={{ background: accentColor }}
+          style={{ background: accentColor, border: "1px solid rgba(0,0,0,0.1)" }}
         />
       </button>
 
       {open && (
-        <div
-          id="appearance-panel"
-          className="px-4 pb-4 space-y-3"
-          dir="ltr"
-        >
-          {/* Preset row */}
+        <div id="appearance-panel" className="px-4 pb-4 space-y-4" dir="ltr">
+          {/* Mood Presets */}
           <div>
-            <p
-              className="text-[10px] font-semibold uppercase tracking-wider mb-1.5"
-              style={{ color: "var(--tutor-text-muted)" }}
-            >
-              Preset
-            </p>
-            <div className="flex items-center gap-1 flex-wrap">
+            <div className="flex items-center justify-between mb-2.5">
+              <p
+                className="text-[10px] font-bold uppercase tracking-widest"
+                style={{ color: "var(--tutor-text-muted)", letterSpacing: "0.1em" }}
+              >
+                Mood Presets
+              </p>
+              <p
+                className="text-[10px]"
+                style={{ color: "var(--tutor-text-muted)" }}
+              >
+                quick start
+              </p>
+            </div>
+            <div className="grid grid-cols-5 gap-1.5">
               {(Object.keys(THEMES) as ThemeKey[]).map((key) => {
                 const isActive = custom.preset === key;
-                const swatch = THEMES[key].vars["--tutor-accent"];
+                const bg = THEMES[key].vars["--tutor-bg"];
+                const accent = THEMES[key].vars["--tutor-accent"];
                 return (
                   <button
                     key={key}
@@ -281,33 +287,72 @@ export default function ThemePicker() {
                     onClick={() => handlePreset(key)}
                     aria-label={`${THEMES[key].label} preset${isActive ? " (selected)" : ""}`}
                     aria-pressed={isActive}
-                    className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all"
+                    className="flex flex-col items-center gap-1.5 py-2 px-1 rounded-lg transition-all"
                     style={{
-                      background: isActive ? swatch : "var(--tutor-border-subtle)",
-                      color: isActive ? "#fff" : "var(--tutor-text-secondary)",
-                      border: isActive ? "none" : "1px solid var(--tutor-border)",
+                      border: isActive
+                        ? `2px solid ${accent}`
+                        : "2px solid var(--tutor-border-subtle)",
+                      background: isActive ? "var(--tutor-accent-light)" : "transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive)
+                        (e.currentTarget as HTMLButtonElement).style.background =
+                          "var(--tutor-sidebar-hover)";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive)
+                        (e.currentTarget as HTMLButtonElement).style.background =
+                          "transparent";
                     }}
                   >
+                    {/* Split-circle preview */}
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        overflow: "hidden",
+                        display: "flex",
+                        border: "1px solid rgba(0,0,0,0.08)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <div style={{ flex: 1, background: bg }} />
+                      <div style={{ flex: 1, background: accent }} />
+                    </div>
                     <span
-                      aria-hidden="true"
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ background: isActive ? "rgba(255,255,255,0.6)" : swatch }}
-                    />
-                    {THEMES[key].label}
+                      className="text-[9px] font-medium truncate w-full text-center"
+                      style={{
+                        color: isActive ? accent : "var(--tutor-text-secondary)",
+                      }}
+                    >
+                      {THEMES[key].label}
+                    </span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Manual color controls */}
+          {/* Divider */}
+          <div style={{ height: 1, background: "var(--tutor-border-subtle)" }} />
+
+          {/* Fine Tuning */}
           <div className="space-y-2">
-            <p
-              className="text-[10px] font-semibold uppercase tracking-wider"
-              style={{ color: "var(--tutor-text-muted)" }}
-            >
-              Custom
-            </p>
+            <div className="flex items-center justify-between mb-0.5">
+              <p
+                className="text-[10px] font-bold uppercase tracking-widest"
+                style={{ color: "var(--tutor-text-muted)", letterSpacing: "0.1em" }}
+              >
+                Fine Tuning
+              </p>
+              <p
+                className="text-[10px]"
+                style={{ color: "var(--tutor-text-muted)" }}
+              >
+                individual tokens
+              </p>
+            </div>
             {COLOR_CONTROLS.map(({ label, varKey }) => (
               <ColorRow
                 key={varKey}
@@ -327,6 +372,17 @@ export default function ThemePicker() {
               border: "1px solid var(--tutor-border)",
               color: "var(--tutor-text-muted)",
             }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color =
+                "var(--tutor-text-secondary)";
+              (e.currentTarget as HTMLButtonElement).style.background =
+                "var(--tutor-sidebar-hover)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color =
+                "var(--tutor-text-muted)";
+              (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+            }}
             aria-label="Reset appearance to default Sage theme"
           >
             Reset to default
@@ -337,7 +393,7 @@ export default function ThemePicker() {
   );
 }
 
-/* ── Color row sub-component ── */
+/* ── Color row with editable hex input ── */
 
 function ColorRow({
   label,
@@ -348,44 +404,93 @@ function ColorRow({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const [hexText, setHexText] = useState(value);
+  const [isFocused, setIsFocused] = useState(false);
+  const colorInputRef = useRef<HTMLInputElement>(null);
+
+  /* When not editing, always mirror the prop value (handles preset switches) */
+  const displayText = isFocused ? hexText : value;
+
+  const handleFocus = () => {
+    setHexText(value);
+    setIsFocused(true);
+  };
+
+  const handleTextChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    setHexText(raw);
+    if (/^#[0-9a-fA-F]{6}$/.test(raw)) {
+      onChange(raw);
+    }
+  };
+
+  const handleTextBlur = () => {
+    setIsFocused(false);
+    setHexText(value);
+  };
+
+  const handlePickerChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    setHexText(v);
+    onChange(v);
+  };
+
   return (
     <div className="flex items-center gap-2">
       <span
         className="text-[11px] flex-shrink-0"
-        style={{ color: "var(--tutor-text-secondary)", minWidth: "68px" }}
+        style={{ color: "var(--tutor-text-secondary)", minWidth: "62px" }}
       >
         {label}
       </span>
-      <div className="flex items-center gap-1.5 flex-1 min-w-0">
-        {/* Color swatch + native picker */}
-        <div className="relative flex-shrink-0" style={{ width: "22px", height: "22px" }}>
+      <div
+        className="flex items-center gap-2 flex-1 min-w-0 rounded-lg px-2 py-1"
+        style={{
+          border: "1px solid var(--tutor-border)",
+          background: "var(--tutor-surface)",
+        }}
+      >
+        {/* Visible swatch — clicking opens native color picker */}
+        <div
+          className="relative flex-shrink-0"
+          style={{ width: 18, height: 18 }}
+          title={`${label}: ${hexText}`}
+        >
           <input
+            ref={colorInputRef}
             type="color"
             value={value}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={handlePickerChange}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            aria-label={`${label} color`}
-            title={`${label}: ${value}`}
+            aria-label={`${label} color picker`}
           />
           <span
             aria-hidden="true"
-            className="block w-full h-full rounded pointer-events-none"
+            className="block w-full h-full pointer-events-none"
             style={{
               background: value,
-              border: "1px solid var(--tutor-border)",
-              borderRadius: "4px",
+              border: "1px solid rgba(0,0,0,0.12)",
+              borderRadius: "3px",
             }}
           />
         </div>
-        {/* Hex value display */}
-        <span
-          className="text-[10px] font-mono tabular-nums truncate"
-          style={{ color: "var(--tutor-text-muted)" }}
-          aria-live="polite"
-          aria-label={`${label} hex value: ${value}`}
-        >
-          {value}
-        </span>
+        {/* Editable hex input */}
+        <input
+          type="text"
+          value={displayText.toUpperCase()}
+          onFocus={handleFocus}
+          onChange={handleTextChange}
+          onBlur={handleTextBlur}
+          maxLength={7}
+          className="flex-1 min-w-0 bg-transparent border-none outline-none font-mono"
+          style={{
+            fontSize: "11px",
+            color: "var(--tutor-text)",
+            padding: 0,
+          }}
+          aria-label={`${label} hex value`}
+          spellCheck={false}
+        />
       </div>
     </div>
   );
