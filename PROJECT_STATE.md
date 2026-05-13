@@ -68,7 +68,7 @@ The original project documents are now present under `/docs` and are the source 
 
 - Domain types in `src/types/index.ts` now include spec-aligned shapes: `TutorInternalUpdate`, extended `LearnerMemoryObservation` (type/scope/requiresApproval), richer `Workspace` (type/status/courseContext), richer `UploadedFile` (filePolicy/topic/indexing fields), richer `Session` (workMode/costMode/activeTopic/status). Mock data in `src/mock/data.ts` satisfies all new required fields.
 - Structured mock tutor response is wired: `TutorResponse` now returns `{ message, internalUpdate }` from the mock tutor pipeline (lib/provider/schema/handler path).
-- Behavior regression tests from `docs/09_Behavior_Regression_Test_Suite.md` are still pending full rewrite in PR 33C (this PR only applied minimal compatibility updates).
+- Behavior regression tests now assert structured `internalUpdate` semantics (T001–T013 aligned coverage) instead of legacy `mockRouting/internalUpdates` or brittle exact Hebrew text checks.
 - The repo is ready for docs-based planning and staged implementation.
 - The mock prototype is ready for review against `/docs`.
 - The type layer is ready to guide future provider abstractions without exposing secrets or connecting services.
