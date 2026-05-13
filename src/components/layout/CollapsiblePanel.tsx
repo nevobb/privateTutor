@@ -18,12 +18,12 @@ export default function CollapsiblePanel({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div style={{ borderTop: "1px solid var(--tutor-border-subtle)" }}>
+    <div style={{ borderTop: "1px solid var(--tutor-sidebar-border)" }}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-medium transition-colors hover:bg-[var(--tutor-sidebar-hover)]"
-        style={{ color: "var(--tutor-text-secondary)" }}
+        style={{ color: "var(--tutor-sidebar-text)" }}
       >
         <span className="flex items-center gap-1.5">
           <span
@@ -36,7 +36,7 @@ export default function CollapsiblePanel({
           {itemCount !== undefined && (
             <span
               className="text-[10px] px-1.5 py-0.5 rounded-full"
-              style={{ background: "var(--tutor-border)", color: "var(--tutor-text-muted)" }}
+              style={{ background: "var(--tutor-sidebar-active)", color: "var(--tutor-sidebar-text-muted)" }}
             >
               {itemCount}
             </span>

@@ -129,7 +129,7 @@ export default function TutorConversation({
         <form onSubmit={handleSubmit} className="relative">
           <textarea
             rows={1}
-            placeholder="שאל את המורה..."
+            placeholder="Type a message..."
             className="w-full resize-none rounded-2xl px-5 py-3.5 pr-14 text-sm outline-none transition-all"
             style={{
               background: "var(--tutor-surface)",
@@ -138,7 +138,6 @@ export default function TutorConversation({
               boxShadow: "var(--tutor-shadow-sm)",
               minHeight: "52px",
               maxHeight: "140px",
-              direction: "rtl",
             }}
             value={inputValue}
             onChange={(e) => {
@@ -159,7 +158,7 @@ export default function TutorConversation({
               background: inputValue.trim() ? "var(--tutor-accent)" : "var(--tutor-border)",
               color: "#FFFFFF",
             }}
-            aria-label="שלח"
+            aria-label="Send"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"

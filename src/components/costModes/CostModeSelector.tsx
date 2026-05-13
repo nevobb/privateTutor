@@ -9,9 +9,9 @@ interface CostModeSelectorProps {
 }
 
 const modeLabels: Record<CostMode, string> = {
-  "Normal Learning": "רגיל",
-  "Cheap Practice": "תרגול בסיסי",
-  "Deep Research": "מחקר עמוק",
+  "Normal Learning": "Normal",
+  "Cheap Practice": "Cheap",
+  "Deep Research": "Deep",
 };
 
 /* Only "Normal Learning" is the visible default; others behind advanced */
@@ -32,7 +32,7 @@ export default function CostModeSelector({ currentMode, onChange }: CostModeSele
   const isAdvanced = advancedModes.includes(currentMode);
 
   return (
-    <div ref={ref} className="relative" dir="rtl">
+    <div ref={ref} className="relative" dir="ltr">
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all"
@@ -41,8 +41,8 @@ export default function CostModeSelector({ currentMode, onChange }: CostModeSele
           color: isAdvanced ? "var(--tutor-accent-text)" : "var(--tutor-text-muted)",
           border: `1px solid ${isAdvanced ? "var(--tutor-accent)" : "var(--tutor-border)"}`,
         }}
-        title="איכות תשובה"
-        aria-label="בחר איכות תשובה"
+        title="Response quality"
+        aria-label="Select response quality"
         aria-expanded={open}
       >
         <span style={{ fontSize: "11px" }}>⚙</span>
@@ -57,7 +57,7 @@ export default function CostModeSelector({ currentMode, onChange }: CostModeSele
             background: "var(--tutor-surface)",
             border: "1px solid var(--tutor-border)",
             boxShadow: "var(--tutor-shadow)",
-            right: 0,
+            left: 0,
           }}
         >
           {(["Normal Learning", "Cheap Practice", "Deep Research"] as CostMode[]).map((mode) => {
@@ -69,7 +69,7 @@ export default function CostModeSelector({ currentMode, onChange }: CostModeSele
                   onChange(mode);
                   setOpen(false);
                 }}
-                className="w-full text-right px-3 py-2 text-xs transition-colors"
+                className="w-full text-left px-3 py-2 text-xs transition-colors"
                 style={{
                   background: isActive ? "var(--tutor-accent-light)" : "transparent",
                   color: isActive ? "var(--tutor-accent-text)" : "var(--tutor-text-secondary)",

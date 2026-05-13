@@ -230,21 +230,21 @@ export default function Home() {
       : "N";
 
   const sidebar = (
-    <div className="flex flex-col h-full" dir="rtl">
+    <div className="flex flex-col h-full" dir="ltr">
       {/* Sidebar header: app name + user */}
       <div
         className="flex items-center justify-between px-4 py-4 flex-shrink-0"
-        style={{ borderBottom: "1px solid var(--tutor-border)" }}
+        style={{ borderBottom: "1px solid var(--tutor-sidebar-border)" }}
       >
         <span
           className="text-lg font-semibold"
           style={{
             fontFamily: "'Lora', Georgia, serif",
-            color: "var(--tutor-text)",
+            color: "var(--tutor-sidebar-text-active)",
             letterSpacing: "-0.01em",
           }}
         >
-          מורה פרטי
+          Private Tutor
         </span>
         {authState.status === "signed-in" && (
           <div className="flex items-center gap-2">
@@ -279,14 +279,14 @@ export default function Home() {
       {/* Collapsible support panels */}
       <div className="flex-shrink-0">
         <CollapsiblePanel
-          title="חומרי לימוד"
+          title="Study materials"
           itemCount={mockFiles.length}
           defaultOpen={false}
         >
           <FilePanel files={mockFiles} />
         </CollapsiblePanel>
         <CollapsiblePanel
-          title="זיכרון למידה"
+          title="Tutor memory"
           defaultOpen={false}
         >
           <MemoryPanel memory={mockLearnerMemory} />

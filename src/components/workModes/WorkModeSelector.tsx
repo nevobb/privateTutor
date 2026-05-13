@@ -9,11 +9,11 @@ interface WorkModeSelectorProps {
 }
 
 const modeLabels: Record<WorkMode, string> = {
-  Learning: "למידה",
-  Practice: "תרגול",
-  Research: "מחקר",
-  Build: "בנייה",
-  "Temporary Chat": "צ'אט זמני",
+  Learning: "Learn",
+  Practice: "Practice",
+  Research: "Research",
+  Build: "Build",
+  "Temporary Chat": "Temp Chat",
 };
 
 /* Primary modes shown as pill buttons */
@@ -38,7 +38,7 @@ export default function WorkModeSelector({ currentMode, onChange }: WorkModeSele
   const isAdvancedActive = advancedModes.includes(currentMode);
 
   return (
-    <div className="flex items-center gap-1" dir="rtl">
+    <div className="flex items-center gap-1" dir="ltr">
       {primaryModes.map((mode) => {
         const isActive = currentMode === mode;
         return (
@@ -73,8 +73,8 @@ export default function WorkModeSelector({ currentMode, onChange }: WorkModeSele
               ? "1px solid var(--tutor-accent)"
               : "1px solid var(--tutor-border)",
           }}
-          title="מצבים נוספים"
-          aria-label="מצבים נוספים"
+          title="More modes"
+          aria-label="More modes"
           aria-expanded={showAdvanced}
         >
           {isAdvancedActive ? modeLabels[currentMode] : "עוד"}
@@ -88,7 +88,7 @@ export default function WorkModeSelector({ currentMode, onChange }: WorkModeSele
               background: "var(--tutor-surface)",
               border: "1px solid var(--tutor-border)",
               boxShadow: "var(--tutor-shadow)",
-              right: 0,
+              left: 0,
             }}
           >
             {advancedModes.map((mode) => {
@@ -100,7 +100,7 @@ export default function WorkModeSelector({ currentMode, onChange }: WorkModeSele
                     onChange(mode);
                     setShowAdvanced(false);
                   }}
-                  className="w-full text-right px-3 py-2 text-xs transition-colors"
+                  className="w-full text-left px-3 py-2 text-xs transition-colors"
                   style={{
                     background: isActive ? "var(--tutor-accent-light)" : "transparent",
                     color: isActive ? "var(--tutor-accent-text)" : "var(--tutor-text-secondary)",
