@@ -1,4 +1,4 @@
-import type { DecisionLogEntry, SourceCitation, TutorMessage, Workspace } from "../../types";
+import type { CostMode, DecisionLogEntry, SourceCitation, TutorMessage, WorkMode, Workspace } from "../../types";
 
 export type WorkspaceStatus = "active" | "archived" | "deleted";
 export type SessionStatus = "active" | "closed" | "archived";
@@ -18,8 +18,12 @@ export interface SessionRecord {
   userId: string;
   workspaceId: string;
   title: string;
+  workMode: WorkMode;
+  costMode: CostMode;
+  activeTopic?: string;
   status: SessionStatus;
   startedAt: Date;
+  lastActiveAt: Date;
   updatedAt: Date;
   messageCount: number;
   lastMessageAt?: Date;
@@ -57,6 +61,9 @@ export interface CreateSessionInput {
   id?: string;
   title?: string;
   summary?: string;
+  workMode?: WorkMode;
+  costMode?: CostMode;
+  activeTopic?: string;
   status?: SessionStatus;
 }
 

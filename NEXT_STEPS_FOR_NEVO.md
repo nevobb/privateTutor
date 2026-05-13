@@ -2,21 +2,22 @@
 
 ## Immediate next step
 
-**Manual browser smoke test (recommended before more backend expansion)**
+**Session UI integration (recommended)**
 
-PR 33C is done: behavior regression tests now validate structured `internalUpdate` semantics.
+Session API boundary is now available:
+- `POST /api/sessions`
+- `GET /api/sessions?workspaceId=<id>`
 
 ### Recommended now
 
-1. Run a manual browser smoke test on the tutor flow (desktop RTL layout + mock tutor responses) to confirm user-facing behavior is still sane after the behavior test rewrite.
-2. Verify work mode / cost mode switches still produce expected conversational output at a UX level.
+1. Wire the session selector to `GET /api/sessions?workspaceId=<id>`.
+2. Add session creation flow via `POST /api/sessions` when user starts a new session.
+3. Keep user identity server-owned (Bearer token only), no client `userId` trust.
+4. Keep tutor provider mock-only while integrating session UI.
 
-### Alternative next backend step
+### Alternative next step (only if UX friction is observed)
 
-If smoke test is clean, proceed to the **Session API boundary**:
-- `POST /api/sessions` — create session within a workspace
-- `GET /api/sessions?workspaceId=<id>` — list sessions for a workspace
-- Keep tutor provider mock-only
+Run a focused manual UX redesign pass for session/workspace flow before adding more backend surface area.
 
 ---
 
@@ -26,15 +27,15 @@ If smoke test is clean, proceed to the **Session API boundary**:
 
 ---
 
-## After manual smoke + session boundary
+## After session UI integration
 
-### Session UI integration
+### Session transcript/message API boundary
 
-Wire the session selector in the UI to the session API.
+Add the next narrow backend slice for session transcript boundaries (list/create session messages through authenticated, workspace-owned paths).
 
 ---
 
-## Explicitly out of scope until after session boundary
+## Explicitly out of scope until after session UI integration
 
 - Message/transcript persistence UI
 - Firebase cloud connection
