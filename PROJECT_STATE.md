@@ -30,6 +30,7 @@ The original project documents are now present under `/docs` and are the source 
 - Firestore rules tightened for workspace/session/message/decisionLog paths with field validation and path identity checks.
 - Emulator rule tests exist for workspace/session/message/decisionLog allow/deny cases.
 - Workspace API boundary exists: POST /api/workspaces, GET /api/workspaces, GET /api/workspaces/[workspaceId].
+- Workspace UI integration exists: WorkspaceSelector wired to API, AuthShell in page.tsx, Firebase Auth client hook, workspace API client helper.
 
 ## What is still mocked
 
@@ -44,6 +45,7 @@ The original project documents are now present under `/docs` and are the source 
 - `POST /api/tutor` is auth-protected, but token verification is injectable and not connected to Firebase Admin/cloud verification yet.
 - Auth verifier default remains fail-closed unless an explicit verifier is injected for local or test flows.
 - Tutor provider responses remain mock-only (`getMockTutorResponse`) even when persistence is enabled.
+- Workspace UI is wired to the API but API calls return 401 at runtime because `verifyFirebaseToken` is not configured. Functional workspace API calls require an emulator-compatible token verifier.
 
 ## What is not connected
 
