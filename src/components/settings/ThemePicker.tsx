@@ -6,14 +6,12 @@ export type ThemeKey = "sage" | "blue" | "warm" | "slate" | "rose";
 
 interface ThemePreset {
   label: string;
-  swatch: string;
   vars: Record<string, string>;
 }
 
 export const THEMES: Record<ThemeKey, ThemePreset> = {
   sage: {
     label: "Sage",
-    swatch: "#4D7E62",
     vars: {
       "--tutor-bg": "#F8F4EF",
       "--tutor-sidebar": "#EDE7DC",
@@ -35,7 +33,6 @@ export const THEMES: Record<ThemeKey, ThemePreset> = {
   },
   blue: {
     label: "Blue",
-    swatch: "#3B6FBF",
     vars: {
       "--tutor-bg": "#F4F7FC",
       "--tutor-sidebar": "#E8EEF8",
@@ -57,7 +54,6 @@ export const THEMES: Record<ThemeKey, ThemePreset> = {
   },
   warm: {
     label: "Warm",
-    swatch: "#8B5E3C",
     vars: {
       "--tutor-bg": "#FAF6F0",
       "--tutor-sidebar": "#F0E8DC",
@@ -79,7 +75,6 @@ export const THEMES: Record<ThemeKey, ThemePreset> = {
   },
   slate: {
     label: "Slate",
-    swatch: "#4A6B8A",
     vars: {
       "--tutor-bg": "#F2F4F6",
       "--tutor-sidebar": "#E6EAF0",
@@ -101,7 +96,6 @@ export const THEMES: Record<ThemeKey, ThemePreset> = {
   },
   rose: {
     label: "Rose",
-    swatch: "#9B5270",
     vars: {
       "--tutor-bg": "#FAF4F7",
       "--tutor-sidebar": "#F0E4EC",
@@ -123,70 +117,275 @@ export const THEMES: Record<ThemeKey, ThemePreset> = {
   },
 };
 
-const LS_KEY = "tutor-theme";
+export interface ThemeCustomization {
+  preset: ThemeKey;
+  overrides: Record<string, string>;
+}
 
-export function applyTheme(key: ThemeKey): void {
-  const preset = THEMES[key];
-  for (const [prop, value] of Object.entries(preset.vars)) {
+const DEFAULT_PRESET: ThemeKey = "sage";
+const LS_KEY = "tutor-theme-customization";
+const LS_KEY_LEGACY = "tutor-theme";
+
+/* Exposed color controls — the four most impactful custom knobs */
+const COLOR_CONTROLS: Array<{ label: string; varKey: string }> = [
+  { label: "Accent", varKey: "--tutor-accent" },
+  { label: "Background", varKey: "--tutor-bg" },
+  { label: "Sidebar", varKey: "--tutor-sidebar" },
+  { label: "User msg", varKey: "--tutor-user-bubble" },
+];
+
+function tryParseJSON(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function loadCustomization(): ThemeCustomization {
+  if (typeof window === "undefined") return { preset: DEFAULT_PRESET, overrides: {} };
+
+  const raw = localStorage.getItem(LS_KEY);
+  if (raw) {
+    const parsed = tryParseJSON(raw);
+    if (
+      parsed !== null &&
+      typeof parsed === "object" &&
+      "preset" in (parsed as object) &&
+      typeof (parsed as { preset: unknown }).preset === "string" &&
+      (parsed as { preset: string }).preset in THEMES
+    ) {
+      return parsed as ThemeCustomization;
+    }
+  }
+
+  /* Backwards compat: migrate from old "tutor-theme" key */
+  const legacy = localStorage.getItem(LS_KEY_LEGACY) as ThemeKey | null;
+  if (legacy && legacy in THEMES) return { preset: legacy, overrides: {} };
+
+  return { preset: DEFAULT_PRESET, overrides: {} };
+}
+
+function applyCustomization(c: ThemeCustomization): void {
+  const base = THEMES[c.preset].vars;
+  for (const [prop, value] of Object.entries(base)) {
+    document.documentElement.style.setProperty(prop, value);
+  }
+  for (const [prop, value] of Object.entries(c.overrides)) {
     document.documentElement.style.setProperty(prop, value);
   }
 }
 
-function getInitialTheme(): ThemeKey {
-  if (typeof window === "undefined") return "sage";
-  const saved = localStorage.getItem(LS_KEY) as ThemeKey | null;
-  return saved && saved in THEMES ? saved : "sage";
+function saveCustomization(c: ThemeCustomization): void {
+  localStorage.setItem(LS_KEY, JSON.stringify(c));
 }
 
+function effectiveColor(c: ThemeCustomization, varKey: string): string {
+  return c.overrides[varKey] ?? THEMES[c.preset].vars[varKey] ?? "#000000";
+}
+
+/* ── Component ── */
+
 export default function ThemePicker() {
-  const [active, setActive] = useState<ThemeKey>(getInitialTheme);
+  const [custom, setCustom] = useState<ThemeCustomization>(loadCustomization);
+  const [open, setOpen] = useState(false);
 
-  /* Apply theme vars to DOM on mount and whenever active changes */
   useEffect(() => {
-    applyTheme(active);
-  }, [active]);
+    applyCustomization(custom);
+  }, [custom]);
 
-  const handleSelect = (key: ThemeKey) => {
-    setActive(key);
-    applyTheme(key);
-    localStorage.setItem(LS_KEY, key);
+  const handlePreset = (key: ThemeKey) => {
+    const next: ThemeCustomization = { preset: key, overrides: {} };
+    setCustom(next);
+    saveCustomization(next);
   };
 
+  const handleColorChange = (varKey: string, value: string) => {
+    /* Apply immediately for smooth live preview during color picker drag */
+    document.documentElement.style.setProperty(varKey, value);
+    setCustom((prev) => {
+      const next: ThemeCustomization = {
+        ...prev,
+        overrides: { ...prev.overrides, [varKey]: value },
+      };
+      saveCustomization(next);
+      return next;
+    });
+  };
+
+  const handleReset = () => {
+    const next: ThemeCustomization = { preset: DEFAULT_PRESET, overrides: {} };
+    setCustom(next);
+    saveCustomization(next);
+    localStorage.removeItem(LS_KEY_LEGACY);
+  };
+
+  const accentColor = effectiveColor(custom, "--tutor-accent");
+
   return (
-    <div
-      className="px-4 py-3 flex items-center gap-2.5"
-      dir="ltr"
-      style={{ borderTop: "1px solid var(--tutor-border-subtle)" }}
-    >
-      <span
-        className="text-[10px] font-semibold uppercase tracking-wider flex-shrink-0"
-        style={{ color: "var(--tutor-text-muted)" }}
+    <div style={{ borderTop: "1px solid var(--tutor-border-subtle)" }}>
+      {/* Collapse toggle */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-medium transition-colors"
+        style={{ color: "var(--tutor-text-secondary)" }}
+        dir="ltr"
+        aria-expanded={open}
+        aria-controls="appearance-panel"
       >
-        Theme
+        <span className="flex items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            style={{
+              display: "inline-block",
+              transform: open ? "rotate(0deg)" : "rotate(-90deg)",
+              transition: "transform 200ms",
+              fontSize: "10px",
+            }}
+          >
+            ▾
+          </span>
+          Appearance
+        </span>
+        {/* Live accent preview dot */}
+        <span
+          aria-hidden="true"
+          className="w-3 h-3 rounded-full flex-shrink-0"
+          style={{ background: accentColor }}
+        />
+      </button>
+
+      {open && (
+        <div
+          id="appearance-panel"
+          className="px-4 pb-4 space-y-3"
+          dir="ltr"
+        >
+          {/* Preset row */}
+          <div>
+            <p
+              className="text-[10px] font-semibold uppercase tracking-wider mb-1.5"
+              style={{ color: "var(--tutor-text-muted)" }}
+            >
+              Preset
+            </p>
+            <div className="flex items-center gap-1 flex-wrap">
+              {(Object.keys(THEMES) as ThemeKey[]).map((key) => {
+                const isActive = custom.preset === key;
+                const swatch = THEMES[key].vars["--tutor-accent"];
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => handlePreset(key)}
+                    aria-label={`${THEMES[key].label} preset${isActive ? " (selected)" : ""}`}
+                    aria-pressed={isActive}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all"
+                    style={{
+                      background: isActive ? swatch : "var(--tutor-border-subtle)",
+                      color: isActive ? "#fff" : "var(--tutor-text-secondary)",
+                      border: isActive ? "none" : "1px solid var(--tutor-border)",
+                    }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ background: isActive ? "rgba(255,255,255,0.6)" : swatch }}
+                    />
+                    {THEMES[key].label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Manual color controls */}
+          <div className="space-y-2">
+            <p
+              className="text-[10px] font-semibold uppercase tracking-wider"
+              style={{ color: "var(--tutor-text-muted)" }}
+            >
+              Custom
+            </p>
+            {COLOR_CONTROLS.map(({ label, varKey }) => (
+              <ColorRow
+                key={varKey}
+                label={label}
+                value={effectiveColor(custom, varKey)}
+                onChange={(v) => handleColorChange(varKey, v)}
+              />
+            ))}
+          </div>
+
+          {/* Reset */}
+          <button
+            type="button"
+            onClick={handleReset}
+            className="w-full text-[10px] px-2.5 py-1.5 rounded-md transition-colors text-center"
+            style={{
+              border: "1px solid var(--tutor-border)",
+              color: "var(--tutor-text-muted)",
+            }}
+            aria-label="Reset appearance to default Sage theme"
+          >
+            Reset to default
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Color row sub-component ── */
+
+function ColorRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className="text-[11px] flex-shrink-0"
+        style={{ color: "var(--tutor-text-secondary)", minWidth: "68px" }}
+      >
+        {label}
       </span>
-      <div className="flex items-center gap-1.5">
-        {(Object.keys(THEMES) as ThemeKey[]).map((key) => {
-          const isActive = active === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => handleSelect(key)}
-              title={THEMES[key].label}
-              aria-label={`${THEMES[key].label} theme${isActive ? " (selected)" : ""}`}
-              aria-pressed={isActive}
-              className="w-5 h-5 rounded-full flex-shrink-0 transition-all"
-              style={{
-                background: THEMES[key].swatch,
-                outline: isActive
-                  ? `2px solid ${THEMES[key].swatch}`
-                  : "2px solid transparent",
-                outlineOffset: "2px",
-                transform: isActive ? "scale(1.2)" : "scale(1)",
-              }}
-            />
-          );
-        })}
+      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+        {/* Color swatch + native picker */}
+        <div className="relative flex-shrink-0" style={{ width: "22px", height: "22px" }}>
+          <input
+            type="color"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            aria-label={`${label} color`}
+            title={`${label}: ${value}`}
+          />
+          <span
+            aria-hidden="true"
+            className="block w-full h-full rounded pointer-events-none"
+            style={{
+              background: value,
+              border: "1px solid var(--tutor-border)",
+              borderRadius: "4px",
+            }}
+          />
+        </div>
+        {/* Hex value display */}
+        <span
+          className="text-[10px] font-mono tabular-nums truncate"
+          style={{ color: "var(--tutor-text-muted)" }}
+          aria-live="polite"
+          aria-label={`${label} hex value: ${value}`}
+        >
+          {value}
+        </span>
       </div>
     </div>
   );

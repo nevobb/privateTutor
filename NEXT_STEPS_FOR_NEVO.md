@@ -19,6 +19,12 @@ Build and tests pass. Manual browser verification is the blocker before merging.
    ```
 3. Verify checklist:
    - [ ] Sign-in screen: warm background, Lora wordmark "מורה פרטי", green button
+   - [ ] Click "Appearance" at sidebar bottom → panel expands
+   - [ ] Select "Blue" preset → whole UI turns blue immediately
+   - [ ] Click "Accent" color swatch → native picker opens, drag → live preview
+   - [ ] Change Background → live update
+   - [ ] Refresh → custom colors persist (no flash)
+   - [ ] Click "Reset to default" → returns to Sage
    - [ ] After sign-in: left sidebar with app name + avatar appears
    - [ ] Workspaces load as folder list (📁 items)
    - [ ] Create workspace → new folder item appears, no raw UUID visible

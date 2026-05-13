@@ -106,22 +106,26 @@ CSS variables defined in `:root` in `globals.css`:
 - Could expose a small JSON config object that writes to CSS variables at runtime
 - No large theme system built — just the token layer
 
-## 9b. Theme picker (Step 37B addition)
+## 9b. Appearance panel (Steps 37B + 37C)
 
 **Component:** `src/components/settings/ThemePicker.tsx`
 
-**Presets:** Sage (default) · Blue · Warm · Slate · Rose
+**What's in the panel (collapsible "Appearance" section at sidebar bottom):**
+
+1. **Preset row:** Sage · Blue · Warm · Slate · Rose — labeled buttons with accent swatch dot. Selecting a preset applies all 16 CSS variable tokens and clears manual overrides.
+2. **Custom color controls:** 4 manual `<input type="color">` rows — Accent, Background, Sidebar, User msg. Each shows the native color picker on click plus hex value display. Changes apply live immediately.
+3. **Reset button:** Returns to default Sage preset and clears all overrides.
 
 **How it works:**
-- Lazy `useState` initializer reads `localStorage["tutor-theme"]` on mount — no flash on refresh
-- `useEffect` calls `document.documentElement.style.setProperty(...)` for all 16 CSS variable tokens when active theme changes
-- Selection saved to `localStorage` for persistence across page refreshes
+- Lazy `useState` initializer reads `localStorage["tutor-theme-customization"]` on mount
+- Backwards compat: migrates from old `localStorage["tutor-theme"]` key if new key absent
+- `useEffect` calls `applyCustomization(custom)` (base preset vars + overrides) when state changes
+- `input[type=color] onChange` also calls `setProperty` immediately for smooth live drag preview
+- Saved structure: `{ preset: "sage", overrides: { "--tutor-accent": "#...", ... } }`
 
-**Persistence:** `localStorage` only. No Firestore, no API, no auth required.
+**Persistence:** `localStorage["tutor-theme-customization"]` only. No Firestore, no API, no auth required.
 
-**Future:** When user profile settings exist, theme preference can migrate to Firestore for cross-device sync.
-
-**Placement:** Bottom of left sidebar, below collapsible panels. Compact colored dot buttons with `aria-pressed` / `aria-label`. Does not dominate the UI.
+**Future:** When user profile settings exist, `overrides` object can migrate to Firestore for cross-device sync. No architectural change needed — just swap the storage layer.
 
 ## 10. File/memory panel changes
 

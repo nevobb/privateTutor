@@ -35,6 +35,7 @@ The original project documents are now present under `/docs` and are the source 
 - Workspace UI integration exists: WorkspaceSelector wired to API, AuthShell in page.tsx, Firebase Auth client hook, workspace API client helper.
 - Session UI integration exists: active workspace now loads sessions from API, session creation is wired to API, and active session is tracked in local UI state.
 - UX redesign pass complete (branch: design/personal-tutor-ux-redesign): centralized CSS design tokens, 2-column layout, sidebar-native workspace/session nav, simplified mode selectors, chat-first tutor area, Hebrew RTL message support via `dir="auto"`.
+- Appearance panel added: collapsible sidebar section with 5 preset themes + manual color controls (Accent, Background, Sidebar, User msg) + Reset. Persists in `localStorage` only.
 
 ## What is still mocked
 
