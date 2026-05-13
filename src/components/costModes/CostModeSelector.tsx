@@ -34,6 +34,7 @@ export default function CostModeSelector({ currentMode, onChange }: CostModeSele
   return (
     <div ref={ref} className="relative" dir="ltr">
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all"
         style={{
@@ -65,6 +66,7 @@ export default function CostModeSelector({ currentMode, onChange }: CostModeSele
             return (
               <button
                 key={mode}
+                type="button"
                 onClick={() => {
                   onChange(mode);
                   setOpen(false);

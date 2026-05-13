@@ -44,6 +44,7 @@ export default function WorkModeSelector({ currentMode, onChange }: WorkModeSele
         return (
           <button
             key={mode}
+            type="button"
             onClick={() => onChange(mode)}
             className="px-3.5 py-1.5 rounded-full text-xs font-medium transition-all"
             style={{
@@ -62,6 +63,7 @@ export default function WorkModeSelector({ currentMode, onChange }: WorkModeSele
       {/* Advanced dropdown trigger */}
       <div ref={dropdownRef} className="relative">
         <button
+          type="button"
           onClick={() => setShowAdvanced((v) => !v)}
           className="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1"
           style={{
@@ -96,6 +98,7 @@ export default function WorkModeSelector({ currentMode, onChange }: WorkModeSele
               return (
                 <button
                   key={mode}
+                  type="button"
                   onClick={() => {
                     onChange(mode);
                     setShowAdvanced(false);

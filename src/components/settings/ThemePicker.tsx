@@ -280,6 +280,8 @@ export default function ThemePicker() {
     applyCustomization(next);
     saveCustomization(next);
     localStorage.removeItem(LS_KEY_LEGACY);
+    savedCustomRef.current = next;
+    setOpen(false);
   };
 
   return (
