@@ -6,6 +6,7 @@
 
 ## 2. Nevo design preferences applied
 
+- **Step 37B:** Lightweight live theme picker added (localStorage, CSS variables, 5 presets)
 - Modern, calm, warm, personal study environment — not LMS, not admin dashboard
 - Left sidebar as primary navigation/context area
 - Chat occupies almost the whole screen; panels collapsible and visually secondary
@@ -38,6 +39,7 @@
 | File | Purpose |
 |------|---------|
 | `src/components/layout/CollapsiblePanel.tsx` | Small helper: collapsible sidebar section with toggle arrow and item count badge |
+| `src/components/settings/ThemePicker.tsx` | Lightweight live theme picker — 5 presets, CSS variables, localStorage persistence |
 
 ## 5. Layout changes
 
@@ -103,6 +105,23 @@ CSS variables defined in `:root` in `globals.css`:
 - A future theme picker only needs to update `:root` variable values
 - Could expose a small JSON config object that writes to CSS variables at runtime
 - No large theme system built — just the token layer
+
+## 9b. Theme picker (Step 37B addition)
+
+**Component:** `src/components/settings/ThemePicker.tsx`
+
+**Presets:** Sage (default) · Blue · Warm · Slate · Rose
+
+**How it works:**
+- Lazy `useState` initializer reads `localStorage["tutor-theme"]` on mount — no flash on refresh
+- `useEffect` calls `document.documentElement.style.setProperty(...)` for all 16 CSS variable tokens when active theme changes
+- Selection saved to `localStorage` for persistence across page refreshes
+
+**Persistence:** `localStorage` only. No Firestore, no API, no auth required.
+
+**Future:** When user profile settings exist, theme preference can migrate to Firestore for cross-device sync.
+
+**Placement:** Bottom of left sidebar, below collapsible panels. Compact colored dot buttons with `aria-pressed` / `aria-label`. Does not dominate the UI.
 
 ## 10. File/memory panel changes
 

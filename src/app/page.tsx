@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import MainLayout from "../components/layout/MainLayout";
 import CollapsiblePanel from "../components/layout/CollapsiblePanel";
+import ThemePicker from "../components/settings/ThemePicker";
 import WorkspaceSelector, {
   type SessionLoadState,
   type WorkspaceLoadState,
@@ -290,6 +291,7 @@ export default function Home() {
         >
           <MemoryPanel memory={mockLearnerMemory} />
         </CollapsiblePanel>
+        <ThemePicker />
       </div>
     </div>
   );
