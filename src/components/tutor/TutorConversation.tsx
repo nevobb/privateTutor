@@ -6,13 +6,23 @@ import { getMockTutorResponse } from "../../lib/tutor";
 
 interface TutorConversationProps {
   initialMessages: TutorMessage[];
+  activeSessionId: string | null;
+  workMode: WorkMode;
+  onWorkModeChange: (mode: WorkMode) => void;
+  costMode: CostMode;
+  onCostModeChange: (mode: CostMode) => void;
 }
 
-export default function TutorConversation({ initialMessages }: TutorConversationProps) {
+export default function TutorConversation({
+  initialMessages,
+  activeSessionId,
+  workMode,
+  onWorkModeChange,
+  costMode,
+  onCostModeChange,
+}: TutorConversationProps) {
   const [messages, setMessages] = useState<TutorMessage[]>(initialMessages);
   const [inputValue, setInputValue] = useState("");
-  const [workMode, setWorkMode] = useState<WorkMode>("Learning");
-  const [costMode, setCostMode] = useState<CostMode>("Normal Learning");
   const [isTyping, setIsTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -27,7 +37,7 @@ export default function TutorConversation({ initialMessages }: TutorConversation
     const userMsg: TutorMessage = {
       id: Date.now().toString(),
       role: "user",
-      content: inputValue.trim()
+      content: inputValue.trim(),
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -47,8 +57,12 @@ export default function TutorConversation({ initialMessages }: TutorConversation
   return (
     <div className="flex flex-col h-full max-w-4xl mx-auto w-full">
       <div className="flex items-center justify-between mb-2">
-        <WorkModeSelector currentMode={workMode} onChange={setWorkMode} />
-        <CostModeSelector currentMode={costMode} onChange={setCostMode} />
+        <WorkModeSelector currentMode={workMode} onChange={onWorkModeChange} />
+        <CostModeSelector currentMode={costMode} onChange={onCostModeChange} />
+      </div>
+
+      <div className="mb-4 text-xs text-[#75777e]" dir="rtl">
+        {activeSessionId ? `שיחה פעילה: ${activeSessionId}` : "אין שיחה פעילה. ניתן ליצור שיחה חדשה למעלה."}
       </div>
 
       <div className="flex-1 overflow-y-auto mb-6 pr-2 space-y-6">

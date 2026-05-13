@@ -2,22 +2,22 @@
 
 ## Immediate next step
 
-**Session UI integration (recommended)**
+**Focused UX redesign pass for workspace/session/tutor layout (recommended)**
 
-Session API boundary is now available:
+Session API boundary and session UI wiring now exist:
 - `POST /api/sessions`
 - `GET /api/sessions?workspaceId=<id>`
 
 ### Recommended now
 
-1. Wire the session selector to `GET /api/sessions?workspaceId=<id>`.
-2. Add session creation flow via `POST /api/sessions` when user starts a new session.
-3. Keep user identity server-owned (Bearer token only), no client `userId` trust.
-4. Keep tutor provider mock-only while integrating session UI.
+1. Run a focused visual/interaction cleanup for workspace/session/tutor layout only.
+2. Keep the newly wired session flow intact (load sessions on workspace change, create session, active session state).
+3. Improve usability and clarity in RTL flow without expanding backend scope.
+4. Keep tutor provider mock-only during the redesign pass.
 
-### Alternative next step (only if UX friction is observed)
+### Alternative next step (only if redesign is intentionally deferred)
 
-Run a focused manual UX redesign pass for session/workspace flow before adding more backend surface area.
+Add the next backend boundary for session transcript/messages.
 
 ---
 
@@ -27,7 +27,7 @@ Run a focused manual UX redesign pass for session/workspace flow before adding m
 
 ---
 
-## After session UI integration
+## After focused redesign pass
 
 ### Session transcript/message API boundary
 
@@ -35,7 +35,7 @@ Add the next narrow backend slice for session transcript boundaries (list/create
 
 ---
 
-## Explicitly out of scope until after session UI integration
+## Explicitly out of scope until after focused redesign pass
 
 - Message/transcript persistence UI
 - Firebase cloud connection
