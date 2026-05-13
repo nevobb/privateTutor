@@ -4,10 +4,8 @@
 
 /* ── Tutor workspace design tokens ── */
 :root {
+  /* Main area */
   --tutor-bg: #F8F4EF;
-  --tutor-sidebar: #EDE7DC;
-  --tutor-sidebar-hover: #E3DDD0;
-  --tutor-sidebar-active: #D8D0C4;
   --tutor-surface: #FFFFFF;
   --tutor-surface-raised: #FDFBF8;
   --tutor-border: #D8CFBF;
@@ -15,17 +13,35 @@
   --tutor-text: #2A1F14;
   --tutor-text-secondary: #6B5B4C;
   --tutor-text-muted: #9E9185;
-  --tutor-accent: #4D7E62;
-  --tutor-accent-hover: #3E6B52;
-  --tutor-accent-light: #EAF2EC;
-  --tutor-accent-text: #2E5C40;
-  --tutor-user-bubble: #E8EDFF;
-  --tutor-user-border: #BCC8F0;
-  --tutor-shadow-sm: 0 1px 2px rgba(42,31,20,0.06);
-  --tutor-shadow: 0 2px 8px rgba(42,31,20,0.09);
+
+  /* Sidebar surface — Navy default */
+  --tutor-sidebar: #1a2235;
+  --tutor-sidebar-hover: #243050;
+  --tutor-sidebar-active: #1e2d48;
+  --tutor-sidebar-border: #1e2a3e;
+
+  /* Sidebar text — new tokens (light values for dark/navy sidebar) */
+  --tutor-sidebar-text: #8896b3;
+  --tutor-sidebar-text-active: #a5b4e8;
+  --tutor-sidebar-text-muted: #4a5568;
+
+  /* Accent — Navy blue-purple */
+  --tutor-accent: #7b8fd4;
+  --tutor-accent-hover: #6a7ec3;
+  --tutor-accent-light: #e1e0ff;
+  --tutor-accent-text: #3b4fa8;
+
+  /* Chat bubbles */
+  --tutor-user-bubble: #c5cde8;
+  --tutor-user-border: #a5b4e8;
+
+  /* Shadows + radius */
+  --tutor-shadow-sm: 0 1px 2px rgba(26,34,53,0.08);
+  --tutor-shadow: 0 2px 8px rgba(26,34,53,0.12);
   --tutor-radius: 10px;
   --tutor-sidebar-width: 296px;
-  /* legacy compat */
+
+  /* Legacy compat */
   --background: var(--tutor-bg);
   --foreground: var(--tutor-text);
 }
@@ -69,4 +85,25 @@ body {
 }
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* WorkspaceSelector nav utilities */
+.section-nav-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--tutor-sidebar-text-muted);
+  padding: 10px 16px 4px;
+  user-select: none;
+}
+
+.nav-state-text {
+  font-size: 11px;
+  padding: 4px 16px;
+  color: var(--tutor-sidebar-text-muted);
+}
+
+.nav-state-empty {
+  font-style: italic;
 }
