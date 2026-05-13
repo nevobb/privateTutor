@@ -77,7 +77,7 @@ export default function WorkModeSelector({ currentMode, onChange }: WorkModeSele
           aria-label="More modes"
           aria-expanded={showAdvanced}
         >
-          {isAdvancedActive ? modeLabels[currentMode] : "עוד"}
+          {isAdvancedActive ? modeLabels[currentMode] : "More"}
           <span style={{ fontSize: "9px", opacity: 0.7 }}>▾</span>
         </button>
 
