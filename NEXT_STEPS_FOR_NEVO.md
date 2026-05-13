@@ -2,31 +2,38 @@
 
 ## Immediate next step
 
-Manual browser smoke test of the full local workspace flow.
+**PR 33B — Structured mock tutor response**
 
-### What to verify
+Domain types are now spec-aligned. The next step is wiring `TutorInternalUpdate` into the mock tutor response pipeline.
 
-1. Start the Firebase Auth emulator: `firebase emulators:start --only auth,firestore`
-2. Start the dev server: `npm run dev`
-3. Open the browser at `http://localhost:3000`
-4. Sign in with Google (Auth emulator intercepts — uses emulator sign-in flow)
-5. Workspace list loads from `GET /api/workspaces` (returns empty list for new user)
-6. Create a workspace via the "+ מרחב חדש" button
-7. Workspace appears in the selector
-8. Refresh — workspace persists (loaded from Firestore emulator on next sign-in)
+### What PR 33B changes
 
-### If sign-in fails
+1. `src/lib/tutor.ts` — update `getMockTutorResponse` to return `TutorInternalUpdate` instead of flat `internalUpdates`; add optional `conversationHistory` parameter stub
+2. `src/types/index.ts` — update `TutorResponse` shape: add `internalUpdate: TutorInternalUpdate`, remove legacy `internalUpdates` and `mockRouting`
+3. `src/server/tutor/schemas.ts` — update `validateTutorResponse` for new `TutorResponse` shape
+4. `src/server/tutor/mockTutorProvider.ts` — map to new internal update shape
+5. `tests/server/tutor.handler.test.ts` — update for new shape
 
-- Check Auth emulator is running at `http://127.0.0.1:9099`
-- Check Firestore emulator is running at `http://127.0.0.1:8080`
-- Check browser console for 401 or 503 errors
+No Gemini. No retrieval. Provider stays mock-only.
 
-## After the smoke test
+### What PR 33C changes (after 33B)
 
-### Session API boundary (next PR)
+Rewrite `tests/behavior.test.ts` to validate `internalUpdate.*` semantic fields instead of Hebrew string content.
+Add coverage for spec behavior tests T001–T013 from `docs/09_Behavior_Regression_Test_Suite.md`.
 
-Wire session creation and selection to a new `/api/sessions` API boundary.
-This is the next persistence slice after workspaces:
+---
+
+## Route decision recorded (GAP-005)
+
+`POST /api/tutor` is the canonical tutor endpoint. `/api/tutor/respond` is not created — the path follows Next.js App Router resource convention. This divergence from early spec planning is accepted. A DECISION_LOG entry will be added in a future cleanup PR.
+
+---
+
+## After 33B + 33C
+
+### Session API boundary
+
+Wire session creation and selection to `/api/sessions` API boundary.
 - `POST /api/sessions` — create session within a workspace
 - `GET /api/sessions?workspaceId=<id>` — list sessions for a workspace
 - Keep tutor provider mock-only
@@ -34,6 +41,8 @@ This is the next persistence slice after workspaces:
 ### Then: Session UI integration
 
 Wire the session selector in the UI to the session API.
+
+---
 
 ## Explicitly out of scope until after session boundary
 
@@ -51,8 +60,3 @@ Wire the session selector in the UI to the session API.
 3. Keep package changes minimal.
 4. Keep the tutor response provider mock-only.
 5. Do not claim production readiness.
-
-## Readiness note
-
-The repo is ready for a manual browser smoke test. If the smoke test passes,
-the session API boundary is the next implementation step.

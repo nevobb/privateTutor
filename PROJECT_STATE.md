@@ -66,6 +66,9 @@ The original project documents are now present under `/docs` and are the source 
 
 ## What is ready
 
+- Domain types in `src/types/index.ts` now include spec-aligned shapes: `TutorInternalUpdate`, extended `LearnerMemoryObservation` (type/scope/requiresApproval), richer `Workspace` (type/status/courseContext), richer `UploadedFile` (filePolicy/topic/indexing fields), richer `Session` (workMode/costMode/activeTopic/status). Mock data in `src/mock/data.ts` satisfies all new required fields.
+- Structured mock tutor response (`TutorResponse` using `TutorInternalUpdate`) is NOT yet wired — that is PR 33B.
+- Behavior regression tests using `internal_update.*` assertions are NOT yet written — that is PR 33C.
 - The repo is ready for docs-based planning and staged implementation.
 - The mock prototype is ready for review against `/docs`.
 - The type layer is ready to guide future provider abstractions without exposing secrets or connecting services.
