@@ -227,11 +227,6 @@ function effectiveColor(c: ThemeCustomization, varKey: string): string {
   return c.overrides[varKey] ?? THEMES[c.preset].vars[varKey] ?? "#000000";
 }
 
-/* ── All CSS var keys across all presets (for applying complete preset) ── */
-const ALL_VAR_KEYS = Array.from(
-  new Set(Object.values(THEMES).flatMap((t) => Object.keys(t.vars)))
-);
-
 /* ── Main component ── */
 
 export default function ThemePicker() {
