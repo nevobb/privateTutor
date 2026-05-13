@@ -227,218 +227,280 @@ function effectiveColor(c: ThemeCustomization, varKey: string): string {
   return c.overrides[varKey] ?? THEMES[c.preset].vars[varKey] ?? "#000000";
 }
 
-/* ── Component ── */
+/* ── All CSS var keys across all presets (for applying complete preset) ── */
+const ALL_VAR_KEYS = Array.from(
+  new Set(Object.values(THEMES).flatMap((t) => Object.keys(t.vars)))
+);
+
+/* ── Main component ── */
 
 export default function ThemePicker() {
   const [custom, setCustom] = useState<ThemeCustomization>(loadCustomization);
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
+  const savedCustomRef = useRef<ThemeCustomization>(custom);
 
   useEffect(() => {
     applyCustomization(custom);
-  }, [custom]);
+  }, []);
+
+  const accentColor = effectiveColor(custom, "--tutor-accent");
+  const bgColor = effectiveColor(custom, "--tutor-bg");
+  const sidebarColor = effectiveColor(custom, "--tutor-sidebar");
+
+  const handleOpen = () => {
+    savedCustomRef.current = custom;
+    setOpen(true);
+  };
+
+  const handleApply = () => {
+    saveCustomization(custom);
+    savedCustomRef.current = custom;
+    setOpen(false);
+  };
+
+  const handleCancel = () => {
+    const reverted = savedCustomRef.current;
+    setCustom(reverted);
+    applyCustomization(reverted);
+    setOpen(false);
+  };
 
   const handlePreset = (key: ThemeKey) => {
     const next: ThemeCustomization = { preset: key, overrides: {} };
     setCustom(next);
-    saveCustomization(next);
+    applyCustomization(next);
   };
 
   const handleColorChange = (varKey: string, value: string) => {
     document.documentElement.style.setProperty(varKey, value);
-    setCustom((prev) => {
-      const next: ThemeCustomization = {
-        ...prev,
-        overrides: { ...prev.overrides, [varKey]: value },
-      };
-      saveCustomization(next);
-      return next;
-    });
+    setCustom((prev) => ({
+      ...prev,
+      overrides: { ...prev.overrides, [varKey]: value },
+    }));
   };
 
   const handleReset = () => {
     const next: ThemeCustomization = { preset: DEFAULT_PRESET, overrides: {} };
     setCustom(next);
+    applyCustomization(next);
     saveCustomization(next);
     localStorage.removeItem(LS_KEY_LEGACY);
   };
 
-  const accentColor = effectiveColor(custom, "--tutor-accent");
-
   return (
-    <div
-      style={{
-        borderTop: "1px solid var(--tutor-border-subtle)",
-      }}
-    >
-      {/* Collapse toggle */}
+    <>
+      {/* ── Sidebar footer button ── */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-medium transition-colors"
-        style={{ color: "var(--tutor-text-secondary)" }}
-        dir="ltr"
-        aria-expanded={open}
-        aria-controls="appearance-panel"
+        onClick={handleOpen}
+        className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg transition-colors"
+        style={{
+          background: "var(--tutor-sidebar-hover)",
+          border: "1px solid rgba(255,255,255,0.06)",
+        }}
+        aria-label="Customize colors"
       >
-        <span className="flex items-center gap-1.5">
+        <span className="flex gap-1 flex-shrink-0">
           <span
+            className="w-2.5 h-2.5 rounded-full"
+            style={{ background: accentColor }}
             aria-hidden="true"
-            style={{
-              display: "inline-block",
-              transform: open ? "rotate(0deg)" : "rotate(-90deg)",
-              transition: "transform 200ms",
-              fontSize: "10px",
-            }}
-          >
-            ▾
-          </span>
-          Appearance · Customize colors
+          />
+          <span
+            className="w-2.5 h-2.5 rounded-full"
+            style={{ background: bgColor, border: "1px solid rgba(255,255,255,0.15)" }}
+            aria-hidden="true"
+          />
+          <span
+            className="w-2.5 h-2.5 rounded-full"
+            style={{ background: sidebarColor, border: "1px solid rgba(255,255,255,0.15)" }}
+            aria-hidden="true"
+          />
         </span>
-        {/* Live accent swatch */}
         <span
-          aria-hidden="true"
-          className="w-3 h-3 rounded-full flex-shrink-0"
-          style={{ background: accentColor, border: "1px solid rgba(0,0,0,0.1)" }}
-        />
+          className="text-xs font-medium"
+          style={{ color: "var(--tutor-sidebar-text)" }}
+        >
+          Customize colors
+        </span>
       </button>
 
+      {/* ── Modal overlay (position:fixed escapes sidebar DOM) ── */}
       {open && (
-        <div id="appearance-panel" className="px-4 pb-4 space-y-4" dir="ltr">
-          {/* Mood Presets */}
-          <div>
-            <div className="flex items-center justify-between mb-2.5">
-              <p
-                className="text-[10px] font-bold uppercase tracking-widest"
-                style={{ color: "var(--tutor-text-muted)", letterSpacing: "0.1em" }}
-              >
-                Mood Presets
-              </p>
-              <p
-                className="text-[10px]"
-                style={{ color: "var(--tutor-text-muted)" }}
-              >
-                quick start
-              </p>
-            </div>
-            <div className="grid grid-cols-5 gap-1.5">
-              {(Object.keys(THEMES) as ThemeKey[]).map((key) => {
-                const isActive = custom.preset === key;
-                const bg = THEMES[key].vars["--tutor-bg"];
-                const accent = THEMES[key].vars["--tutor-accent"];
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => handlePreset(key)}
-                    aria-label={`${THEMES[key].label} preset${isActive ? " (selected)" : ""}`}
-                    aria-pressed={isActive}
-                    className="flex flex-col items-center gap-1.5 py-2 px-1 rounded-lg transition-all"
-                    style={{
-                      border: isActive
-                        ? `2px solid ${accent}`
-                        : "2px solid var(--tutor-border-subtle)",
-                      background: isActive ? "var(--tutor-accent-light)" : "transparent",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive)
-                        (e.currentTarget as HTMLButtonElement).style.background =
-                          "var(--tutor-sidebar-hover)";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive)
-                        (e.currentTarget as HTMLButtonElement).style.background =
-                          "transparent";
-                    }}
-                  >
-                    {/* Split-circle preview */}
-                    <div
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: "50%",
-                        overflow: "hidden",
-                        display: "flex",
-                        border: "1px solid rgba(0,0,0,0.08)",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <div style={{ flex: 1, background: bg }} />
-                      <div style={{ flex: 1, background: accent }} />
-                    </div>
-                    <span
-                      className="text-[9px] font-medium truncate w-full text-center"
-                      style={{
-                        color: isActive ? accent : "var(--tutor-text-secondary)",
-                      }}
-                    >
-                      {THEMES[key].label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div style={{ height: 1, background: "var(--tutor-border-subtle)" }} />
-
-          {/* Fine Tuning */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between mb-0.5">
-              <p
-                className="text-[10px] font-bold uppercase tracking-widest"
-                style={{ color: "var(--tutor-text-muted)", letterSpacing: "0.1em" }}
-              >
-                Fine Tuning
-              </p>
-              <p
-                className="text-[10px]"
-                style={{ color: "var(--tutor-text-muted)" }}
-              >
-                individual tokens
-              </p>
-            </div>
-            {COLOR_CONTROLS.map(({ label, varKey }) => (
-              <ColorRow
-                key={varKey}
-                label={label}
-                value={effectiveColor(custom, varKey)}
-                onChange={(v) => handleColorChange(varKey, v)}
-              />
-            ))}
-          </div>
-
-          {/* Reset */}
-          <button
-            type="button"
-            onClick={handleReset}
-            className="w-full text-[10px] px-2.5 py-1.5 rounded-md transition-colors text-center"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: "rgba(10,14,25,0.6)" }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCancel();
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Customize Colors"
+        >
+          <div
+            className="rounded-2xl overflow-hidden"
             style={{
-              border: "1px solid var(--tutor-border)",
-              color: "var(--tutor-text-muted)",
+              background: "var(--tutor-surface)",
+              border: "1px solid var(--tutor-border-subtle)",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+              width: "400px",
+              maxHeight: "90vh",
+              overflowY: "auto",
             }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.color =
-                "var(--tutor-text-secondary)";
-              (e.currentTarget as HTMLButtonElement).style.background =
-                "var(--tutor-sidebar-hover)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.color =
-                "var(--tutor-text-muted)";
-              (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-            }}
-            aria-label="Reset appearance to default Sage theme"
+            onClick={(e) => e.stopPropagation()}
           >
-            Reset to default
-          </button>
+            {/* Header */}
+            <div
+              className="flex items-center justify-between px-5 py-3.5"
+              style={{
+                background: "var(--tutor-surface-raised)",
+                borderBottom: "1px solid var(--tutor-border-subtle)",
+              }}
+            >
+              <span
+                className="text-sm font-bold"
+                style={{ color: "var(--tutor-text)" }}
+              >
+                Customize Colors
+              </span>
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="w-7 h-7 flex items-center justify-center rounded-full transition-colors"
+                style={{ color: "var(--tutor-text-muted)" }}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-5">
+              {/* Quick presets */}
+              <div>
+                <p
+                  className="text-[9px] font-bold uppercase tracking-widest mb-3"
+                  style={{ color: "var(--tutor-text-muted)" }}
+                >
+                  Quick Presets
+                </p>
+                <div className="flex gap-2">
+                  {(Object.keys(THEMES) as ThemeKey[]).map((key) => {
+                    const isActive =
+                      custom.preset === key &&
+                      Object.keys(custom.overrides).length === 0;
+                    const sidebar = THEMES[key].vars["--tutor-sidebar"];
+                    const accent = THEMES[key].vars["--tutor-accent"];
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => handlePreset(key)}
+                        aria-pressed={isActive}
+                        className="flex flex-col items-center gap-1.5 py-2.5 px-2 rounded-xl flex-1 transition-all"
+                        style={{
+                          border: isActive
+                            ? `2px solid ${accent}`
+                            : "2px solid var(--tutor-border-subtle)",
+                          background: isActive
+                            ? "var(--tutor-accent-light)"
+                            : "transparent",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: "50%",
+                            overflow: "hidden",
+                            display: "flex",
+                            border: "1px solid rgba(0,0,0,0.08)",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <div style={{ flex: 1, background: sidebar }} />
+                          <div style={{ flex: 1, background: accent }} />
+                        </div>
+                        <span
+                          className="text-[9px] font-semibold"
+                          style={{
+                            color: isActive ? accent : "var(--tutor-text-muted)",
+                          }}
+                        >
+                          {THEMES[key].label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Fine tuning */}
+              <div>
+                <p
+                  className="text-[9px] font-bold uppercase tracking-widest mb-3"
+                  style={{ color: "var(--tutor-text-muted)" }}
+                >
+                  Fine Tuning
+                </p>
+                <div className="space-y-2">
+                  {COLOR_CONTROLS.map(({ label, varKey }) => (
+                    <ColorRow
+                      key={varKey}
+                      label={label}
+                      value={effectiveColor(custom, varKey)}
+                      onChange={(v) => handleColorChange(varKey, v)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div
+              className="flex items-center justify-between px-5 py-3"
+              style={{
+                borderTop: "1px solid var(--tutor-border-subtle)",
+                background: "var(--tutor-surface-raised)",
+              }}
+            >
+              <button
+                type="button"
+                onClick={handleReset}
+                className="text-xs px-3 py-1.5 rounded-lg transition-colors"
+                style={{ color: "var(--tutor-text-muted)" }}
+              >
+                Reset to default
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="text-xs px-4 py-1.5 rounded-lg transition-colors"
+                  style={{
+                    border: "1px solid var(--tutor-border)",
+                    color: "var(--tutor-text-secondary)",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApply}
+                  className="text-xs px-4 py-1.5 rounded-lg font-semibold text-white transition-colors"
+                  style={{ background: "var(--tutor-accent)" }}
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
-/* ── Color row with editable hex input ── */
+/* ── ColorRow sub-component ── */
 
 function ColorRow({
   label,
@@ -451,9 +513,8 @@ function ColorRow({
 }) {
   const [hexText, setHexText] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
-  const colorInputRef = useRef<HTMLInputElement>(null);
+  const pickerRef = useRef<HTMLInputElement>(null);
 
-  /* When not editing, always mirror the prop value (handles preset switches) */
   const displayText = isFocused ? hexText : value;
 
   const handleFocus = () => {
@@ -464,9 +525,7 @@ function ColorRow({
   const handleTextChange = (e: ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
     setHexText(raw);
-    if (/^#[0-9a-fA-F]{6}$/.test(raw)) {
-      onChange(raw);
-    }
+    if (/^#[0-9a-fA-F]{6}$/.test(raw)) onChange(raw);
   };
 
   const handleTextBlur = () => {
@@ -481,62 +540,56 @@ function ColorRow({
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div
+      className="flex items-center gap-3 px-3 py-2 rounded-lg"
+      style={{
+        background: "var(--tutor-surface-raised)",
+        border: "1px solid var(--tutor-border-subtle)",
+      }}
+    >
+      <div className="relative flex-shrink-0" style={{ width: 20, height: 20 }}>
+        <input
+          ref={pickerRef}
+          type="color"
+          value={value}
+          onChange={handlePickerChange}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          aria-label={`${label} color picker`}
+        />
+        <span
+          aria-hidden="true"
+          className="block w-full h-full pointer-events-none"
+          style={{
+            background: value,
+            border: "1px solid rgba(0,0,0,0.12)",
+            borderRadius: "4px",
+          }}
+        />
+      </div>
       <span
-        className="text-[11px] flex-shrink-0"
-        style={{ color: "var(--tutor-text-secondary)", minWidth: "62px" }}
+        className="text-xs flex-1"
+        style={{ color: "var(--tutor-text-secondary)" }}
       >
         {label}
       </span>
-      <div
-        className="flex items-center gap-2 flex-1 min-w-0 rounded-lg px-2 py-1"
+      <input
+        type="text"
+        value={displayText.toUpperCase()}
+        onFocus={handleFocus}
+        onChange={handleTextChange}
+        onBlur={handleTextBlur}
+        maxLength={7}
+        className="border-none outline-none font-mono text-right"
         style={{
-          border: "1px solid var(--tutor-border)",
-          background: "var(--tutor-surface)",
+          fontSize: "11px",
+          color: "var(--tutor-text-muted)",
+          background: "transparent",
+          width: "62px",
+          padding: 0,
         }}
-      >
-        {/* Visible swatch — clicking opens native color picker */}
-        <div
-          className="relative flex-shrink-0"
-          style={{ width: 18, height: 18 }}
-          title={`${label}: ${hexText}`}
-        >
-          <input
-            ref={colorInputRef}
-            type="color"
-            value={value}
-            onChange={handlePickerChange}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            aria-label={`${label} color picker`}
-          />
-          <span
-            aria-hidden="true"
-            className="block w-full h-full pointer-events-none"
-            style={{
-              background: value,
-              border: "1px solid rgba(0,0,0,0.12)",
-              borderRadius: "3px",
-            }}
-          />
-        </div>
-        {/* Editable hex input */}
-        <input
-          type="text"
-          value={displayText.toUpperCase()}
-          onFocus={handleFocus}
-          onChange={handleTextChange}
-          onBlur={handleTextBlur}
-          maxLength={7}
-          className="flex-1 min-w-0 bg-transparent border-none outline-none font-mono"
-          style={{
-            fontSize: "11px",
-            color: "var(--tutor-text)",
-            padding: 0,
-          }}
-          aria-label={`${label} hex value`}
-          spellCheck={false}
-        />
-      </div>
+        aria-label={`${label} hex value`}
+        spellCheck={false}
+      />
     </div>
   );
 }
