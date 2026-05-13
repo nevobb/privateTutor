@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
-export type ThemeKey = "sage" | "blue" | "warm" | "slate" | "rose";
+export type ThemeKey = "navy" | "sage" | "blue" | "warm" | "slate" | "rose";
 
 interface ThemePreset {
   label: string;
@@ -10,6 +10,31 @@ interface ThemePreset {
 }
 
 export const THEMES: Record<ThemeKey, ThemePreset> = {
+  navy: {
+    label: "Navy",
+    vars: {
+      "--tutor-bg": "#F8F4EF",
+      "--tutor-sidebar": "#1a2235",
+      "--tutor-sidebar-hover": "#243050",
+      "--tutor-sidebar-active": "#1e2d48",
+      "--tutor-sidebar-border": "#1e2a3e",
+      "--tutor-sidebar-text": "#8896b3",
+      "--tutor-sidebar-text-active": "#a5b4e8",
+      "--tutor-sidebar-text-muted": "#4a5568",
+      "--tutor-surface": "#FFFFFF",
+      "--tutor-border": "#D8CFBF",
+      "--tutor-border-subtle": "#EAE4D9",
+      "--tutor-text": "#2A1F14",
+      "--tutor-text-secondary": "#6B5B4C",
+      "--tutor-text-muted": "#9E9185",
+      "--tutor-accent": "#7b8fd4",
+      "--tutor-accent-hover": "#6a7ec3",
+      "--tutor-accent-light": "#e1e0ff",
+      "--tutor-accent-text": "#3b4fa8",
+      "--tutor-user-bubble": "#c5cde8",
+      "--tutor-user-border": "#a5b4e8",
+    },
+  },
   sage: {
     label: "Sage",
     vars: {
@@ -17,6 +42,10 @@ export const THEMES: Record<ThemeKey, ThemePreset> = {
       "--tutor-sidebar": "#EDE7DC",
       "--tutor-sidebar-hover": "#E3DDD0",
       "--tutor-sidebar-active": "#D8D0C4",
+      "--tutor-sidebar-border": "#EAE4D9",
+      "--tutor-sidebar-text": "#6B5B4C",
+      "--tutor-sidebar-text-active": "#2E5C40",
+      "--tutor-sidebar-text-muted": "#9E9185",
       "--tutor-surface": "#FFFFFF",
       "--tutor-border": "#D8CFBF",
       "--tutor-border-subtle": "#EAE4D9",
@@ -38,6 +67,10 @@ export const THEMES: Record<ThemeKey, ThemePreset> = {
       "--tutor-sidebar": "#E8EEF8",
       "--tutor-sidebar-hover": "#DCE5F2",
       "--tutor-sidebar-active": "#CDDAEE",
+      "--tutor-sidebar-border": "#E2EAF5",
+      "--tutor-sidebar-text": "#4A5A7A",
+      "--tutor-sidebar-text-active": "#1E4B9E",
+      "--tutor-sidebar-text-muted": "#8A9ABE",
       "--tutor-surface": "#FFFFFF",
       "--tutor-border": "#C8D5E8",
       "--tutor-border-subtle": "#E2EAF5",
@@ -59,6 +92,10 @@ export const THEMES: Record<ThemeKey, ThemePreset> = {
       "--tutor-sidebar": "#F0E8DC",
       "--tutor-sidebar-hover": "#E8DDD0",
       "--tutor-sidebar-active": "#DDD0C0",
+      "--tutor-sidebar-border": "#EAE0D0",
+      "--tutor-sidebar-text": "#6E4F38",
+      "--tutor-sidebar-text-active": "#5C3A22",
+      "--tutor-sidebar-text-muted": "#9C826A",
       "--tutor-surface": "#FFFFFF",
       "--tutor-border": "#D4C4A8",
       "--tutor-border-subtle": "#EAE0D0",
@@ -80,6 +117,10 @@ export const THEMES: Record<ThemeKey, ThemePreset> = {
       "--tutor-sidebar": "#E6EAF0",
       "--tutor-sidebar-hover": "#DAE0EA",
       "--tutor-sidebar-active": "#CDD5E2",
+      "--tutor-sidebar-border": "#E2E8F0",
+      "--tutor-sidebar-text": "#4A5E74",
+      "--tutor-sidebar-text-active": "#2A4E70",
+      "--tutor-sidebar-text-muted": "#8096B0",
       "--tutor-surface": "#FFFFFF",
       "--tutor-border": "#C8D0DC",
       "--tutor-border-subtle": "#E2E8F0",
@@ -101,6 +142,10 @@ export const THEMES: Record<ThemeKey, ThemePreset> = {
       "--tutor-sidebar": "#F0E4EC",
       "--tutor-sidebar-hover": "#E8D8E4",
       "--tutor-sidebar-active": "#DEC8D6",
+      "--tutor-sidebar-border": "#EAD8E4",
+      "--tutor-sidebar-text": "#6A3A50",
+      "--tutor-sidebar-text-active": "#6E2A44",
+      "--tutor-sidebar-text-muted": "#9E7888",
       "--tutor-surface": "#FFFFFF",
       "--tutor-border": "#D4B8C8",
       "--tutor-border-subtle": "#EAD8E4",
@@ -122,7 +167,7 @@ export interface ThemeCustomization {
   overrides: Record<string, string>;
 }
 
-const DEFAULT_PRESET: ThemeKey = "sage";
+const DEFAULT_PRESET: ThemeKey = "navy";
 const LS_KEY = "tutor-theme-customization";
 const LS_KEY_LEGACY = "tutor-theme";
 
