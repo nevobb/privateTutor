@@ -186,7 +186,7 @@ function effectiveColor(c: ThemeCustomization, varKey: string): string {
 
 export default function ThemePicker() {
   const [custom, setCustom] = useState<ThemeCustomization>(loadCustomization);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   useEffect(() => {
     applyCustomization(custom);
@@ -247,7 +247,7 @@ export default function ThemePicker() {
           >
             ▾
           </span>
-          Appearance
+          Appearance · Customize colors
         </span>
         {/* Live accent swatch */}
         <span
