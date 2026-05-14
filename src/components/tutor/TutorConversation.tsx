@@ -13,6 +13,7 @@ interface TutorConversationProps {
   onWorkModeChange: (mode: WorkMode) => void;
   costMode: CostMode;
   onCostModeChange: (mode: CostMode) => void;
+  activeTopicName?: string | null;
 }
 
 export default function TutorConversation({
@@ -22,6 +23,7 @@ export default function TutorConversation({
   onWorkModeChange,
   costMode,
   onCostModeChange,
+  activeTopicName,
 }: TutorConversationProps) {
   const [messages, setMessages] = useState<TutorMessage[]>(initialMessages);
   const [inputValue, setInputValue] = useState("");
@@ -63,6 +65,16 @@ export default function TutorConversation({
     }
   };
 
+  const scopeModeLabels: Record<WorkMode, string> = {
+    Learning: "Learn",
+    Practice: "Practice",
+    Research: "Research",
+    Build: "Build",
+    "Temporary Chat": "Temp Chat",
+  };
+  const scopeModeLabel = scopeModeLabels[workMode];
+  const scopeTopicLabel = activeTopicName ?? "No topic";
+
   return (
     <div
       className="flex flex-col h-full"
@@ -79,6 +91,19 @@ export default function TutorConversation({
       >
         <WorkModeSelector currentMode={workMode} onChange={onWorkModeChange} />
         <CostModeSelector currentMode={costMode} onChange={onCostModeChange} />
+      </div>
+
+      {/* Scope summary strip */}
+      <div
+        className="px-6 py-1.5 flex-shrink-0 text-xs"
+        style={{
+          color: "var(--tutor-text-muted)",
+          background: "var(--tutor-surface)",
+          borderBottom: "1px solid var(--tutor-border-subtle)",
+        }}
+        dir="ltr"
+      >
+        Topic: {scopeTopicLabel} · Mode: {scopeModeLabel} · Sources: not connected yet
       </div>
 
       {/* No-session notice */}
