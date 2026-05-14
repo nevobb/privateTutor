@@ -6,6 +6,7 @@ import type { FirestoreEmulatorClient } from "./firestoreTypes";
 
 const FIRESTORE_EMULATOR_APP_NAME = "demo-private-tutor-firestore-emulator";
 const FIRESTORE_EMULATOR_TIMEOUT_MS = 1500;
+const FIRESTORE_EMULATOR_CONNECTED_APPS_KEY = "__privateTutorFirestoreEmulatorConnectedApps";
 
 export class FirestoreEmulatorUnavailableError extends Error {
   public readonly code = "firestore_emulator_unreachable" as const;
@@ -49,11 +50,13 @@ export function isFirestoreEmulatorUnavailableError(error: unknown): error is Fi
 async function createFirestoreEmulatorClient(): Promise<FirestoreEmulatorClient> {
   await assertFirestoreEmulatorReachable();
 
-  const { app, isNewApp } = getOrCreateFirestoreApp();
+  const app = getOrCreateFirestoreApp();
   const db = getFirestore(app);
 
-  if (isNewApp) {
+  const connectedApps = getConnectedFirestoreEmulatorApps();
+  if (!connectedApps.has(app.name)) {
     connectFirestoreEmulator(db, firestoreServerConfig.host, firestoreServerConfig.port);
+    connectedApps.add(app.name);
   }
 
   return Object.freeze({
@@ -63,28 +66,31 @@ async function createFirestoreEmulatorClient(): Promise<FirestoreEmulatorClient>
   });
 }
 
-function getOrCreateFirestoreApp(): {
-  readonly app: FirebaseApp;
-  readonly isNewApp: boolean;
-} {
+function getOrCreateFirestoreApp(): FirebaseApp {
   const existingApp = getApps().find((app) => app.name === FIRESTORE_EMULATOR_APP_NAME);
 
   if (existingApp) {
-    return {
-      app: existingApp,
-      isNewApp: false,
-    };
+    return existingApp;
   }
 
-  return {
-    app: initializeApp(
-      {
-        projectId: firestoreServerConfig.projectId,
-      },
-      FIRESTORE_EMULATOR_APP_NAME
-    ),
-    isNewApp: true,
+  return initializeApp(
+    {
+      projectId: firestoreServerConfig.projectId,
+    },
+    FIRESTORE_EMULATOR_APP_NAME
+  );
+}
+
+function getConnectedFirestoreEmulatorApps(): Set<string> {
+  const globalState = globalThis as typeof globalThis & {
+    [FIRESTORE_EMULATOR_CONNECTED_APPS_KEY]?: Set<string>;
   };
+
+  if (!globalState[FIRESTORE_EMULATOR_CONNECTED_APPS_KEY]) {
+    globalState[FIRESTORE_EMULATOR_CONNECTED_APPS_KEY] = new Set<string>();
+  }
+
+  return globalState[FIRESTORE_EMULATOR_CONNECTED_APPS_KEY];
 }
 
 async function assertFirestoreEmulatorReachable(): Promise<void> {
