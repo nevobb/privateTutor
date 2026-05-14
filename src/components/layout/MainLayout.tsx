@@ -49,14 +49,11 @@ export default function MainLayout({ children, sidebar, activeTopicName }: MainL
             <button
               type="button"
               onClick={toggle}
-              className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-base"
-              style={{ color: "var(--tutor-sidebar-text)", background: "transparent" }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background =
-                  "var(--tutor-sidebar-hover)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-base"
+              style={{
+                background: "var(--tutor-sidebar-hover)",
+                color: "var(--tutor-sidebar-text-active)",
+                border: "1px solid var(--tutor-sidebar-border)",
               }}
               aria-label="Expand sidebar"
               title="Expand sidebar"
@@ -80,26 +77,24 @@ export default function MainLayout({ children, sidebar, activeTopicName }: MainL
         ) : (
           /* ── Expanded sidebar ── */
           <>
-            {/* Edge-tab collapse trigger — sits on the right border */}
+            {/* Collapse button — always visible, positioned in header area */}
             <button
               type="button"
               onClick={toggle}
-              className="flex items-center justify-center transition-opacity opacity-40 hover:opacity-100"
+              className="flex items-center justify-center"
               style={{
                 position: "absolute",
-                right: "-13px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                width: "13px",
-                height: "40px",
-                background: "var(--tutor-sidebar)",
-                border: "1px solid var(--tutor-border)",
-                borderLeft: "none",
-                borderRadius: "0 6px 6px 0",
+                top: "14px",
+                right: "52px",
+                width: "28px",
+                height: "28px",
+                background: "var(--tutor-sidebar-hover)",
+                color: "var(--tutor-sidebar-text-active)",
+                border: "1px solid var(--tutor-sidebar-border)",
+                borderRadius: "8px",
                 cursor: "pointer",
-                zIndex: 10,
-                color: "var(--tutor-sidebar-text-muted)",
-                fontSize: "10px",
+                zIndex: 20,
+                fontSize: "14px",
               }}
               aria-label="Collapse sidebar"
               title="Collapse sidebar"

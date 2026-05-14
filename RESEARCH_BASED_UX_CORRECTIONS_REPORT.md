@@ -1,6 +1,6 @@
 # Research-Based UX Corrections Report
 
-**Branch:** design/research-based-ux-corrections-clean
+**Branch:** design/research-based-ux-corrections-final
 **Date:** 2026-05-15
 **Type:** Design/UX only — no backend, API, or Firebase changes
 
@@ -8,7 +8,7 @@
 
 ## 1. Branch Used
 
-`design/research-based-ux-corrections-clean` (branched from `main` after PR #27 merge)
+`design/research-based-ux-corrections-final` (branched from `origin/main` after PR #27 merge)
 
 ---
 
@@ -42,7 +42,7 @@
   - `›` expand button at top (aria-label="Expand sidebar")
   - Topic initial pill (e.g. `C` for Calculus 1) if a topic is selected
   - Inner content hidden via `overflow: hidden`
-- **Expanded state:** edge-tab `‹` on right border (position:absolute, 13px wide, opacity 40% → 100% hover)
+- **Expanded state:** visible `‹` collapse button (28×28px, position:absolute, `top: 14px; right: 52px`, always-on background — no hover required for discoverability)
 - **Transition:** `width 200ms ease` on `<aside>`
 
 ---
@@ -65,16 +65,18 @@ Conversations
 
 ---
 
-## 6. Scope Summary Strip
+## 6. Context Strip
 
-Thin strip between toolbar and message list in `TutorConversation`:
+Visible strip between toolbar and message list in `TutorConversation`:
 
 ```
-Topic: Calculus 1 · Mode: Learn · Sources: not connected yet
+[Context]  Topic: Calculus 1 · Mode: Learn · Sources: not connected yet
 ```
 
-- Font: 11px, `var(--tutor-text-muted)`, `var(--tutor-surface)` bg
-- `flex-shrink-0`, `dir="ltr"`, bottom border `var(--tutor-border-subtle)`
+- `Context` pill label (10px, muted, rounded badge) followed by topic/mode/sources
+- Font: 12px, `var(--tutor-text-secondary)`, `var(--tutor-surface-raised)` bg (slightly distinct from toolbar)
+- `py-2.5` (~38px height), `flex-shrink-0`, `dir="ltr"`, bottom border `var(--tutor-border)`
+- `<bdi>` wraps topic name for Hebrew BiDi safety
 - Updates reactively as topic or mode changes
 - Sources text: "not connected yet" — honest, no fake retrieval implied
 - `SCOPE_MODE_LABELS` at module scope (not re-created on every render)

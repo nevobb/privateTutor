@@ -94,17 +94,30 @@ export default function TutorConversation({
         <CostModeSelector currentMode={costMode} onChange={onCostModeChange} />
       </div>
 
-      {/* Scope summary strip */}
+      {/* Context strip */}
       <div
-        className="px-6 py-1.5 flex-shrink-0 text-xs"
+        className="px-6 py-2.5 flex-shrink-0 flex items-center gap-2 text-xs"
         style={{
-          color: "var(--tutor-text-muted)",
-          background: "var(--tutor-surface)",
-          borderBottom: "1px solid var(--tutor-border-subtle)",
+          color: "var(--tutor-text-secondary)",
+          background: "var(--tutor-surface-raised)",
+          borderBottom: "1px solid var(--tutor-border)",
         }}
         dir="ltr"
       >
-        Topic: <bdi>{scopeTopicLabel}</bdi> · Mode: {scopeModeLabel} · Sources: not connected yet
+        <span
+          className="px-1.5 py-0.5 rounded font-semibold flex-shrink-0"
+          style={{
+            fontSize: "10px",
+            background: "var(--tutor-border-subtle)",
+            color: "var(--tutor-text-muted)",
+            letterSpacing: "0.04em",
+          }}
+        >
+          Context
+        </span>
+        <span>
+          Topic: <bdi>{scopeTopicLabel}</bdi> · Mode: {scopeModeLabel} · Sources: not connected yet
+        </span>
       </div>
 
       {/* No-session notice */}
