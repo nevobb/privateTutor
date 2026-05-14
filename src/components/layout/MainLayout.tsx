@@ -1,6 +1,6 @@
 "use client";
 
-import React, { ReactNode, useState, useEffect } from "react";
+import React, { ReactNode, useState } from "react";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -9,11 +9,9 @@ interface MainLayoutProps {
 }
 
 export default function MainLayout({ children, sidebar, activeTopicName }: MainLayoutProps) {
-  const [collapsed, setCollapsed] = useState(false);
-
-  useEffect(() => {
-    setCollapsed(localStorage.getItem("tutor-sidebar-collapsed") === "true");
-  }, []);
+  const [collapsed, setCollapsed] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem("tutor-sidebar-collapsed") === "true"
+  );
 
   const toggle = () => {
     setCollapsed((v) => {
