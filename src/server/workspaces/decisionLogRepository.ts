@@ -12,7 +12,7 @@ export async function writeDecisionLogEntry(
   userId: string,
   input: WriteDecisionLogEntryInput
 ): Promise<DecisionLogEntryRecord> {
-  return withFirestoreEmulatorClient(async ({ db }) => {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const entryId = randomUUID();
     const createdAt = new Date();
     const ref = doc(db, ...decisionLogPath(userId, entryId));

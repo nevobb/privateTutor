@@ -28,7 +28,7 @@ vi.mock("../../src/server/firebase/firestoreEmulatorClient", async () => {
 
   return {
     ...(actual as object),
-    getFirestoreEmulatorClient: async () => {
+    getFirestoreEmulatorClient: async (_userId?: string) => {
       if (!activeFirestore) throw new Error("Firestore test harness not initialized.");
       return {
         app: {} as never,
@@ -42,9 +42,15 @@ vi.mock("../../src/server/firebase/firestoreEmulatorClient", async () => {
       };
     },
     withFirestoreEmulatorClient: async <T>(
-      handler: (client: { db: WorkspaceEmulatorFirestore }) => Promise<T>
+      userIdOrHandler: string | ((client: { db: WorkspaceEmulatorFirestore }) => Promise<T>),
+      maybeHandler?: (client: { db: WorkspaceEmulatorFirestore }) => Promise<T>
     ) => {
       if (!activeFirestore) throw new Error("Firestore test harness not initialized.");
+      const handler =
+        typeof userIdOrHandler === "function" ? userIdOrHandler : maybeHandler;
+      if (!handler) {
+        throw new Error("Firestore test harness did not receive a handler.");
+      }
       return handler({ db: activeFirestore });
     },
     isFirestoreEmulatorUnavailableError: (

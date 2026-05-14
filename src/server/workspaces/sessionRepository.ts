@@ -14,7 +14,7 @@ export function sessionPath(
 }
 
 async function assertWorkspaceOwnership(userId: string, workspaceId: string): Promise<void> {
-  await withFirestoreEmulatorClient(async ({ db }) => {
+  await withFirestoreEmulatorClient(userId, async ({ db }) => {
     const workspaceSnapshot = await getDoc(doc(db, ...workspacePath(userId, workspaceId)));
     if (!workspaceSnapshot.exists() || workspaceSnapshot.data().userId !== userId) {
       throw new Error("Workspace not found.");
@@ -29,7 +29,7 @@ export async function createSession(
 ): Promise<SessionRecord> {
   await assertWorkspaceOwnership(userId, workspaceId);
 
-  return withFirestoreEmulatorClient(async ({ db }) => {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const sessionId = input.id && input.id.trim() ? input.id : randomUUID();
     const ref = doc(db, ...sessionPath(userId, workspaceId, sessionId));
     const existing = await getDoc(ref);
@@ -76,7 +76,7 @@ export async function createSession(
 export async function listSessions(userId: string, workspaceId: string): Promise<SessionRecord[]> {
   await assertWorkspaceOwnership(userId, workspaceId);
 
-  return withFirestoreEmulatorClient(async ({ db }) => {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const ref = collection(db, ...workspacePath(userId, workspaceId), "sessions");
     const snapshot = await getDocs(query(ref, orderBy("updatedAt", "desc")));
     return snapshot.docs
@@ -88,7 +88,7 @@ export async function listSessions(userId: string, workspaceId: string): Promise
 export async function getSession(userId: string, workspaceId: string, sessionId: string): Promise<SessionRecord | null> {
   await assertWorkspaceOwnership(userId, workspaceId);
 
-  return withFirestoreEmulatorClient(async ({ db }) => {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const snapshot = await getDoc(doc(db, ...sessionPath(userId, workspaceId, sessionId)));
     if (!snapshot.exists() || snapshot.data().userId !== userId) {
       return null;

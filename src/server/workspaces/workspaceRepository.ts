@@ -9,7 +9,7 @@ export function workspacePath(userId: string, workspaceId: string): [string, str
 }
 
 export async function createWorkspace(userId: string, input: CreateWorkspaceInput): Promise<WorkspaceRecord> {
-  return withFirestoreEmulatorClient(async ({ db }) => {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const workspaceId = randomUUID();
     const now = new Date();
     const ref = doc(db, ...workspacePath(userId, workspaceId));
@@ -38,7 +38,7 @@ export async function createWorkspaceWithId(
   workspaceId: string,
   input: CreateWorkspaceInput
 ): Promise<WorkspaceRecord> {
-  return withFirestoreEmulatorClient(async ({ db }) => {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const now = new Date();
     const ref = doc(db, ...workspacePath(userId, workspaceId));
     const snapshot = await getDoc(ref);
@@ -67,7 +67,7 @@ export async function createWorkspaceWithId(
 }
 
 export async function listWorkspaces(userId: string): Promise<WorkspaceRecord[]> {
-  return withFirestoreEmulatorClient(async ({ db }) => {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const ref = collection(db, "users", userId, "workspaces");
     const snapshot = await getDocs(query(ref, orderBy("updatedAt", "desc")));
     return snapshot.docs
@@ -77,7 +77,7 @@ export async function listWorkspaces(userId: string): Promise<WorkspaceRecord[]>
 }
 
 export async function getWorkspace(userId: string, workspaceId: string): Promise<WorkspaceRecord | null> {
-  return withFirestoreEmulatorClient(async ({ db }) => {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const snapshot = await getDoc(doc(db, ...workspacePath(userId, workspaceId)));
 
     if (!snapshot.exists()) {

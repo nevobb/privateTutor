@@ -16,7 +16,7 @@ function messagePath(
 }
 
 async function assertSessionOwnership(userId: string, workspaceId: string, sessionId: string): Promise<void> {
-  await withFirestoreEmulatorClient(async ({ db }) => {
+  await withFirestoreEmulatorClient(userId, async ({ db }) => {
     const workspaceSnapshot = await getDoc(doc(db, ...workspacePath(userId, workspaceId)));
     if (!workspaceSnapshot.exists() || workspaceSnapshot.data().userId !== userId) {
       throw new Error("Workspace not found.");
@@ -37,7 +37,7 @@ export async function appendMessage(
 ): Promise<MessageRecord> {
   await assertSessionOwnership(userId, workspaceId, sessionId);
 
-  return withFirestoreEmulatorClient(async ({ db }) => {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const messageId = randomUUID();
     const now = new Date();
     const sessionRef = doc(db, ...sessionPath(userId, workspaceId, sessionId));
@@ -92,7 +92,7 @@ function compactRecord(record: object): Record<string, unknown> {
 export async function listSessionMessages(userId: string, workspaceId: string, sessionId: string): Promise<MessageRecord[]> {
   await assertSessionOwnership(userId, workspaceId, sessionId);
 
-  return withFirestoreEmulatorClient(async ({ db }) => {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const messagesRef = collection(db, ...sessionPath(userId, workspaceId, sessionId), "messages");
     const snapshot = await getDocs(query(messagesRef, orderBy("sequence", "asc")));
 

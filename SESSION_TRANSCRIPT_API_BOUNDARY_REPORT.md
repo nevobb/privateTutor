@@ -38,7 +38,9 @@
 - Tutor message persisted via `messageRepository.appendMessage`.
 - Session `messageCount` and `lastMessageAt` updated atomically by repository layer.
 - Firestore path: `users/{uid}/workspaces/{wsId}/sessions/{sessId}/messages/{msgId}`.
-- `firestore.rules` already allowed owner create/read for messages — **no rule change needed**.
+- `firestore.rules` owner-only behavior is required for this boundary.
+- Step 39B briefly introduced a temporary server-emulator UID bypass and Step 39C removed it.
+- Final state is strict owner-only (`request.auth.uid == userId`) with no global bypass.
 
 ---
 
@@ -101,7 +103,7 @@ FIREBASE_SESSION_MESSAGES_EMULATOR_TEST=1 npx vitest run tests/firebase/sessionM
 ## What Was NOT Changed
 
 - `package.json` — no packages added
-- `firestore.rules` — already covered messages subcollection
+- `firestore.rules` — final state remains owner-only with no emulator UID bypass
 - `storage.rules`
 - `/api/tutor` backend route — unchanged
 - Workspace/session creation — unchanged
