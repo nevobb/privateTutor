@@ -2,6 +2,23 @@
 
 ## Immediate next step
 
+**Step 39 — Session transcript/message API boundary**
+
+Connect `TutorConversation` to real session messages via existing session API routes. Branch from `main`.
+
+---
+
+## Step 38C — Research-based UX corrections ✓ COMPLETE
+
+Branch: `design/research-based-ux-corrections` — PR open, awaiting merge.
+- Collapsible sidebar with 48px mini-rail (topic initial, localStorage-persisted)
+- Scope summary strip: Topic · Mode · Sources (display-only)
+- Build ✓ Lint ✓ Tests 153/153 ✓
+
+---
+
+## Previous: Manual browser UX smoke test
+
 **Manual browser UX smoke test**
 
 The UX redesign pass is complete on branch `design/personal-tutor-ux-redesign`.
