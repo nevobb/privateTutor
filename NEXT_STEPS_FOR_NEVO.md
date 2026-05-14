@@ -2,17 +2,29 @@
 
 ## Immediate next step
 
-**Step 39 — Session transcript/message API boundary**
+**Step 40 — Connect to real Gemini/Genkit tutor provider**
 
-Connect `TutorConversation` to real session messages via existing session API routes. Branch from `main`.
+Replace `getMockTutorResponse` in `sessionMessageApiService` with a real Gemini call via Genkit.
+The message boundary exists and is server-owned. Only the provider is still mock.
+Branch from `main`.
+
+---
+
+## Step 39 — Session transcript API boundary ✓ COMPLETE
+
+Branch: `feat/session-transcript-api-boundary`
+- GET + POST `/api/sessions/[sessionId]/messages`
+- Messages persisted in Firestore emulator
+- TutorConversation wired to API (no more browser mock)
+- Build ✓ Lint ✓ Tests 187/187 ✓
 
 ---
 
 ## Step 38C — Research-based UX corrections ✓ COMPLETE
 
-Branch: `design/research-based-ux-corrections-clean` — PR #29 open, awaiting merge.
+Branch: `design/research-based-ux-corrections-final` — PR #30 merged.
 - Collapsible sidebar with 48px mini-rail (topic initial, localStorage-persisted)
-- Scope summary strip: Topic · Mode · Sources (display-only)
+- Context strip: Topic · Mode · Sources
 - Build ✓ Lint ✓ Tests 153/153 ✓
 
 ---
