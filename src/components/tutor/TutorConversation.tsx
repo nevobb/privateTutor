@@ -104,7 +104,7 @@ export default function TutorConversation({
         }}
         dir="ltr"
       >
-        Topic: {scopeTopicLabel} · Mode: {scopeModeLabel} · Sources: not connected yet
+        Topic: <bdi>{scopeTopicLabel}</bdi> · Mode: {scopeModeLabel} · Sources: not connected yet
       </div>
 
       {/* No-session notice */}
