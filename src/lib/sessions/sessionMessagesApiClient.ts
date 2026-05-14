@@ -1,6 +1,8 @@
 import type { TutorMessage } from "../../types";
 import type { FetchMessagesApiResponse, SendMessageApiResponse, SendMessageInput } from "./sessionMessagesApiTypes";
 
+const REQUEST_TIMEOUT_MS = 8000;
+
 export class SessionMessagesApiError extends Error {
   constructor(
     message: string,
@@ -21,7 +23,7 @@ export async function fetchSessionMessages(
   const normalizedSessionId = requireString(sessionId, "sessionId");
 
   const url = `/api/sessions/${encodeURIComponent(normalizedSessionId)}/messages?workspaceId=${encodeURIComponent(normalizedWorkspaceId)}`;
-  const res = await fetch(url, {
+  const res = await runMessagesRequest(url, {
     method: "GET",
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -48,7 +50,7 @@ export async function sendSessionMessage(
     costMode: input.costMode,
   };
 
-  const res = await fetch(`/api/sessions/${encodeURIComponent(normalizedSessionId)}/messages`, {
+  const res = await runMessagesRequest(`/api/sessions/${encodeURIComponent(normalizedSessionId)}/messages`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -81,4 +83,24 @@ function requireString(value: string, name: string): string {
 async function createApiError(response: Response, fallback: string): Promise<SessionMessagesApiError> {
   const body = (await response.json().catch(() => ({}))) as { error?: string };
   return new SessionMessagesApiError(body.error ?? fallback, response.status);
+}
+
+async function runMessagesRequest(input: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error: unknown) {
+    if (isAbortError(error)) {
+      throw new SessionMessagesApiError("שירות ההודעות לא הגיב בזמן. נסה שוב.", 503);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
 }

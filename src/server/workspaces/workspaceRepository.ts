@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { collection, doc, getDocs, getDoc, orderBy, query, setDoc } from "firebase/firestore";
+import { collection, doc, getDocs, getDoc, orderBy, query, setDoc } from "firebase/firestore/lite";
 import { withFirestoreEmulatorClient } from "../firebase/firestoreEmulatorClient";
 import type { CreateWorkspaceInput, WorkspaceRecord } from "./workspaceTypes";
 import { toDate } from "./workspaceTypes";

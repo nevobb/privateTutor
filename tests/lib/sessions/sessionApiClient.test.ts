@@ -61,6 +61,13 @@ describe("fetchSessions", () => {
     await expect(fetchSessions(TOKEN, "ws-1")).rejects.toThrow(SessionApiError);
     await expect(fetchSessions(TOKEN, "ws-1")).rejects.toMatchObject({ status: 401 });
   });
+
+  it("fails fast with a safe message on timeout", async () => {
+    mockFetch.mockRejectedValue(new DOMException("timed out", "AbortError"));
+
+    await expect(fetchSessions(TOKEN, "ws-1")).rejects.toMatchObject({ status: 503 });
+    await expect(fetchSessions(TOKEN, "ws-1")).rejects.toThrow("שירות השיחות לא הגיב בזמן. נסה שוב.");
+  });
 });
 
 describe("createSession", () => {
@@ -117,5 +124,14 @@ describe("createSession", () => {
     mockFetch.mockResolvedValue(new Response("not-json", { status: 500 }));
 
     await expect(createSession(TOKEN, { workspaceId: "ws-1" })).rejects.toThrow(SessionApiError);
+  });
+
+  it("fails fast with a safe message on timeout", async () => {
+    mockFetch.mockRejectedValue(new DOMException("timed out", "AbortError"));
+
+    await expect(createSession(TOKEN, { workspaceId: "ws-1" })).rejects.toMatchObject({ status: 503 });
+    await expect(createSession(TOKEN, { workspaceId: "ws-1" })).rejects.toThrow(
+      "שירות השיחות לא הגיב בזמן. נסה שוב."
+    );
   });
 });

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore/lite";
 import { withFirestoreEmulatorClient } from "../firebase/firestoreEmulatorClient";
 import type { DecisionLogEntryRecord, WriteDecisionLogEntryInput } from "./workspaceTypes";
 import { toDate } from "./workspaceTypes";

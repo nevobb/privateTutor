@@ -10,7 +10,7 @@ vi.mock("firebase/app", () => ({
   getApps: mockGetApps,
 }));
 
-vi.mock("firebase/firestore", () => ({
+vi.mock("firebase/firestore/lite", () => ({
   getFirestore: mockGetFirestore,
   connectFirestoreEmulator: mockConnectFirestoreEmulator,
 }));
@@ -45,7 +45,17 @@ describe("firestoreEmulatorClient", () => {
 
     expect(mockInitializeApp).toHaveBeenCalledTimes(1);
     expect(mockConnectFirestoreEmulator).toHaveBeenCalledTimes(1);
-    expect(mockConnectFirestoreEmulator).toHaveBeenCalledWith(db, "127.0.0.1", 8080);
+    expect(mockConnectFirestoreEmulator).toHaveBeenCalledWith(
+      db,
+      "127.0.0.1",
+      8080,
+      expect.objectContaining({
+        mockUserToken: expect.objectContaining({
+          sub: "server-emulator",
+          user_id: "server-emulator",
+        }),
+      })
+    );
   });
 
   it("connects Firestore emulator for an existing app (hot-reload path) exactly once", async () => {
@@ -61,6 +71,16 @@ describe("firestoreEmulatorClient", () => {
 
     expect(mockInitializeApp).not.toHaveBeenCalled();
     expect(mockConnectFirestoreEmulator).toHaveBeenCalledTimes(1);
-    expect(mockConnectFirestoreEmulator).toHaveBeenCalledWith(db, "127.0.0.1", 8080);
+    expect(mockConnectFirestoreEmulator).toHaveBeenCalledWith(
+      db,
+      "127.0.0.1",
+      8080,
+      expect.objectContaining({
+        mockUserToken: expect.objectContaining({
+          sub: "server-emulator",
+          user_id: "server-emulator",
+        }),
+      })
+    );
   });
 });

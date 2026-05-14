@@ -234,7 +234,7 @@ export default function TutorConversation({
         <form onSubmit={handleSubmit} className="relative">
           <textarea
             rows={1}
-            placeholder={activeSessionId ? "Type a message..." : "Select a conversation first..."}
+            placeholder={activeSessionId ? "Type a message..." : "Create or select a conversation first..."}
             className="w-full resize-none rounded-2xl px-5 py-3.5 pr-14 text-sm outline-none transition-all"
             style={{
               background: "var(--tutor-surface)",

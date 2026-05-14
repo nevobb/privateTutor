@@ -52,6 +52,15 @@ describeClient("sessionMessagesApiClient", () => {
     await expect(mod.fetchSessionMessages("tok", "ws", "sess")).rejects.toMatchObject({ status: 404 });
   });
 
+  it("fetchSessionMessages fails fast with a safe message on timeout", async () => {
+    vi.mocked(fetch).mockRejectedValue(new DOMException("timed out", "AbortError"));
+
+    await expect(mod.fetchSessionMessages("tok", "ws", "sess")).rejects.toMatchObject({
+      status: 503,
+      message: "שירות ההודעות לא הגיב בזמן. נסה שוב.",
+    });
+  });
+
   it("sendSessionMessage sends Bearer token and never userId in body", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(
@@ -93,6 +102,20 @@ describeClient("sessionMessagesApiClient", () => {
         costMode: "Normal Learning",
       })
     ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("sendSessionMessage fails fast with a safe message on timeout", async () => {
+    vi.mocked(fetch).mockRejectedValue(new DOMException("timed out", "AbortError"));
+
+    await expect(
+      mod.sendSessionMessage("tok", {
+        workspaceId: "ws",
+        sessionId: "sess",
+        userMessage: "hi",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      })
+    ).rejects.toMatchObject({ status: 503 });
   });
 
   it("throws SessionMessagesApiError(401) when token is empty", async () => {
