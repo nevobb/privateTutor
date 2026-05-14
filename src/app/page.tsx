@@ -229,6 +229,11 @@ export default function Home() {
       ? (authState.user?.displayName?.[0]?.toUpperCase() ?? "N")
       : "N";
 
+  const activeTopicName: string | null =
+    workspaceState.status === "ready" && activeWorkspaceId !== null
+      ? (workspaceState.workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? null)
+      : null;
+
   const sidebar = (
     <div className="flex flex-col h-full" dir="ltr">
       {/* Sidebar header: app name + user */}
@@ -298,7 +303,7 @@ export default function Home() {
 
   return (
     <AuthShell authState={authState} onSignIn={signIn}>
-      <MainLayout sidebar={sidebar}>
+      <MainLayout sidebar={sidebar} activeTopicName={activeTopicName}>
         <TutorConversation
           initialMessages={mockTutorMessages}
           activeSessionId={activeSessionId}
@@ -306,6 +311,7 @@ export default function Home() {
           onWorkModeChange={setWorkMode}
           costMode={costMode}
           onCostModeChange={setCostMode}
+          activeTopicName={activeTopicName}
         />
       </MainLayout>
     </AuthShell>

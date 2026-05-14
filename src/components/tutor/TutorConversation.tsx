@@ -6,6 +6,14 @@ import WorkModeSelector from "../workModes/WorkModeSelector";
 import CostModeSelector from "../costModes/CostModeSelector";
 import { getMockTutorResponse } from "../../lib/tutor";
 
+const SCOPE_MODE_LABELS: Record<WorkMode, string> = {
+  Learning: "Learn",
+  Practice: "Practice",
+  Research: "Research",
+  Build: "Build",
+  "Temporary Chat": "Temp Chat",
+};
+
 interface TutorConversationProps {
   initialMessages: TutorMessage[];
   activeSessionId: string | null;
@@ -13,6 +21,7 @@ interface TutorConversationProps {
   onWorkModeChange: (mode: WorkMode) => void;
   costMode: CostMode;
   onCostModeChange: (mode: CostMode) => void;
+  activeTopicName?: string | null;
 }
 
 export default function TutorConversation({
@@ -22,6 +31,7 @@ export default function TutorConversation({
   onWorkModeChange,
   costMode,
   onCostModeChange,
+  activeTopicName,
 }: TutorConversationProps) {
   const [messages, setMessages] = useState<TutorMessage[]>(initialMessages);
   const [inputValue, setInputValue] = useState("");
@@ -63,6 +73,9 @@ export default function TutorConversation({
     }
   };
 
+  const scopeModeLabel = SCOPE_MODE_LABELS[workMode];
+  const scopeTopicLabel = activeTopicName ?? "No topic";
+
   return (
     <div
       className="flex flex-col h-full"
@@ -79,6 +92,32 @@ export default function TutorConversation({
       >
         <WorkModeSelector currentMode={workMode} onChange={onWorkModeChange} />
         <CostModeSelector currentMode={costMode} onChange={onCostModeChange} />
+      </div>
+
+      {/* Context strip */}
+      <div
+        className="px-6 py-2.5 flex-shrink-0 flex items-center gap-2 text-xs"
+        style={{
+          color: "var(--tutor-text-secondary)",
+          background: "var(--tutor-surface-raised)",
+          borderBottom: "1px solid var(--tutor-border)",
+        }}
+        dir="ltr"
+      >
+        <span
+          className="px-1.5 py-0.5 rounded font-semibold flex-shrink-0"
+          style={{
+            fontSize: "10px",
+            background: "var(--tutor-border-subtle)",
+            color: "var(--tutor-text-muted)",
+            letterSpacing: "0.04em",
+          }}
+        >
+          Context
+        </span>
+        <span>
+          Topic: <bdi>{scopeTopicLabel}</bdi> · Mode: {scopeModeLabel} · Sources: not connected yet
+        </span>
       </div>
 
       {/* No-session notice */}
