@@ -6,20 +6,47 @@ interface FilePanelProps {
 }
 
 export default function FilePanel({ files }: FilePanelProps) {
+  if (files.length === 0) {
+    return (
+      <p className="text-xs italic py-1" style={{ color: "var(--tutor-text-muted)" }}>
+        אין חומרים עדיין
+      </p>
+    );
+  }
+
   return (
-    <div className="flex flex-col h-full">
-      <h2 className="text-lg font-serif font-bold text-[#041632] mb-4">חומרי מחקר</h2>
-      <div className="flex-1 space-y-2">
-        {files.map((file) => (
-          <div key={file.id} className="p-3 border border-[#c5c6ce] rounded-md bg-white hover:bg-[#eff4ff] cursor-pointer transition-colors">
-            <p className="text-sm font-medium">{file.name}</p>
-            <p className="text-xs text-[#44474d] mt-1">{file.uploadedAt.toLocaleDateString()}</p>
-          </div>
-        ))}
-      </div>
-      <button className="mt-4 w-full py-2 border border-[#75777e] text-[#041632] rounded hover:bg-[#dce9ff] transition-colors text-sm font-medium">
-        העלאת מסמך חדש
-      </button>
+    <div className="space-y-1" dir="rtl">
+      {files.map((file) => (
+        <div
+          key={file.id}
+          className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors text-xs"
+          style={{ color: "var(--tutor-text-secondary)" }}
+          onMouseEnter={(e) =>
+            ((e.currentTarget as HTMLDivElement).style.background =
+              "var(--tutor-sidebar-hover)")
+          }
+          onMouseLeave={(e) =>
+            ((e.currentTarget as HTMLDivElement).style.background = "transparent")
+          }
+        >
+          <span style={{ fontSize: "12px" }} aria-hidden="true">
+            {getFileIcon(file.sourceType)}
+          </span>
+          <span className="truncate flex-1">{file.name}</span>
+          <span style={{ color: "var(--tutor-text-muted)", flexShrink: 0 }}>
+            {file.uploadedAt.toLocaleDateString("he-IL", { day: "numeric", month: "short" })}
+          </span>
+        </div>
+      ))}
     </div>
   );
+}
+
+function getFileIcon(sourceType: UploadedFile["sourceType"]) {
+  switch (sourceType) {
+    case "pdf": return "📄";
+    case "docx": return "📝";
+    case "note": return "🗒️";
+    default: return "📎";
+  }
 }

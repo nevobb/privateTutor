@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import React, { useState, useRef, useEffect } from "react";
 import { WorkMode } from "../../types";
 
 interface WorkModeSelectorProps {
@@ -7,31 +9,114 @@ interface WorkModeSelectorProps {
 }
 
 const modeLabels: Record<WorkMode, string> = {
-  "Learning": "למידה",
-  "Practice": "תרגול",
-  "Research": "מחקר",
-  "Build": "בנייה",
-  "Temporary Chat": "צ'אט זמני"
+  Learning: "Learn",
+  Practice: "Practice",
+  Research: "Research",
+  Build: "Build",
+  "Temporary Chat": "Temp Chat",
 };
 
-const modes: WorkMode[] = ["Learning", "Practice", "Research", "Build", "Temporary Chat"];
+/* Primary modes shown as pill buttons */
+const primaryModes: WorkMode[] = ["Learning", "Practice"];
+/* Advanced modes hidden under "More" */
+const advancedModes: WorkMode[] = ["Research", "Build", "Temporary Chat"];
 
 export default function WorkModeSelector({ currentMode, onChange }: WorkModeSelectorProps) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowAdvanced(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const isAdvancedActive = advancedModes.includes(currentMode);
+
   return (
-    <div className="flex border-b border-[#c5c6ce] mb-6 overflow-x-auto hide-scrollbar">
-      {modes.map((mode) => (
+    <div className="flex items-center gap-1" dir="ltr">
+      {primaryModes.map((mode) => {
+        const isActive = currentMode === mode;
+        return (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => onChange(mode)}
+            className="px-3.5 py-1.5 rounded-full text-xs font-medium transition-all"
+            style={{
+              background: isActive ? "var(--tutor-accent)" : "var(--tutor-border-subtle)",
+              color: isActive ? "#FFFFFF" : "var(--tutor-text-secondary)",
+              border: isActive
+                ? "1px solid var(--tutor-accent)"
+                : "1px solid var(--tutor-border)",
+            }}
+          >
+            {modeLabels[mode]}
+          </button>
+        );
+      })}
+
+      {/* Advanced dropdown trigger */}
+      <div ref={dropdownRef} className="relative">
         <button
-          key={mode}
-          onClick={() => onChange(mode)}
-          className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-            currentMode === mode
-              ? "border-[#506354] text-[#041632]"
-              : "border-transparent text-[#75777e] hover:text-[#44474d] hover:border-[#c5c6ce]"
-          }`}
+          type="button"
+          onClick={() => setShowAdvanced((v) => !v)}
+          className="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1"
+          style={{
+            background: isAdvancedActive
+              ? "var(--tutor-accent-light)"
+              : "var(--tutor-border-subtle)",
+            color: isAdvancedActive ? "var(--tutor-accent-text)" : "var(--tutor-text-muted)",
+            border: isAdvancedActive
+              ? "1px solid var(--tutor-accent)"
+              : "1px solid var(--tutor-border)",
+          }}
+          title="More modes"
+          aria-label="More modes"
+          aria-expanded={showAdvanced}
         >
-          {modeLabels[mode]}
+          {isAdvancedActive ? modeLabels[currentMode] : "More"}
+          <span style={{ fontSize: "9px", opacity: 0.7 }}>▾</span>
         </button>
-      ))}
+
+        {showAdvanced && (
+          <div
+            className="absolute top-full mt-1 rounded-xl py-1 z-50 min-w-[100px]"
+            style={{
+              background: "var(--tutor-surface)",
+              border: "1px solid var(--tutor-border)",
+              boxShadow: "var(--tutor-shadow)",
+              left: 0,
+            }}
+          >
+            {advancedModes.map((mode) => {
+              const isActive = currentMode === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    onChange(mode);
+                    setShowAdvanced(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs transition-colors"
+                  style={{
+                    background: isActive ? "var(--tutor-accent-light)" : "transparent",
+                    color: isActive ? "var(--tutor-accent-text)" : "var(--tutor-text-secondary)",
+                    fontWeight: isActive ? 500 : 400,
+                  }}
+                >
+                  {modeLabels[mode]}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -43,157 +43,231 @@ export default function WorkspaceSelector({
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
-  const [createWorkspaceError, setCreateWorkspaceError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
 
-  const handleCreateWorkspace = async (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = newName.trim();
     if (!trimmed) return;
     setCreatingWorkspace(true);
-    setCreateWorkspaceError(null);
+    setCreateError(null);
     try {
       await onCreate(trimmed);
       setNewName("");
       setShowCreate(false);
     } catch (err: unknown) {
-      setCreateWorkspaceError(err instanceof Error ? err.message : "יצירה נכשלה.");
+      setCreateError(err instanceof Error ? err.message : "Failed to create.");
     } finally {
       setCreatingWorkspace(false);
     }
   };
 
   return (
-    <div className="flex items-center gap-5" dir="rtl">
-      <span className="font-semibold font-serif text-xl text-[#041632]">משכן מחקר</span>
+    <div className="flex flex-col py-2" dir="ltr">
+      {/* ── Topics ── */}
+      <p className="section-nav-label">Topics</p>
 
       {loadState.status === "loading" && (
-        <span className="text-sm text-[#75777e]">טוען מרחבים...</span>
+        <p className="nav-state-text">Loading...</p>
       )}
-
       {loadState.status === "error" && (
-        <span className="text-sm text-red-600">{loadState.message}</span>
+        <p className="nav-state-text" style={{ color: "#e87070" }}>{loadState.message}</p>
       )}
 
       {loadState.status === "ready" && (
         <>
           {loadState.workspaces.length === 0 ? (
-            <span className="text-sm text-[#75777e]">אין מרחבים</span>
+            <p className="nav-state-text nav-state-empty">No topics yet</p>
           ) : (
-            <select
-              className="border border-[#c5c6ce] bg-transparent rounded px-3 py-1.5 text-sm outline-none focus:border-[#506354]"
-              value={selectedWorkspaceId ?? ""}
-              onChange={(e) => onSelect(e.target.value)}
-              aria-label="בחירת מרחב"
-            >
-              {loadState.workspaces.map((ws) => (
-                <option key={ws.id} value={ws.id}>
-                  {ws.name}
-                </option>
-              ))}
-            </select>
+            <ul className="space-y-0.5 px-2">
+              {loadState.workspaces.map((ws) => {
+                const isSelected = selectedWorkspaceId === ws.id;
+                return (
+                  <li key={ws.id}>
+                    <NavItem
+                      label={ws.name}
+                      active={isSelected}
+                      onClick={() => onSelect(ws.id)}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
           )}
 
-          {!showCreate && (
-            <button
-              type="button"
-              onClick={() => setShowCreate(true)}
-              className="text-sm text-[#506354] hover:underline"
-            >
-              + מרחב חדש
-            </button>
-          )}
-
-          {showCreate && (
-            <form
-              onSubmit={handleCreateWorkspace}
-              className="flex items-center space-x-2 space-x-reverse"
-            >
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="שם המרחב"
-                className="border border-[#c5c6ce] rounded px-2 py-1 text-sm outline-none focus:border-[#506354]"
-                autoFocus
-                disabled={creatingWorkspace}
-              />
-              <button
-                type="submit"
-                disabled={creatingWorkspace || !newName.trim()}
-                className="text-sm bg-[#041632] text-white px-3 py-1 rounded disabled:opacity-50"
-              >
-                {creatingWorkspace ? "יוצר..." : "צור"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCreate(false);
-                  setNewName("");
-                  setCreateWorkspaceError(null);
-                }}
-                className="text-sm text-[#75777e] hover:underline"
-              >
-                ביטול
-              </button>
-              {createWorkspaceError && (
-                <span className="text-xs text-red-600">{createWorkspaceError}</span>
-              )}
-            </form>
-          )}
-
-          <div className="h-6 w-px bg-[#d8dbe5]" aria-hidden="true" />
-
-          <div className="flex items-center gap-2">
-            {sessionState.status === "disabled" && (
-              <span className="text-sm text-[#75777e]">{sessionState.message}</span>
-            )}
-
-            {sessionState.status === "loading" && (
-              <span className="text-sm text-[#75777e]">טוען שיחות...</span>
-            )}
-
-            {sessionState.status === "error" && (
-              <span className="text-sm text-red-600">{sessionState.message}</span>
-            )}
-
-            {sessionState.status === "ready" && (
-              <>
-                {sessionState.sessions.length === 0 ? (
-                  <span className="text-sm text-[#75777e]">אין שיחות פעילות</span>
-                ) : (
-                  <select
-                    className="border border-[#c5c6ce] bg-transparent rounded px-3 py-1.5 text-sm outline-none focus:border-[#506354]"
-                    value={selectedSessionId ?? ""}
-                    onChange={(e) => onSessionSelect(e.target.value)}
-                    aria-label="בחירת שיחה"
-                  >
-                    {sessionState.sessions.map((session, index) => (
-                      <option key={session.id} value={session.id}>
-                        {session.title?.trim() || `שיחה ${index + 1}`}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    void onCreateSession();
+          <div className="px-2 mt-0.5">
+            {!showCreate ? (
+              <NewAction label="+ New topic" onClick={() => setShowCreate(true)} />
+            ) : (
+              <form onSubmit={handleCreate} className="px-1 py-2 space-y-2">
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Topic name"
+                  autoFocus
+                  disabled={creatingWorkspace}
+                  className="w-full rounded-lg px-3 py-1.5 text-sm outline-none"
+                  style={{
+                    background: "var(--tutor-surface)",
+                    border: "1px solid var(--tutor-border)",
+                    color: "var(--tutor-text)",
                   }}
-                  disabled={creatingSession}
-                  className="text-sm text-[#506354] hover:underline disabled:opacity-50"
-                >
-                  {creatingSession ? "יוצר שיחה..." : "+ שיחה חדשה"}
-                </button>
-              </>
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={creatingWorkspace || !newName.trim()}
+                    className="flex-1 rounded-lg py-1.5 text-xs font-medium text-white disabled:opacity-40"
+                    style={{ background: "var(--tutor-accent)" }}
+                  >
+                    {creatingWorkspace ? "Creating..." : "Create"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowCreate(false); setNewName(""); setCreateError(null); }}
+                    className="flex-1 rounded-lg py-1.5 text-xs"
+                    style={{
+                      border: "1px solid var(--tutor-sidebar-border)",
+                      color: "var(--tutor-sidebar-text)",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {createError && (
+                  <p className="text-xs" style={{ color: "#e87070" }}>{createError}</p>
+                )}
+              </form>
             )}
           </div>
+        </>
+      )}
 
-          {createSessionError && (
-            <span className="text-xs text-red-600">{createSessionError}</span>
+      {/* ── Conversations ── */}
+      {selectedWorkspaceId && (
+        <>
+          <p className="section-nav-label" style={{ marginTop: "16px" }}>Conversations</p>
+
+          {sessionState.status === "disabled" && (
+            <p className="nav-state-text nav-state-empty">{sessionState.message}</p>
+          )}
+          {sessionState.status === "loading" && (
+            <p className="nav-state-text">Loading...</p>
+          )}
+          {sessionState.status === "error" && (
+            <p className="nav-state-text" style={{ color: "#e87070" }}>{sessionState.message}</p>
+          )}
+
+          {sessionState.status === "ready" && (
+            <>
+              {sessionState.sessions.length === 0 ? (
+                <p className="nav-state-text nav-state-empty">No conversations</p>
+              ) : (
+                <ul className="space-y-0.5 px-2">
+                  {sessionState.sessions.map((session, index) => {
+                    const isActive = selectedSessionId === session.id;
+                    const label = session.title?.trim() || `Conversation ${index + 1}`;
+                    return (
+                      <li key={session.id}>
+                        <NavItem
+                          label={label}
+                          active={isActive}
+                          small
+                          onClick={() => onSessionSelect(session.id)}
+                        />
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              <div className="px-2 mt-0.5">
+                <NewAction
+                  label={creatingSession ? "Creating..." : "+ New conversation"}
+                  disabled={creatingSession}
+                  onClick={() => { void onCreateSession(); }}
+                />
+              </div>
+
+              {createSessionError && (
+                <p className="px-4 text-xs" style={{ color: "#e87070" }}>
+                  {createSessionError}
+                </p>
+              )}
+            </>
           )}
         </>
       )}
     </div>
+  );
+}
+
+function NavItem({
+  label,
+  active,
+  small = false,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  small?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left flex items-center px-3 rounded-lg transition-colors"
+      style={{
+        padding: small ? "5px 10px" : "7px 10px",
+        fontSize: small ? "12px" : "13px",
+        background: active ? "var(--tutor-sidebar-active)" : "transparent",
+        color: active ? "var(--tutor-sidebar-text-active)" : "var(--tutor-sidebar-text)",
+        fontWeight: active ? 500 : 400,
+        borderLeft: active
+          ? "2px solid var(--tutor-accent)"
+          : "2px solid transparent",
+      }}
+      onMouseEnter={(e) => {
+        if (!active)
+          (e.currentTarget as HTMLButtonElement).style.background = "var(--tutor-sidebar-hover)";
+      }}
+      onMouseLeave={(e) => {
+        if (!active)
+          (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+      }}
+    >
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+function NewAction({
+  label,
+  disabled = false,
+  onClick,
+}: {
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="w-full text-left flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-40"
+      style={{ color: "var(--tutor-sidebar-text-muted)" }}
+      onMouseEnter={(e) => {
+        if (!disabled)
+          (e.currentTarget as HTMLButtonElement).style.color = "var(--tutor-accent)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.color = "var(--tutor-sidebar-text-muted)";
+      }}
+    >
+      {label}
+    </button>
   );
 }

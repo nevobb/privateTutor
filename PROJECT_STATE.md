@@ -8,8 +8,9 @@ The original project documents are now present under `/docs` and are the source 
 
 ## What exists
 
-- Desktop-first Hebrew RTL app shell.
-- Main tutor workspace with right-side materials panel, central tutor conversation, and left-side learning status/memory panel.
+- Desktop-first app shell — left sidebar navigation, central chat-first tutor area.
+- UX redesign pass complete: warm/calm personal tutor workspace replacing prototype dashboard layout.
+- Main tutor workspace: left sidebar (workspaces as folders, sessions as conversation list, collapsible Files/Memory panels), central tutor chat dominant.
 - Work modes: Learning, Practice, Research, Build, Temporary Chat.
 - Cost modes: Cheap Practice, Normal Learning, Deep Research.
 - Mock workspace, file, learner memory, academic knowledge, tutor messages, and decision log data.
@@ -33,6 +34,8 @@ The original project documents are now present under `/docs` and are the source 
 - Session API boundary exists: POST /api/sessions and GET /api/sessions?workspaceId=<id>, with auth-derived userId and workspace ownership checks.
 - Workspace UI integration exists: WorkspaceSelector wired to API, AuthShell in page.tsx, Firebase Auth client hook, workspace API client helper.
 - Session UI integration exists: active workspace now loads sessions from API, session creation is wired to API, and active session is tracked in local UI state.
+- UX redesign pass complete (branch: design/personal-tutor-ux-redesign): centralized CSS design tokens, 2-column layout, sidebar-native workspace/session nav, simplified mode selectors, chat-first tutor area, Hebrew RTL message support via `dir="auto"`.
+- Appearance panel added: collapsible sidebar section with 5 preset themes + manual color controls (Accent, Background, Sidebar, User msg) + Reset. Persists in `localStorage` only.
 
 ## What is still mocked
 
