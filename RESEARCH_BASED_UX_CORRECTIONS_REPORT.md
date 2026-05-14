@@ -1,6 +1,6 @@
 # Research-Based UX Corrections Report
 
-**Branch:** design/research-based-ux-corrections
+**Branch:** design/research-based-ux-corrections-clean
 **Date:** 2026-05-15
 **Type:** Design/UX only — no backend, API, or Firebase changes
 
@@ -8,7 +8,7 @@
 
 ## 1. Branch Used
 
-`design/research-based-ux-corrections` (branched from `main` at `978a2eb`)
+`design/research-based-ux-corrections-clean` (branched from `main` after PR #27 merge)
 
 ---
 

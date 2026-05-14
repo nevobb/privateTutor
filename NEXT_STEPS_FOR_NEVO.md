@@ -10,7 +10,7 @@ Connect `TutorConversation` to real session messages via existing session API ro
 
 ## Step 38C — Research-based UX corrections ✓ COMPLETE
 
-Branch: `design/research-based-ux-corrections` — PR open, awaiting merge.
+Branch: `design/research-based-ux-corrections-clean` — PR #29 open, awaiting merge.
 - Collapsible sidebar with 48px mini-rail (topic initial, localStorage-persisted)
 - Scope summary strip: Topic · Mode · Sources (display-only)
 - Build ✓ Lint ✓ Tests 153/153 ✓

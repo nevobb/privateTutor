@@ -36,7 +36,7 @@ The original project documents are now present under `/docs` and are the source 
 - Session UI integration exists: active workspace now loads sessions from API, session creation is wired to API, and active session is tracked in local UI state.
 - UX redesign pass complete (branch: design/personal-tutor-ux-redesign): centralized CSS design tokens, 2-column layout, sidebar-native workspace/session nav, simplified mode selectors, chat-first tutor area, Hebrew RTL message support via `dir="auto"`.
 - Appearance panel added: collapsible sidebar section with 5 preset themes + manual color controls (Accent, Background, Sidebar, User msg) + Reset. Persists in `localStorage` only.
-- Research-based UX corrections applied (branch: design/research-based-ux-corrections): collapsible left sidebar with 48px mini-rail (topic initial pill, localStorage-persisted), edge-tab collapse trigger, scope summary strip in TutorConversation showing Topic · Mode · Sources.
+- Research-based UX corrections applied (branch: design/research-based-ux-corrections-clean, PR #29): collapsible left sidebar with 48px mini-rail (topic initial pill, localStorage-persisted), edge-tab collapse trigger, scope summary strip in TutorConversation showing Topic · Mode · Sources.
 
 ## What is still mocked
 
