@@ -45,9 +45,3 @@
 **Rationale:** Durable workspace/session/message ownership and write ordering must be stable before adding higher-risk integrations.
 **Scope:** Workspace, session, message, and decision-log persistence boundaries in emulator-first mode.
 **Status:** Accepted by Nevo.
-
-### 10. UI Chrome Is English/LTR; Hebrew Appears Only Inside Chat Message Bubble Content
-**Decision:** The application chrome (toolbar labels, mode selectors, sidebar items, settings) is rendered in English with LTR layout. Hebrew text appears only inside chat message bubble content, using `dir="auto"` on the bubble content container so the browser auto-detects text direction per message.
-**Rationale:** Nevo explicitly requested an LTR layout with English labels for the chrome. Hebrew content auto-detects correctly via `dir="auto"` on bubble content without requiring a global RTL layout. This avoids RTL-specific CSS conflicts in the toolbar and sidebar that would arise from a full `dir="rtl"` document.
-**Date:** 2026-05-14
-**Overrides:** AGENTS.md §3 which stated "Hebrew RTL UI" as the default architecture. That default is superseded by this explicit product decision for the current UI design.
