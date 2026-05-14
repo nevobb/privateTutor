@@ -6,6 +6,14 @@ import WorkModeSelector from "../workModes/WorkModeSelector";
 import CostModeSelector from "../costModes/CostModeSelector";
 import { getMockTutorResponse } from "../../lib/tutor";
 
+const SCOPE_MODE_LABELS: Record<WorkMode, string> = {
+  Learning: "Learn",
+  Practice: "Practice",
+  Research: "Research",
+  Build: "Build",
+  "Temporary Chat": "Temp Chat",
+};
+
 interface TutorConversationProps {
   initialMessages: TutorMessage[];
   activeSessionId: string | null;
@@ -65,14 +73,7 @@ export default function TutorConversation({
     }
   };
 
-  const scopeModeLabels: Record<WorkMode, string> = {
-    Learning: "Learn",
-    Practice: "Practice",
-    Research: "Research",
-    Build: "Build",
-    "Temporary Chat": "Temp Chat",
-  };
-  const scopeModeLabel = scopeModeLabels[workMode];
+  const scopeModeLabel = SCOPE_MODE_LABELS[workMode];
   const scopeTopicLabel = activeTopicName ?? "No topic";
 
   return (
