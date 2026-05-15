@@ -1,10 +1,14 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { TutorMessage, WorkMode, CostMode } from "../../types";
 import WorkModeSelector from "../workModes/WorkModeSelector";
 import CostModeSelector from "../costModes/CostModeSelector";
-import { getMockTutorResponse } from "../../lib/tutor";
+import {
+  fetchSessionMessages,
+  sendSessionMessage,
+  SessionMessagesApiError,
+} from "../../lib/sessions/sessionMessagesApiClient";
 
 const SCOPE_MODE_LABELS: Record<WorkMode, string> = {
   Learning: "Learn",
@@ -15,25 +19,28 @@ const SCOPE_MODE_LABELS: Record<WorkMode, string> = {
 };
 
 interface TutorConversationProps {
-  initialMessages: TutorMessage[];
   activeSessionId: string | null;
+  activeWorkspaceId: string | null;
   workMode: WorkMode;
   onWorkModeChange: (mode: WorkMode) => void;
   costMode: CostMode;
   onCostModeChange: (mode: CostMode) => void;
   activeTopicName?: string | null;
+  getToken: () => Promise<string | null>;
 }
 
 export default function TutorConversation({
-  initialMessages,
   activeSessionId,
+  activeWorkspaceId,
   workMode,
   onWorkModeChange,
   costMode,
   onCostModeChange,
   activeTopicName,
+  getToken,
 }: TutorConversationProps) {
-  const [messages, setMessages] = useState<TutorMessage[]>(initialMessages);
+  const [messages, setMessages] = useState<TutorMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -42,29 +49,74 @@ export default function TutorConversation({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputValue.trim()) return;
+  useEffect(() => {
+    let cancelled = false;
 
-    const userMsg: TutorMessage = {
-      id: Date.now().toString(),
-      role: "user",
-      content: inputValue.trim(),
+    void (async () => {
+      if (!activeSessionId || !activeWorkspaceId) {
+        if (!cancelled) {
+          setMessages([]);
+          setLoadingMessages(false);
+        }
+        return;
+      }
+      if (!cancelled) setLoadingMessages(true);
+      try {
+        const token = await getToken();
+        if (!token || cancelled) return;
+        const loaded = await fetchSessionMessages(token, activeWorkspaceId, activeSessionId);
+        if (!cancelled) setMessages(loaded);
+      } catch {
+        if (!cancelled) setMessages([]);
+      } finally {
+        if (!cancelled) setLoadingMessages(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
     };
+  }, [activeSessionId, activeWorkspaceId, getToken]);
 
-    setMessages((prev) => [...prev, userMsg]);
-    setInputValue("");
-    setIsTyping(true);
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      const trimmed = inputValue.trim();
+      if (!trimmed || !activeSessionId || !activeWorkspaceId || isTyping) return;
 
-    try {
-      const response = await getMockTutorResponse(userMsg.content, workMode, costMode);
-      setMessages((prev) => [...prev, response.message]);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsTyping(false);
-    }
-  };
+      const optimisticId = `optimistic-${Date.now()}`;
+      const optimisticMsg: TutorMessage = { id: optimisticId, role: "user", content: trimmed };
+
+      setMessages((prev) => [...prev, optimisticMsg]);
+      setInputValue("");
+      setIsTyping(true);
+
+      try {
+        const token = await getToken();
+        if (!token) throw new SessionMessagesApiError("Unauthorized.", 401);
+
+        const result = await sendSessionMessage(token, {
+          workspaceId: activeWorkspaceId,
+          sessionId: activeSessionId,
+          userMessage: trimmed,
+          workMode,
+          costMode,
+        });
+
+        setMessages((prev) => [
+          ...prev.filter((m) => m.id !== optimisticId),
+          result.userMessage,
+          result.assistantMessage,
+        ]);
+      } catch (error) {
+        console.error(error);
+        setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      } finally {
+        setIsTyping(false);
+      }
+    },
+    [activeSessionId, activeWorkspaceId, costMode, getToken, inputValue, isTyping, workMode]
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -134,6 +186,20 @@ export default function TutorConversation({
         </div>
       )}
 
+      {/* Messages loading indicator */}
+      {loadingMessages && (
+        <div
+          className="mx-auto mt-4 px-4 py-2.5 rounded-full text-xs"
+          style={{
+            background: "var(--tutor-border-subtle)",
+            color: "var(--tutor-text-muted)",
+          }}
+          dir="rtl"
+        >
+          טוען שיחה...
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
         {messages.map((msg) => (
@@ -168,7 +234,7 @@ export default function TutorConversation({
         <form onSubmit={handleSubmit} className="relative">
           <textarea
             rows={1}
-            placeholder="Type a message..."
+            placeholder={activeSessionId ? "Type a message..." : "Create or select a conversation first..."}
             className="w-full resize-none rounded-2xl px-5 py-3.5 pr-14 text-sm outline-none transition-all"
             style={{
               background: "var(--tutor-surface)",
@@ -181,20 +247,22 @@ export default function TutorConversation({
             value={inputValue}
             onChange={(e) => {
               setInputValue(e.target.value);
-              /* auto-grow */
               e.target.style.height = "auto";
               e.target.style.height = `${Math.min(e.target.scrollHeight, 140)}px`;
             }}
             onKeyDown={handleKeyDown}
-            disabled={isTyping}
+            disabled={isTyping || !activeSessionId}
             dir="auto"
           />
           <button
             type="submit"
-            disabled={isTyping || !inputValue.trim()}
+            disabled={isTyping || !inputValue.trim() || !activeSessionId}
             className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-40"
             style={{
-              background: inputValue.trim() ? "var(--tutor-accent)" : "var(--tutor-border)",
+              background:
+                inputValue.trim() && activeSessionId
+                  ? "var(--tutor-accent)"
+                  : "var(--tutor-border)",
               color: "#FFFFFF",
             }}
             aria-label="Send"

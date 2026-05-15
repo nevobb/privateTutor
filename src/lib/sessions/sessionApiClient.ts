@@ -1,5 +1,7 @@
 import type { CreateSessionInput, SessionApiSession } from "./sessionApiTypes";
 
+const REQUEST_TIMEOUT_MS = 8000;
+
 interface ErrorBody {
   error?: string;
 }
@@ -29,7 +31,7 @@ export async function fetchSessions(
   const token = requireAuthToken(authToken);
   const normalizedWorkspaceId = requireWorkspaceId(workspaceId);
 
-  const res = await fetch(`/api/sessions?workspaceId=${encodeURIComponent(normalizedWorkspaceId)}`, {
+  const res = await runSessionRequest(`/api/sessions?workspaceId=${encodeURIComponent(normalizedWorkspaceId)}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -59,7 +61,7 @@ export async function createSession(
     activeTopic: normalizeOptionalString(input.activeTopic),
   };
 
-  const res = await fetch("/api/sessions", {
+  const res = await runSessionRequest("/api/sessions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -104,4 +106,24 @@ function normalizeOptionalString(value: string | undefined): string | undefined 
 async function createSessionApiError(response: Response, fallbackMessage: string): Promise<SessionApiError> {
   const body = await response.json().catch(() => ({})) as ErrorBody;
   return new SessionApiError(body.error ?? fallbackMessage, response.status);
+}
+
+async function runSessionRequest(input: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error: unknown) {
+    if (isAbortError(error)) {
+      throw new SessionApiError("שירות השיחות לא הגיב בזמן. נסה שוב.", 503);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
 }

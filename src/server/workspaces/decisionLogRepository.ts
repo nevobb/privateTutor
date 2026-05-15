@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore/lite";
 import { withFirestoreEmulatorClient } from "../firebase/firestoreEmulatorClient";
 import type { DecisionLogEntryRecord, WriteDecisionLogEntryInput } from "./workspaceTypes";
 import { toDate } from "./workspaceTypes";
@@ -12,7 +12,7 @@ export async function writeDecisionLogEntry(
   userId: string,
   input: WriteDecisionLogEntryInput
 ): Promise<DecisionLogEntryRecord> {
-  return withFirestoreEmulatorClient(async ({ db }) => {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const entryId = randomUUID();
     const createdAt = new Date();
     const ref = doc(db, ...decisionLogPath(userId, entryId));

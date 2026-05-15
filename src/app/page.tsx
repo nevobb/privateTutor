@@ -26,7 +26,7 @@ import {
 } from "../lib/sessions/sessionApiClient";
 import type { SessionApiSession } from "../lib/sessions/sessionApiTypes";
 import type { CostMode, WorkMode } from "../types";
-import { mockFiles, mockLearnerMemory, mockTutorMessages } from "../mock/data";
+import { mockFiles, mockLearnerMemory } from "../mock/data";
 
 function sortSessionsByRecent(sessions: SessionApiSession[]): SessionApiSession[] {
   return [...sessions].sort((a, b) => {
@@ -305,13 +305,14 @@ export default function Home() {
     <AuthShell authState={authState} onSignIn={signIn}>
       <MainLayout sidebar={sidebar} activeTopicName={activeTopicName}>
         <TutorConversation
-          initialMessages={mockTutorMessages}
           activeSessionId={activeSessionId}
+          activeWorkspaceId={activeWorkspaceId}
           workMode={workMode}
           onWorkModeChange={setWorkMode}
           costMode={costMode}
           onCostModeChange={setCostMode}
           activeTopicName={activeTopicName}
+          getToken={getToken}
         />
       </MainLayout>
     </AuthShell>

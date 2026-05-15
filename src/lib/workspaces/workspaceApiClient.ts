@@ -1,5 +1,7 @@
 import type { WorkspaceListItem, CreateWorkspaceInput } from "./workspaceApiTypes";
 
+const REQUEST_TIMEOUT_MS = 8000;
+
 export class WorkspaceApiError extends Error {
   constructor(
     message: string,
@@ -11,7 +13,7 @@ export class WorkspaceApiError extends Error {
 }
 
 export async function fetchWorkspaces(authToken: string): Promise<WorkspaceListItem[]> {
-  const res = await fetch("/api/workspaces", {
+  const res = await runWorkspaceRequest("/api/workspaces", {
     method: "GET",
     headers: {
       Authorization: `Bearer ${authToken}`,
@@ -31,7 +33,7 @@ export async function createWorkspace(
   authToken: string,
   input: CreateWorkspaceInput
 ): Promise<WorkspaceListItem> {
-  const res = await fetch("/api/workspaces", {
+  const res = await runWorkspaceRequest("/api/workspaces", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${authToken}`,
@@ -46,4 +48,24 @@ export async function createWorkspace(
   }
 
   return await res.json() as WorkspaceListItem;
+}
+
+async function runWorkspaceRequest(input: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error: unknown) {
+    if (isAbortError(error)) {
+      throw new WorkspaceApiError("שירות הנושאים לא הגיב בזמן. נסה שוב.", 503);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
 }

@@ -101,6 +101,13 @@ describe("fetchWorkspaces", () => {
 
     await expect(fetchWorkspaces(TOKEN)).rejects.toThrow("שגיאה בטעינת המרחבים.");
   });
+
+  it("fails fast with a safe message on timeout", async () => {
+    mockFetch.mockRejectedValue(new DOMException("timed out", "AbortError"));
+
+    await expect(fetchWorkspaces(TOKEN)).rejects.toMatchObject({ status: 503 });
+    await expect(fetchWorkspaces(TOKEN)).rejects.toThrow("שירות הנושאים לא הגיב בזמן. נסה שוב.");
+  });
 });
 
 describe("createWorkspace", () => {
@@ -163,6 +170,15 @@ describe("createWorkspace", () => {
 
     await expect(createWorkspace(TOKEN, { name: "Test" })).rejects.toThrow(
       "יצירת מרחב נכשלה."
+    );
+  });
+
+  it("fails fast with a safe message on timeout", async () => {
+    mockFetch.mockRejectedValue(new DOMException("timed out", "AbortError"));
+
+    await expect(createWorkspace(TOKEN, { name: "Test" })).rejects.toMatchObject({ status: 503 });
+    await expect(createWorkspace(TOKEN, { name: "Test" })).rejects.toThrow(
+      "שירות הנושאים לא הגיב בזמן. נסה שוב."
     );
   });
 });

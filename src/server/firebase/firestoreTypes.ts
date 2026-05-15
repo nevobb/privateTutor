@@ -1,5 +1,5 @@
 import type { FirebaseApp } from "firebase/app";
-import type { Firestore } from "firebase/firestore";
+import type { Firestore } from "firebase/firestore/lite";
 
 import type { FirestoreServerConfig } from "./firebaseServerConfig";
 
