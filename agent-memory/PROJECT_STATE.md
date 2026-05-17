@@ -35,7 +35,7 @@
 - Subspace not integrated into the app and not part of MVP.
 
 ## Current repo-memory status
-- This is Part 2 of the repo-native memory layer.
+- This is Part 3 of the repo-native memory layer.
 - Existing files after this part:
   - `AGENTS.md`
   - `AGENT_TASK_PROTOCOL.md`
@@ -43,13 +43,14 @@
   - `agent-memory/CURRENT_TASK.md`
   - `agent-memory/DECISIONS.md`
   - `agent-memory/TASK_LOG.md`
-- Later parts should add:
   - `agent-memory/AGENT_HANDOFF.md`
   - `agent-memory/OPEN_QUESTIONS.md`
+- Initial repo-native memory layer is complete after PR merge.
+- Future tasks must maintain these files.
 
 ## Current/next memory step
-- Current: Step 39.6B — Agent decisions and task history.
-- Next: Step 39.6C — Agent handoff and open questions.
+- Current: Step 39.6C — Agent handoff and open questions.
+- Next: Step 40A — Tutor provider boundary / Gemini-Genkit preflight, pending Nevo decision.
 
 ## Last known safe base
-`origin/main` after PR #34 merge (`5e71481`).
+`origin/main` after PR #35 merge (`1ac077d`).
