@@ -4,16 +4,16 @@
 No active implementation task is currently running.
 
 ## Next proposed task
-Step 39.6B — Add agent decisions and task history.
+Step 39.6C — Add agent handoff and open questions.
 
 Do not start Step 40 until the repo-native memory layer is complete.
 
 ## Recommended next branch
-`docs/agent-memory-part-2`
+`docs/agent-memory-part-3`
 
-## Part 2 expected files
-- `agent-memory/DECISIONS.md`
-- `agent-memory/TASK_LOG.md`
+## Part 3 expected files
+- `agent-memory/AGENT_HANDOFF.md`
+- `agent-memory/OPEN_QUESTIONS.md`
 
 ## Step 40 is not active yet
 Step 40 is expected to involve tutor provider / Gemini / Genkit planning or integration, but it is intentionally paused until the repo-memory layer is complete.
