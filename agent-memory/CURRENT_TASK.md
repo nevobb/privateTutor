@@ -4,20 +4,14 @@
 No active implementation task is currently running.
 
 ## Next proposed task
-Step 39.6C — Add agent handoff and open questions.
+Step 40A — Tutor provider boundary / Gemini-Genkit preflight.
 
-Do not start Step 40 until the repo-native memory layer is complete.
+Step 40 should start only after Nevo decides whether to do provider abstraction/preflight or direct Gemini + Genkit integration.
 
 ## Recommended next branch
-`docs/agent-memory-part-3`
+`feat/tutor-provider-boundary-preflight`
 
-## Part 3 expected files
-- `agent-memory/AGENT_HANDOFF.md`
-- `agent-memory/OPEN_QUESTIONS.md`
-
-## Step 40 is not active yet
-Step 40 is expected to involve tutor provider / Gemini / Genkit planning or integration, but it is intentionally paused until the repo-memory layer is complete.
-
+## Step 40 decision gate
 Before Step 40, Nevo should decide whether to do:
 A. provider abstraction / preflight first
 B. direct Gemini + Genkit integration
@@ -32,6 +26,10 @@ Do provider abstraction / preflight first unless Nevo explicitly approves direct
 - this file
 
 ## Forbidden in the current state
+- Do not add packages unless explicitly approved.
+- Do not add secrets or env files unless explicitly approved.
+- Do not add direct Gemini connection unless explicitly approved.
+- Do not add direct Genkit connection unless explicitly approved.
 - Do not add Gemini.
 - Do not add Genkit.
 - Do not add retrieval.

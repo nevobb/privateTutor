@@ -35,7 +35,14 @@ Full details live in PRs and task reports.
 
 ### Step 39.6B — Agent decisions and task history
 - Branch: `docs/agent-memory-part-2`
-- PR: pending
-- Status: in progress
+- PR: #35
+- Status: merged
 - Result: adds `DECISIONS` and `TASK_LOG`.
 - Notes: documentation/state only.
+
+### Step 39.6C — Agent handoff and open questions
+- Branch: `docs/agent-memory-part-3`
+- PR: pending
+- Status: in progress
+- Result: adds `AGENT_HANDOFF` and `OPEN_QUESTIONS`.
+- Notes: completes initial repo-native memory layer.
