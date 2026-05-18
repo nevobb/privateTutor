@@ -11,6 +11,11 @@ export const WORK_MODES = ["Learning", "Practice", "Research", "Build", "Tempora
 export const COST_MODES = ["Cheap Practice", "Normal Learning", "Deep Research"] as const;
 export const RETRIEVAL_SCOPES = ["none", "session", "topic", "workspace", "concept_library", "global_learner_memory", "web"] as const;
 
+export interface ConversationTurn {
+  role: "user" | "tutor";
+  content: string;
+}
+
 export interface TutorRequest {
   userId: string;
   workspaceId: string;
@@ -20,10 +25,11 @@ export interface TutorRequest {
   costMode: CostMode;
   activeFileIds?: string[];
   temporary?: boolean;
+  conversationHistory?: ConversationTurn[];
 }
 
 export interface DecisionLogEvent {
-  type: "mock_provider" | "request_validation" | "response_validation" | "memory_not_written";
+  type: "mock_provider" | "deepseek_provider" | "request_validation" | "response_validation" | "memory_not_written";
   title: string;
   detail: string;
 }

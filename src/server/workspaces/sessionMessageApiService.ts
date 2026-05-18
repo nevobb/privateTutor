@@ -1,4 +1,6 @@
 import { getMockTutorResponse as defaultGetMockTutorResponse } from "../../lib/tutor";
+import { getActiveTutorProvider } from "../tutor/providerRegistry";
+import type { ConversationTurn } from "../tutor/schemas";
 import type { AuthenticatedUser } from "../auth/authTypes";
 import {
   appendMessage as defaultAppendMessage,
@@ -9,6 +11,10 @@ import { serializeMessage } from "./sessionMessageApiSchemas";
 import { getSession as defaultGetSession } from "./sessionRepository";
 import { getWorkspace as defaultGetWorkspace } from "./workspaceRepository";
 import type { MessageRecord } from "./workspaceTypes";
+
+// Maximum number of previous turns to include as context for the AI provider.
+// Each "turn" is one message (user or tutor). 20 = 10 exchanges.
+const MAX_HISTORY_TURNS = 20;
 
 export interface SessionMessageApiService {
   listMessagesForUser(
@@ -29,7 +35,29 @@ interface Repositories {
   getSession: typeof defaultGetSession;
   listSessionMessages: typeof defaultListSessionMessages;
   appendMessage: typeof defaultAppendMessage;
-  getMockTutorResponse: typeof defaultGetMockTutorResponse;
+  getMockTutorResponse: (
+    message: string,
+    workMode: Parameters<typeof defaultGetMockTutorResponse>[1],
+    costMode: Parameters<typeof defaultGetMockTutorResponse>[2],
+    conversationHistory?: ConversationTurn[]
+  ) => ReturnType<typeof defaultGetMockTutorResponse>;
+}
+
+function defaultGetTutorResponse(
+  message: string,
+  workMode: Parameters<typeof defaultGetMockTutorResponse>[1],
+  costMode: Parameters<typeof defaultGetMockTutorResponse>[2],
+  conversationHistory?: ConversationTurn[]
+): ReturnType<typeof defaultGetMockTutorResponse> {
+  const provider = getActiveTutorProvider();
+  return provider.call({
+    userId: "session-service",
+    workspaceId: "session-service",
+    message,
+    workMode,
+    costMode,
+    conversationHistory,
+  }) as ReturnType<typeof defaultGetMockTutorResponse>;
 }
 
 function defaultRepositories(): Repositories {
@@ -38,7 +66,7 @@ function defaultRepositories(): Repositories {
     getSession: defaultGetSession,
     listSessionMessages: defaultListSessionMessages,
     appendMessage: defaultAppendMessage,
-    getMockTutorResponse: defaultGetMockTutorResponse,
+    getMockTutorResponse: defaultGetTutorResponse,
   };
 }
 
@@ -67,6 +95,13 @@ export function createSessionMessageApiService(
       const session = await repositories.getSession(userId, input.workspaceId, sessionId);
       if (!session) throw new Error("Session not found.");
 
+      // Fetch existing messages BEFORE appending the current user message,
+      // so history only includes previous turns.
+      const existingMessages = await repositories.listSessionMessages(userId, input.workspaceId, sessionId);
+      const conversationHistory: ConversationTurn[] = existingMessages
+        .slice(-MAX_HISTORY_TURNS)
+        .map((m) => ({ role: m.role, content: m.content }));
+
       const userRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
         role: "user",
         content: input.userMessage,
@@ -75,7 +110,8 @@ export function createSessionMessageApiService(
       const tutorResponse = await repositories.getMockTutorResponse(
         input.userMessage,
         input.workMode,
-        input.costMode
+        input.costMode,
+        conversationHistory
       );
 
       const assistantRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
