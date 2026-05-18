@@ -6,6 +6,8 @@ export interface WorkspaceListItem {
   createdAt: string;
   updatedAt: string;
   path?: string[];
+  currentPath?: string;
+  previousPaths?: string[];
   parentWorkspaceId?: string;
   stableIdentityNote?: string;
   lastSessionId?: string;

@@ -30,6 +30,11 @@ function makeRepositories(overrides: Partial<{
   createWorkspace: (userId: string, input: { name: string }) => Promise<WorkspaceRecord>;
   listWorkspaces: (userId: string) => Promise<WorkspaceRecord[]>;
   getWorkspace: (userId: string, workspaceId: string) => Promise<WorkspaceRecord | null>;
+  moveWorkspace: (
+    userId: string,
+    workspaceId: string,
+    input: { currentPath: string; parentWorkspaceId?: string; stableIdentityNote?: string }
+  ) => Promise<WorkspaceRecord | null>;
 }> = {}) {
   return {
     createWorkspace: vi.fn(async (userId: string) =>
@@ -40,6 +45,11 @@ function makeRepositories(overrides: Partial<{
     ),
     getWorkspace: vi.fn(async (userId: string, workspaceId: string) =>
       userId === "alice" && workspaceId === "ws-alice-1" ? aliceWorkspace : null
+    ),
+    moveWorkspace: vi.fn(async (userId: string, workspaceId: string, input: { currentPath: string }) =>
+      userId === "alice" && workspaceId === "ws-alice-1"
+        ? { ...aliceWorkspace, currentPath: input.currentPath }
+        : null
     ),
     ...overrides,
   };
@@ -114,6 +124,43 @@ describe("workspaceApiService.getWorkspaceForUser", () => {
   it("returns null when accessed by non-owner (repository enforces ownership)", async () => {
     const service = createWorkspaceApiService(makeRepositories());
     const result = await service.getWorkspaceForUser(bob, "ws-alice-1");
+    expect(result).toBeNull();
+  });
+});
+
+describe("workspaceApiService.moveWorkspaceForUser", () => {
+  it("queries by trusted userId and workspaceId", async () => {
+    const repos = makeRepositories();
+    const service = createWorkspaceApiService(repos);
+
+    await service.moveWorkspaceForUser(alice, "ws-alice-1", {
+      currentPath: "Year 1 / Semester B / Physics 2",
+    });
+
+    expect(repos.moveWorkspace).toHaveBeenCalledWith(
+      "alice",
+      "ws-alice-1",
+      expect.objectContaining({ currentPath: "Year 1 / Semester B / Physics 2" })
+    );
+  });
+
+  it("returns moved workspace when found", async () => {
+    const service = createWorkspaceApiService(makeRepositories());
+    const result = await service.moveWorkspaceForUser(alice, "ws-alice-1", {
+      currentPath: "Year 1 / Semester B / Physics 2",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.id).toBe("ws-alice-1");
+    expect(result?.currentPath).toBe("Year 1 / Semester B / Physics 2");
+  });
+
+  it("returns null when workspace is not found for user", async () => {
+    const service = createWorkspaceApiService(makeRepositories());
+    const result = await service.moveWorkspaceForUser(bob, "ws-alice-1", {
+      currentPath: "Other",
+    });
+
     expect(result).toBeNull();
   });
 });

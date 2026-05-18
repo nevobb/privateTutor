@@ -3,24 +3,34 @@ import {
   createWorkspace,
   getWorkspace,
   listWorkspaces,
+  moveWorkspace,
 } from "./workspaceRepository";
-import type { CreateWorkspaceApiRequest } from "./workspaceApiSchemas";
+import type {
+  CreateWorkspaceApiRequest,
+  MoveWorkspaceApiRequest,
+} from "./workspaceApiSchemas";
 import type { WorkspaceRecord } from "./workspaceTypes";
 
 export interface WorkspaceApiService {
   createWorkspaceForUser(user: AuthenticatedUser, input: CreateWorkspaceApiRequest): Promise<WorkspaceRecord>;
   listWorkspacesForUser(user: AuthenticatedUser): Promise<WorkspaceRecord[]>;
   getWorkspaceForUser(user: AuthenticatedUser, workspaceId: string): Promise<WorkspaceRecord | null>;
+  moveWorkspaceForUser(
+    user: AuthenticatedUser,
+    workspaceId: string,
+    input: MoveWorkspaceApiRequest
+  ): Promise<WorkspaceRecord | null>;
 }
 
 interface WorkspaceApiRepositories {
   createWorkspace: typeof createWorkspace;
   listWorkspaces: typeof listWorkspaces;
   getWorkspace: typeof getWorkspace;
+  moveWorkspace: typeof moveWorkspace;
 }
 
 function defaultRepositories(): WorkspaceApiRepositories {
-  return { createWorkspace, listWorkspaces, getWorkspace };
+  return { createWorkspace, listWorkspaces, getWorkspace, moveWorkspace };
 }
 
 export function createWorkspaceApiService(
@@ -37,6 +47,10 @@ export function createWorkspaceApiService(
 
     async getWorkspaceForUser(user, workspaceId) {
       return repositories.getWorkspace(user.userId, workspaceId);
+    },
+
+    async moveWorkspaceForUser(user, workspaceId, input) {
+      return repositories.moveWorkspace(user.userId, workspaceId, input);
     },
   };
 }
