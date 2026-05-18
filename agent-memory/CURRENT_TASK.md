@@ -1,6 +1,7 @@
 # Current Task
 
 ## Status
+Step 40B complete — DeepSeek smoke test passed (real provider + persistence + isolation).
 Step 40C complete — conversation history passed to DeepSeek on every message.
 
 ## What was done in Step 40A
@@ -22,9 +23,23 @@ Step 40C complete — conversation history passed to DeepSeek on every message.
 2. Set `DEEPSEEK_API_KEY=<your key>`
 3. Run `npm run dev`
 
+## What was done in Step 40B
+- Added dedicated smoke suite: `tests/firebase/deepseekSmoke.emulator.test.ts`
+  - Uses real DeepSeek provider through the real route handlers
+  - Verifies 3 work/cost scenarios:
+    - Learning + Normal Learning
+    - Practice + Cheap Practice
+    - Research + Deep Research
+  - Confirms `201` responses and transcript persistence (`user` + `tutor` messages)
+  - Confirms cross-user isolation (`GET`/`POST` return `404`)
+- Added provider safety suite: `tests/server/tutor/deepseekProviderSafety.test.ts`
+  - Missing API key => mock fallback
+  - Upstream non-ok => bounded error
+  - Timeout/network failure => exception path validated
+- Added report: `DEEPSEEK_SMOKE_TEST_REPORT.md`
+
 ## Next proposed task
-Step 40B — Smoke test DeepSeek in browser, verify real tutor responses flow end-to-end.
-After that: Step 41 — Tutor Harness (Phase 2 from product roadmap).
+Step 41 — Tutor Harness (Phase 2 from product roadmap).
 
 ## Roadmap
 - Phase 1 (current): real AI tutor via DeepSeek ✓ provider layer done
