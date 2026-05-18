@@ -13,7 +13,12 @@ export function buildHarnessJsonContract(): string {
     '  "memoryUpdateType": "none" | "small_auto" | "requires_approval",',
     '  "memoryType": string,',
     '  "memoryContent": string,',
-    '  "memoryConfidence": number',
+    '  "memoryConfidence": number,',
+    '  "needs_retrieval": boolean,',
+    '  "retrieval_scope": "none" | "session" | "topic" | "workspace" | "concept_library" | "global_learner_memory" | "web",',
+    '  "max_chunks": number,',
+    '  "max_tokens": number,',
+    '  "should_ask_clarification_first": boolean',
     "}",
   ].join("\n");
 }

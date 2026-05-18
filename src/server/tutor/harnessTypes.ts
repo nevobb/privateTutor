@@ -1,5 +1,7 @@
 // Types for the Tutor Harness — structured classification returned alongside the tutor message.
-// Phase 2: DeepSeek returns JSON with both the message and this classification in one call.
+// Phase 3 adds retrieval decision boundary fields (decision only, no retrieval execution).
+
+import type { RetrievalBoundaryDecision, RetrievalScope } from "../../types";
 
 export type TutorIntent =
   | "factual_or_regular"
@@ -42,6 +44,7 @@ export interface HarnessJsonResponse {
   memoryType: string;
   memoryContent: string;
   memoryConfidence: number;
+  retrievalDecision: RetrievalBoundaryDecision | null;
 }
 
 // Safe fallback defaults when JSON parsing fails.
@@ -79,6 +82,7 @@ export function parseHarnessJson(raw: string): HarnessJsonResponse | null {
       memoryType: typeof parsed.memoryType === "string" ? parsed.memoryType : "none",
       memoryContent: typeof parsed.memoryContent === "string" ? parsed.memoryContent : "",
       memoryConfidence: typeof parsed.memoryConfidence === "number" ? parsed.memoryConfidence : 0,
+      retrievalDecision: parseRetrievalDecision(parsed),
     };
   } catch {
     return null;
@@ -96,6 +100,15 @@ const VALID_INTENTS: TutorIntent[] = [
 ];
 
 const VALID_MEMORY_UPDATE_TYPES: MemoryUpdateType[] = ["none", "small_auto", "requires_approval"];
+const VALID_RETRIEVAL_SCOPES: RetrievalScope[] = [
+  "none",
+  "session",
+  "topic",
+  "workspace",
+  "concept_library",
+  "global_learner_memory",
+  "web",
+];
 
 function isValidIntent(value: unknown): value is TutorIntent {
   return typeof value === "string" && VALID_INTENTS.includes(value as TutorIntent);
@@ -103,4 +116,32 @@ function isValidIntent(value: unknown): value is TutorIntent {
 
 function isValidMemoryUpdateType(value: unknown): value is MemoryUpdateType {
   return typeof value === "string" && VALID_MEMORY_UPDATE_TYPES.includes(value as MemoryUpdateType);
+}
+
+function parseRetrievalDecision(parsed: Record<string, unknown>): RetrievalBoundaryDecision | null {
+  if (
+    typeof parsed.needs_retrieval !== "boolean" ||
+    !isValidRetrievalScope(parsed.retrieval_scope) ||
+    !isValidPositiveInteger(parsed.max_chunks) ||
+    !isValidPositiveInteger(parsed.max_tokens) ||
+    typeof parsed.should_ask_clarification_first !== "boolean"
+  ) {
+    return null;
+  }
+
+  return {
+    needs_retrieval: parsed.needs_retrieval,
+    retrieval_scope: parsed.retrieval_scope,
+    max_chunks: parsed.max_chunks,
+    max_tokens: parsed.max_tokens,
+    should_ask_clarification_first: parsed.should_ask_clarification_first,
+  };
+}
+
+function isValidRetrievalScope(value: unknown): value is RetrievalScope {
+  return typeof value === "string" && VALID_RETRIEVAL_SCOPES.includes(value as RetrievalScope);
+}
+
+function isValidPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }

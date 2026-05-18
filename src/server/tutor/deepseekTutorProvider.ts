@@ -6,11 +6,16 @@ import { buildSystemPrompt } from "./deepseekSystemPrompt";
 import type { TutorInternalUpdate } from "../../types";
 import { buildHarnessJsonContract } from "./deepseekHarnessPrompt";
 import { defaultClassification, parseHarnessJson } from "./harnessTypes";
+import { decideRetrievalBoundary } from "./retrievalDecisionBoundary";
 
 function buildInternalUpdateFromHarness(
   request: TutorRequest,
   harnessRaw: string
-): { internalUpdate: TutorInternalUpdate; usedFallback: boolean } {
+): {
+  internalUpdate: TutorInternalUpdate;
+  usedClassificationFallback: boolean;
+  usedRetrievalDecisionFallback: boolean;
+} {
   const isTemporary = request.temporary === true || request.workMode === "Temporary Chat";
   const parsed = parseHarnessJson(harnessRaw);
   const classification = parsed
@@ -31,9 +36,17 @@ function buildInternalUpdateFromHarness(
         },
       }
     : defaultClassification(isTemporary);
+  const retrievalDecision =
+    parsed?.retrievalDecision ??
+    decideRetrievalBoundary({
+      message: request.message,
+      workMode: request.workMode,
+      costMode: request.costMode,
+    });
 
   return {
-    usedFallback: parsed === null,
+    usedClassificationFallback: parsed === null,
+    usedRetrievalDecisionFallback: parsed?.retrievalDecision == null,
     internalUpdate: {
       detected_intent: classification.intent,
       confidence: classification.confidence,
@@ -44,10 +57,11 @@ function buildInternalUpdateFromHarness(
       },
       retrieval: {
         used: false,
-        scope: "none",
+        scope: retrievalDecision.needs_retrieval ? retrievalDecision.retrieval_scope : "none",
         source_ids: [],
-        why: "phase2_harness_no_retrieval",
+        why: "phase3_decision_boundary_only_no_execution",
       },
+      retrieval_decision: retrievalDecision,
       learner_memory_update: {
         needed: isTemporary ? false : classification.memoryUpdate.needed,
         update_type: isTemporary ? "none" : classification.memoryUpdate.updateType,
@@ -133,7 +147,11 @@ export class DeepSeekTutorProvider implements TutorProvider {
       throw new Error("DeepSeek returned an empty or invalid response.");
     }
 
-    const { internalUpdate, usedFallback } = buildInternalUpdateFromHarness(request, content.trim());
+    const {
+      internalUpdate,
+      usedClassificationFallback,
+      usedRetrievalDecisionFallback,
+    } = buildInternalUpdateFromHarness(request, content.trim());
     const parsedHarness = parseHarnessJson(content.trim());
     const assistantContent = parsedHarness ? parsedHarness.message : content.trim();
 
@@ -151,11 +169,23 @@ export class DeepSeekTutorProvider implements TutorProvider {
           detail: `Real AI response via DeepSeek API. Model: ${model}. Work mode: ${request.workMode}. Cost mode: ${request.costMode}.`,
         },
         {
-          type: usedFallback ? "harness_fallback" : "harness_classification",
-          title: usedFallback ? "Harness JSON parse fallback used" : "Harness classification applied",
-          detail: usedFallback
+          type: usedClassificationFallback ? "harness_fallback" : "harness_classification",
+          title: usedClassificationFallback ? "Harness JSON parse fallback used" : "Harness classification applied",
+          detail: usedClassificationFallback
             ? "DeepSeek response was not valid harness JSON; default harness classification was applied."
             : "DeepSeek response parsed as harness JSON and mapped into internalUpdate.",
+        },
+        {
+          type: "retrieval_scope",
+          title: "Retrieval boundary decision",
+          detail: [
+            `needs_retrieval=${internalUpdate.retrieval_decision?.needs_retrieval ? "true" : "false"}`,
+            `retrieval_scope=${internalUpdate.retrieval_decision?.retrieval_scope ?? "none"}`,
+            `max_chunks=${internalUpdate.retrieval_decision?.max_chunks ?? 0}`,
+            `max_tokens=${internalUpdate.retrieval_decision?.max_tokens ?? 0}`,
+            `clarification_first=${internalUpdate.retrieval_decision?.should_ask_clarification_first ? "true" : "false"}`,
+            `source=${usedRetrievalDecisionFallback ? "fallback" : "harness"}`,
+          ].join("; "),
         },
         ...(isTemporary
           ? [

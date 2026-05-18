@@ -1,6 +1,7 @@
 # Current Task
 
 ## Status
+Batch 3 complete — retrieval decision boundary contract implemented (read-only, no retrieval execution), with decision-log wiring and passing matrix/provider/service tests.
 Batch 2 complete — Phase 7.2 move flow + Phase 15 subset closures implemented and validated (including emulator integration suites).
 Step 41E complete — diagnostics UX polish and sidebar developer toggle added.
 Step 41D complete — diagnostics panel and composer layout fix shipped.
@@ -44,7 +45,27 @@ Step 40C complete — conversation history passed to DeepSeek on every message.
 - Added report: `DEEPSEEK_SMOKE_TEST_REPORT.md`
 
 ## Next proposed task
-Step 42A — start structured retrieval decision boundary (still read-only decisioning, no retrieval execution yet).
+Batch 4 / Phase 8 — upload/classify/index pipeline (one phase PR), after approval.
+
+## What was done in Batch 3
+- Added retrieval decision boundary contract fields (snake_case):
+  - `needs_retrieval`
+  - `retrieval_scope`
+  - `max_chunks`
+  - `max_tokens`
+  - `should_ask_clarification_first`
+- Extended DeepSeek harness contract and parser validation to accept retrieval decision fields.
+- Added deterministic fallback decision engine for matrix-stable behavior when retrieval fields are missing/invalid.
+- Stored decision contract in `internalUpdate.retrieval_decision` (backward-compatible optional field).
+- Kept retrieval execution unchanged:
+  - `retrieval.used` remains false (decision-only phase)
+  - no source fetch/chunk execution
+- Added retrieval boundary decision-log event and mapped it to `decisionType: retrieval_scope`.
+- Added report: `agent-memory/BATCH3_DECISION_BOUNDARY_REPORT.md`.
+
+## Batch 3 validation note
+- Parser, matrix, provider integration, and service/log integration suites pass.
+- No API endpoint additions in this batch.
 
 ## What was done in Batch 2
 - Added workspace move API route:

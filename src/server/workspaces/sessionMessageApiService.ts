@@ -175,6 +175,8 @@ function mapDecisionType(eventType: DecisionLogEvent["type"]): DecisionLogEntry[
   switch (eventType) {
     case "memory_not_written":
       return "memory_not_written";
+    case "retrieval_scope":
+      return "retrieval_scope";
     case "mock_provider":
     case "deepseek_provider":
     case "harness_classification":

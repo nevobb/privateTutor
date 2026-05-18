@@ -34,6 +34,7 @@ export interface DecisionLogEvent {
     | "deepseek_provider"
     | "harness_classification"
     | "harness_fallback"
+    | "retrieval_scope"
     | "request_validation"
     | "response_validation"
     | "memory_not_written";
@@ -121,6 +122,15 @@ export function validateTutorResponse(response: unknown): response is TutorBound
     isStringArray(internalUpdate.retrieval.source_ids) &&
     typeof internalUpdate.retrieval.why === "string";
 
+  const retrievalDecisionIsValid =
+    internalUpdate.retrieval_decision === undefined ||
+    (isRecord(internalUpdate.retrieval_decision) &&
+      typeof internalUpdate.retrieval_decision.needs_retrieval === "boolean" &&
+      isRetrievalScope(internalUpdate.retrieval_decision.retrieval_scope) &&
+      typeof internalUpdate.retrieval_decision.max_chunks === "number" &&
+      typeof internalUpdate.retrieval_decision.max_tokens === "number" &&
+      typeof internalUpdate.retrieval_decision.should_ask_clarification_first === "boolean");
+
   const learnerMemoryUpdateIsValid =
     isRecord(internalUpdate.learner_memory_update) &&
     typeof internalUpdate.learner_memory_update.needed === "boolean" &&
@@ -145,6 +155,7 @@ export function validateTutorResponse(response: unknown): response is TutorBound
     typeof internalUpdate.should_stop_progression === "boolean" &&
     localQuestionIsValid &&
     retrievalIsValid &&
+    retrievalDecisionIsValid &&
     learnerMemoryUpdateIsValid &&
     knowledgeBaseActionIsValid &&
     Array.isArray(internalUpdate.decision_log_entries) &&
