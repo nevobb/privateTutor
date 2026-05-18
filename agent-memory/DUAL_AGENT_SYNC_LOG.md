@@ -60,3 +60,30 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: start Step 41 (Tutor Harness Phase 2) from current branch state.
   - Blockers/Risks: unrelated local/untracked files still exist and should remain excluded from future commits.
+
+## 2026-05-18 22:36 (Asia/Jerusalem) — Codex
+- Step/Task ID: Step 41 (Harness scaffold slice)
+- Task summary: Start Tutor Harness integration in DeepSeek provider with structured classification + safe fallback.
+- What I changed:
+  - Added a strict Harness JSON contract prompt appended to the DeepSeek system prompt.
+  - Integrated JSON parsing and mapping from DeepSeek output into `internalUpdate`.
+  - Added fallback behavior when JSON is invalid and explicit harness decision-log events.
+  - Added dedicated unit tests for parser + provider harness mapping/fallback.
+- Files touched:
+  - `src/server/tutor/deepseekHarnessPrompt.ts`
+  - `src/server/tutor/deepseekTutorProvider.ts`
+  - `src/server/tutor/schemas.ts`
+  - `src/server/tutor/harnessTypes.ts`
+  - `tests/server/tutor/harnessTypes.test.ts`
+  - `tests/server/tutor/deepseekHarnessIntegration.test.ts`
+- Tests/checks run:
+  - `npx vitest run tests/server/tutor/harnessTypes.test.ts tests/server/tutor/deepseekHarnessIntegration.test.ts tests/server/tutor/deepseekProviderSafety.test.ts`
+  - Result: passed (8/8)
+- Git status:
+  - Branch: `codex/step-41-tutor-harness`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: partial
+  - Next recommended step: persist/observe harness decision events in the workspace decision-log flow and add service-level tests.
+  - Blockers/Risks: existing unrelated local changes/untracked files in workspace; must keep commit scope strict.

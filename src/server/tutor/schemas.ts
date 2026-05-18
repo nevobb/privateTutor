@@ -29,7 +29,14 @@ export interface TutorRequest {
 }
 
 export interface DecisionLogEvent {
-  type: "mock_provider" | "deepseek_provider" | "request_validation" | "response_validation" | "memory_not_written";
+  type:
+    | "mock_provider"
+    | "deepseek_provider"
+    | "harness_classification"
+    | "harness_fallback"
+    | "request_validation"
+    | "response_validation"
+    | "memory_not_written";
   title: string;
   detail: string;
 }

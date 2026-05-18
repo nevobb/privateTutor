@@ -1,6 +1,7 @@
 # Current Task
 
 ## Status
+Step 41 started — Tutor Harness JSON classification scaffold integrated with safe fallback.
 Step 40B complete — DeepSeek smoke test passed (real provider + persistence + isolation).
 Step 40C complete — conversation history passed to DeepSeek on every message.
 
@@ -39,7 +40,19 @@ Step 40C complete — conversation history passed to DeepSeek on every message.
 - Added report: `DEEPSEEK_SMOKE_TEST_REPORT.md`
 
 ## Next proposed task
-Step 41 — Tutor Harness (Phase 2 from product roadmap).
+Step 41B — wire harness outputs into decision-log persistence/observability path and add route/service level assertions.
+
+## What was done in Step 41 (current slice)
+- Added Harness JSON contract prompt for DeepSeek (`src/server/tutor/deepseekHarnessPrompt.ts`)
+- Integrated harness parsing into `DeepSeekTutorProvider`:
+  - Parses structured JSON response when available
+  - Maps classification fields into `internalUpdate`
+  - Adds explicit `harness_classification` / `harness_fallback` decision events
+  - Falls back safely to default classification when JSON parsing fails
+- Added/used harness types parser (`src/server/tutor/harnessTypes.ts`)
+- Added tests:
+  - `tests/server/tutor/harnessTypes.test.ts`
+  - `tests/server/tutor/deepseekHarnessIntegration.test.ts`
 
 ## Roadmap
 - Phase 1 (current): real AI tutor via DeepSeek ✓ provider layer done
