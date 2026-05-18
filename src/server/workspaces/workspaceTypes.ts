@@ -1,4 +1,12 @@
-import type { CostMode, DecisionLogEntry, SourceCitation, TutorMessage, WorkMode, Workspace } from "../../types";
+import type {
+  CostMode,
+  DecisionLogEntry,
+  SourceCitation,
+  TutorMessage,
+  UploadedFile,
+  WorkMode,
+  Workspace,
+} from "../../types";
 
 export type WorkspaceStatus = "active" | "archived" | "deleted";
 export type SessionStatus = "active" | "closed" | "archived";
@@ -49,6 +57,12 @@ export interface DecisionLogEntryRecord extends DecisionLogEntry {
   sessionId?: string;
 }
 
+export interface UploadedFileRecord extends UploadedFile {
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface CreateWorkspaceInput {
   name: string;
   description?: string;
@@ -83,6 +97,18 @@ export interface WriteDecisionLogEntryInput {
   rationale: string;
   workspaceId?: string;
   sessionId?: string;
+}
+
+export interface CreateUploadedFileInput {
+  workspaceId: string;
+  name: string;
+  sourceType: "pdf" | "docx";
+  storagePath?: string;
+  topicHint?: string;
+  topic?: string;
+  confidence?: number;
+  assignmentStatus: UploadedFileRecord["assignmentStatus"];
+  indexingStatus: UploadedFileRecord["indexingStatus"];
 }
 
 export function toDate(value: unknown): Date {

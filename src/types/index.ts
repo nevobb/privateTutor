@@ -4,7 +4,13 @@ export type WorkMode = "Learning" | "Practice" | "Research" | "Build" | "Tempora
 
 export type FileAssignmentStatus = "unassigned" | "assigned" | "needs-review";
 
-export type FileIndexingStatus = "not-indexed" | "queued" | "indexed" | "failed";
+export type FileIndexingStatus =
+  | "not-indexed"
+  | "queued"
+  | "uploaded"
+  | "indexing"
+  | "indexed"
+  | "failed";
 
 // Extended to include spec lifecycle values alongside legacy "candidate"
 export type MemoryObservationState =
@@ -246,6 +252,8 @@ export interface DecisionLogEntry {
     | "memory_write"
     | "memory_not_written"
     | "file_assignment"
+    | "topic_classification"
+    | "file_indexing"
     | "model_provider"
     | "cost_mode"
     | "mock_alignment";

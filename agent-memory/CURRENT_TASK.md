@@ -1,6 +1,7 @@
 # Current Task
 
 ## Status
+Batch 4 / Phase 8 complete — metadata-first file intake/classify/index lifecycle implemented server-side (`/api/workspaces/[workspaceId]/files` GET/POST), with decision-log coverage and passing focused tests.
 Batch 3 complete — retrieval decision boundary contract implemented (read-only, no retrieval execution), with decision-log wiring and passing matrix/provider/service tests.
 Batch 2 complete — Phase 7.2 move flow + Phase 15 subset closures implemented and validated (including emulator integration suites).
 Step 41E complete — diagnostics UX polish and sidebar developer toggle added.
@@ -45,7 +46,40 @@ Step 40C complete — conversation history passed to DeepSeek on every message.
 - Added report: `DEEPSEEK_SMOKE_TEST_REPORT.md`
 
 ## Next proposed task
-Batch 4 / Phase 8 — upload/classify/index pipeline (one phase PR), after approval.
+Batch 4 / Phase 9 — file summaries lifecycle (metadata-first continuation), after approval.
+
+## What was done in Batch 4 / Phase 8
+- Added `POST /api/workspaces/[workspaceId]/files`:
+  - Validates `fileName`, `sourceType` (`pdf|docx`), optional `storagePath` / `topicHint`
+  - Orchestrates metadata creation + classification + indexing lifecycle
+- Added `GET /api/workspaces/[workspaceId]/files` for workspace file metadata listing.
+- Added uploaded files domain layer:
+  - `src/server/workspaces/uploadedFileRepository.ts`
+  - `src/server/workspaces/uploadedFileApiService.ts`
+  - `src/server/workspaces/uploadedFileApiSchemas.ts`
+- Added deterministic classification baseline:
+  - topic inference from `topicHint` or filename
+  - confidence scoring
+  - assignment mapping: `assigned` vs `needs-review`
+- Added indexing lifecycle transitions in orchestrated POST flow:
+  - success: `uploaded -> indexing -> indexed`
+  - internal failure fallback: `indexingStatus=failed`
+- Added decision-log events for:
+  - `file_assignment`
+  - `topic_classification`
+  - `file_indexing`
+- Extended shared types for Phase 8 compatibility:
+  - `FileIndexingStatus` includes `uploaded` and `indexing` while keeping legacy statuses
+  - `DecisionLogEntry.decisionType` includes `topic_classification` and `file_indexing`
+- Added report:
+  - `agent-memory/BATCH4_PHASE8_REPORT.md`
+
+## Batch 4 / Phase 8 validation note
+- Focused unit + route + emulator suites pass, including:
+  - API validation cases (`401/400/404/201`)
+  - metadata persistence and ownership boundaries
+  - indexing transition success/failure paths
+  - decision-log read compatibility and event presence
 
 ## What was done in Batch 3
 - Added retrieval decision boundary contract fields (snake_case):

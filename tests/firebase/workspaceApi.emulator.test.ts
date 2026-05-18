@@ -16,6 +16,11 @@ import {
 } from "../../src/app/api/workspaces/route";
 import { createWorkspaceByIdGetHandler } from "../../src/app/api/workspaces/[workspaceId]/route";
 import { createWorkspaceMovePostHandler } from "../../src/app/api/workspaces/[workspaceId]/move/route";
+import {
+  createWorkspaceFilesGetHandler,
+  createWorkspaceFilesPostHandler,
+} from "../../src/app/api/workspaces/[workspaceId]/files/route";
+import { createDecisionLogGetHandler } from "../../src/app/api/decision-log/route";
 
 const WORKSPACE_API_EMULATOR_TEST_ENABLED = process.env.FIREBASE_WORKSPACE_API_EMULATOR_TEST === "1";
 const describeWorkspaceApiEmulator = WORKSPACE_API_EMULATOR_TEST_ENABLED ? describe : describe.skip;
@@ -223,5 +228,156 @@ describeWorkspaceApiEmulator("workspace API emulator integration tests", () => {
     expect(moveResponse.status).toBe(200);
     const moved = await moveResponse.json();
     expect(moved.previousPaths).toEqual(["Year 1 / Semester B / Physics 2"]);
+  });
+
+  it("POST files creates metadata and returns indexed lifecycle fields", async () => {
+    const alice = nextUser("alice");
+    const workspacePost = createWorkspacesPostHandler(makeAuthResolver(alice));
+    const workspaceResponse = await workspacePost(
+      new Request("http://localhost/api/workspaces", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Files Workspace" }),
+      })
+    );
+    const createdWorkspace = await workspaceResponse.json();
+
+    const filesPost = createWorkspaceFilesPostHandler(makeAuthResolver(alice));
+    const response = await filesPost(
+      new Request(`http://localhost/api/workspaces/${createdWorkspace.id}/files`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          fileName: "Mechanics Intro.pdf",
+          sourceType: "pdf",
+          topicHint: "Mechanics",
+        }),
+      }),
+      makeByIdContext(createdWorkspace.id)
+    );
+
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.workspaceId).toBe(createdWorkspace.id);
+    expect(body.assignmentStatus).toBe("assigned");
+    expect(body.indexingStatus).toBe("indexed");
+    expect(body.topic).toBe("Mechanics");
+    expect(typeof body.confidence).toBe("number");
+  });
+
+  it("POST files returns 400 for unsupported sourceType", async () => {
+    const alice = nextUser("alice");
+    const filesPost = createWorkspaceFilesPostHandler(makeAuthResolver(alice));
+    const response = await filesPost(
+      new Request("http://localhost/api/workspaces/ws-1/files", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ fileName: "notes.txt", sourceType: "txt" }),
+      }),
+      makeByIdContext("ws-1")
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it("POST files returns 404 for cross-user workspace access", async () => {
+    const alice = nextUser("alice");
+    const bob = nextUser("bob");
+    const workspacePost = createWorkspacesPostHandler(makeAuthResolver(alice));
+    const workspaceResponse = await workspacePost(
+      new Request("http://localhost/api/workspaces", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Private Files Workspace" }),
+      })
+    );
+    const createdWorkspace = await workspaceResponse.json();
+
+    const filesPost = createWorkspaceFilesPostHandler(makeAuthResolver(bob));
+    const response = await filesPost(
+      new Request(`http://localhost/api/workspaces/${createdWorkspace.id}/files`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ fileName: "Mechanics Intro.pdf", sourceType: "pdf" }),
+      }),
+      makeByIdContext(createdWorkspace.id)
+    );
+
+    expect(response.status).toBe(404);
+  });
+
+  it("GET files lists only workspace-owned metadata entries", async () => {
+    const alice = nextUser("alice");
+    const workspacePost = createWorkspacesPostHandler(makeAuthResolver(alice));
+    const workspaceResponse = await workspacePost(
+      new Request("http://localhost/api/workspaces", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Files List Workspace" }),
+      })
+    );
+    const createdWorkspace = await workspaceResponse.json();
+
+    const filesPost = createWorkspaceFilesPostHandler(makeAuthResolver(alice));
+    await filesPost(
+      new Request(`http://localhost/api/workspaces/${createdWorkspace.id}/files`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ fileName: "A.pdf", sourceType: "pdf" }),
+      }),
+      makeByIdContext(createdWorkspace.id)
+    );
+
+    const filesGet = createWorkspaceFilesGetHandler(makeAuthResolver(alice));
+    const response = await filesGet(
+      new Request(`http://localhost/api/workspaces/${createdWorkspace.id}/files`),
+      makeByIdContext(createdWorkspace.id)
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(Array.isArray(body.files)).toBe(true);
+    expect(body.files).toHaveLength(1);
+    expect(body.files[0].workspaceId).toBe(createdWorkspace.id);
+  });
+
+  it("writes decision log entries for assignment, classification and indexing", async () => {
+    const alice = nextUser("alice");
+    const workspacePost = createWorkspacesPostHandler(makeAuthResolver(alice));
+    const workspaceResponse = await workspacePost(
+      new Request("http://localhost/api/workspaces", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Diagnostics Workspace" }),
+      })
+    );
+    const createdWorkspace = await workspaceResponse.json();
+
+    const filesPost = createWorkspaceFilesPostHandler(makeAuthResolver(alice));
+    const fileResponse = await filesPost(
+      new Request(`http://localhost/api/workspaces/${createdWorkspace.id}/files`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          fileName: "Mechanics Intro.pdf",
+          sourceType: "pdf",
+          topicHint: "Mechanics",
+        }),
+      }),
+      makeByIdContext(createdWorkspace.id)
+    );
+    expect(fileResponse.status).toBe(201);
+
+    const decisionLogGet = createDecisionLogGetHandler(makeAuthResolver(alice));
+    const logResponse = await decisionLogGet(
+      new Request(`http://localhost/api/decision-log?workspaceId=${createdWorkspace.id}&limit=20`)
+    );
+
+    expect(logResponse.status).toBe(200);
+    const logs = await logResponse.json();
+    const decisionTypes = logs.entries.map((entry: { decisionType: string }) => entry.decisionType);
+    expect(decisionTypes).toContain("file_assignment");
+    expect(decisionTypes).toContain("topic_classification");
+    expect(decisionTypes).toContain("file_indexing");
   });
 });
