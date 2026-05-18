@@ -27,6 +27,7 @@ const SCOPE_MODE_LABELS: Record<WorkMode, string> = {
 interface TutorConversationProps {
   activeSessionId: string | null;
   activeWorkspaceId: string | null;
+  developerDiagnosticsEnabled: boolean;
   workMode: WorkMode;
   onWorkModeChange: (mode: WorkMode) => void;
   costMode: CostMode;
@@ -38,6 +39,7 @@ interface TutorConversationProps {
 export default function TutorConversation({
   activeSessionId,
   activeWorkspaceId,
+  developerDiagnosticsEnabled,
   workMode,
   onWorkModeChange,
   costMode,
@@ -97,11 +99,21 @@ export default function TutorConversation({
     let cancelled = false;
 
     void (async () => {
+      if (!developerDiagnosticsEnabled) {
+        if (!cancelled) {
+          setDecisionLogState({
+            status: "disabled",
+            message: "Developer diagnostics are turned off.",
+          });
+        }
+        return;
+      }
+
       if (!activeWorkspaceId || !activeSessionId) {
         if (!cancelled) {
           setDecisionLogState({
             status: "disabled",
-            message: "Select a workspace and session to view diagnostics.",
+            message: "Select a workspace and session to load diagnostics.",
           });
         }
         return;
@@ -118,14 +130,14 @@ export default function TutorConversation({
         });
         if (cancelled) return;
         if (entries.length === 0) {
-          setDecisionLogState({ status: "empty", message: "No diagnostics entries yet." });
+          setDecisionLogState({ status: "empty", message: "No diagnostic events yet for this session." });
           return;
         }
         setDecisionLogState({ status: "ready", entries });
       } catch (error: unknown) {
         if (cancelled) return;
         const message =
-          error instanceof DecisionLogApiError ? error.message : "Failed to load diagnostics entries.";
+          error instanceof DecisionLogApiError ? error.message : "Could not load diagnostics right now.";
         setDecisionLogState({ status: "error", message });
       }
     })();
@@ -133,7 +145,7 @@ export default function TutorConversation({
     return () => {
       cancelled = true;
     };
-  }, [activeSessionId, activeWorkspaceId, decisionLogRefreshKey, getToken]);
+  }, [activeSessionId, activeWorkspaceId, decisionLogRefreshKey, developerDiagnosticsEnabled, getToken]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -168,7 +180,9 @@ export default function TutorConversation({
           result.userMessage,
           result.assistantMessage,
         ]);
-        setDecisionLogRefreshKey((prev) => prev + 1);
+        if (developerDiagnosticsEnabled) {
+          setDecisionLogRefreshKey((prev) => prev + 1);
+        }
       } catch (error) {
         console.error(error);
         setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
@@ -176,7 +190,16 @@ export default function TutorConversation({
         setIsTyping(false);
       }
     },
-    [activeSessionId, activeWorkspaceId, costMode, getToken, inputValue, isTyping, workMode]
+    [
+      activeSessionId,
+      activeWorkspaceId,
+      costMode,
+      developerDiagnosticsEnabled,
+      getToken,
+      inputValue,
+      isTyping,
+      workMode,
+    ]
   );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -288,19 +311,21 @@ export default function TutorConversation({
       </div>
 
       {/* Diagnostics panel */}
-      <div className="px-6 pb-3 flex-shrink-0" dir="ltr">
-        <div
-          className="rounded-xl overflow-hidden"
-          style={{
-            border: "1px solid var(--tutor-border-subtle)",
-            background: "var(--tutor-surface-raised)",
-          }}
-        >
-          <CollapsiblePanel title="Diagnostics" defaultOpen={false}>
-            <DecisionLogPanelBody state={decisionLogState} />
-          </CollapsiblePanel>
+      {developerDiagnosticsEnabled && (
+        <div className="px-6 pb-3 flex-shrink-0" dir="ltr">
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{
+              border: "1px solid var(--tutor-border-subtle)",
+              background: "var(--tutor-surface-raised)",
+            }}
+          >
+            <CollapsiblePanel title="Diagnostics" defaultOpen={false}>
+              <DecisionLogPanelBody state={decisionLogState} />
+            </CollapsiblePanel>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Input bar */}
       <div
@@ -378,7 +403,7 @@ export function DecisionLogPanelBody({
     | { status: "error"; message: string };
 }) {
   if (state.status === "loading") {
-    return <p className="text-xs" style={{ color: "var(--tutor-text-muted)" }}>Loading diagnostics...</p>;
+    return <p className="text-xs" style={{ color: "var(--tutor-text-muted)" }}>Loading diagnostic events...</p>;
   }
 
   if (state.status === "disabled" || state.status === "empty" || state.status === "error") {
@@ -397,9 +422,11 @@ export function DecisionLogPanelBody({
           }}
         >
           <div className="flex items-center justify-between gap-2">
-            <span style={{ color: "var(--tutor-text-secondary)" }}>{entry.decisionType}</span>
+            <span style={{ color: "var(--tutor-text-secondary)" }}>
+              {formatDecisionTypeLabel(entry.decisionType)}
+            </span>
             <span style={{ color: "var(--tutor-text-muted)" }}>
-              {new Date(entry.createdAt).toLocaleTimeString()}
+              {formatDiagnosticsTimestamp(entry.createdAt)}
             </span>
           </div>
           <p className="mt-1" style={{ color: "var(--tutor-text)" }}>{entry.title}</p>
@@ -419,6 +446,21 @@ export function DecisionLogPanelBody({
       ))}
     </div>
   );
+}
+
+function formatDecisionTypeLabel(decisionType: string): string {
+  if (decisionType === "model_provider") return "Model";
+  if (decisionType === "memory_not_written") return "Memory";
+  return decisionType;
+}
+
+function formatDiagnosticsTimestamp(createdAt: string): string {
+  return new Date(createdAt).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
 }
 
 export function shouldSubmitOnKeyDown(key: string, shiftKey: boolean): boolean {

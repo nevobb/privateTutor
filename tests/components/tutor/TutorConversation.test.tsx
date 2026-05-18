@@ -12,6 +12,7 @@ describe("TutorConversation composer layout", () => {
       <TutorConversation
         activeSessionId={null}
         activeWorkspaceId={null}
+        developerDiagnosticsEnabled={false}
         workMode="Learning"
         onWorkModeChange={() => {}}
         costMode="Normal Learning"
@@ -34,6 +35,7 @@ describe("TutorConversation composer layout", () => {
       <TutorConversation
         activeSessionId={null}
         activeWorkspaceId={null}
+        developerDiagnosticsEnabled={false}
         workMode="Learning"
         onWorkModeChange={() => {}}
         costMode="Normal Learning"
@@ -75,7 +77,9 @@ describe("DecisionLogPanelBody", () => {
         }}
       />
     );
-    expect(html).toContain("model_provider");
+    expect(html).toContain("Model");
+    expect(html).not.toContain("model_provider");
+    expect(html).toMatch(/\b\d{2}:\d{2}:\d{2}\b/);
     expect(html).toContain("Harness classification applied");
     expect(html).toContain("Parsed JSON");
   });

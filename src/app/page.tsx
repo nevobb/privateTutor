@@ -28,6 +28,16 @@ import type { SessionApiSession } from "../lib/sessions/sessionApiTypes";
 import type { CostMode, WorkMode } from "../types";
 import { mockFiles, mockLearnerMemory } from "../mock/data";
 
+export const DEV_DIAGNOSTICS_STORAGE_KEY = "privateTutor.devDiagnostics.enabled";
+
+export function parseDeveloperDiagnosticsFlag(raw: string | null): boolean {
+  return raw === "true";
+}
+
+export function serializeDeveloperDiagnosticsFlag(enabled: boolean): string {
+  return enabled ? "true" : "false";
+}
+
 function sortSessionsByRecent(sessions: SessionApiSession[]): SessionApiSession[] {
   return [...sessions].sort((a, b) => {
     const aTime = Date.parse(a.lastActiveAt || a.startedAt || "");
@@ -74,6 +84,27 @@ export default function Home() {
 
   const [workMode, setWorkMode] = useState<WorkMode>("Learning");
   const [costMode, setCostMode] = useState<CostMode>("Normal Learning");
+  const [developerDiagnosticsEnabled, setDeveloperDiagnosticsEnabled] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(DEV_DIAGNOSTICS_STORAGE_KEY);
+      setDeveloperDiagnosticsEnabled(parseDeveloperDiagnosticsFlag(saved));
+    } catch {
+      setDeveloperDiagnosticsEnabled(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        DEV_DIAGNOSTICS_STORAGE_KEY,
+        serializeDeveloperDiagnosticsFlag(developerDiagnosticsEnabled)
+      );
+    } catch {
+      // Ignore storage write errors to keep UI functional.
+    }
+  }, [developerDiagnosticsEnabled]);
 
   const handleWorkspaceSelect = useCallback((workspaceId: string): void => {
     setActiveSessionId(null);
@@ -297,6 +328,35 @@ export default function Home() {
           <MemoryPanel memory={mockLearnerMemory} />
         </CollapsiblePanel>
         <ThemePicker />
+        <div
+          className="px-4 py-3 flex items-center justify-between gap-3"
+          style={{ borderTop: "1px solid var(--tutor-sidebar-border)" }}
+        >
+          <label
+            htmlFor="developer-diagnostics-toggle"
+            className="text-xs font-medium"
+            style={{ color: "var(--tutor-sidebar-text-muted)" }}
+          >
+            Developer diagnostics
+          </label>
+          <button
+            id="developer-diagnostics-toggle"
+            type="button"
+            role="switch"
+            aria-checked={developerDiagnosticsEnabled}
+            onClick={() => setDeveloperDiagnosticsEnabled((prev) => !prev)}
+            className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+            style={{
+              background: developerDiagnosticsEnabled
+                ? "var(--tutor-accent)"
+                : "var(--tutor-sidebar-border)",
+            }}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${developerDiagnosticsEnabled ? "translate-x-6" : "translate-x-1"}`}
+            />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -313,6 +373,7 @@ export default function Home() {
           onCostModeChange={setCostMode}
           activeTopicName={activeTopicName}
           getToken={getToken}
+          developerDiagnosticsEnabled={developerDiagnosticsEnabled}
         />
       </MainLayout>
     </AuthShell>
