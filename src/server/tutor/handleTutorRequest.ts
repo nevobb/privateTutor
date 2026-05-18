@@ -1,4 +1,4 @@
-import { callMockTutorProvider } from "./mockTutorProvider";
+import { getActiveTutorProvider } from "./providerRegistry";
 import { TutorHandlerResult, validateTutorResponse } from "./schemas";
 import { validateTutorRequest } from "./validateTutorRequest";
 
@@ -18,7 +18,8 @@ export async function handleTutorRequest(input: unknown): Promise<TutorHandlerRe
     };
   }
 
-  const response = await callMockTutorProvider(validation.request);
+  const provider = getActiveTutorProvider();
+  const response = await provider.call(validation.request);
 
   if (!validateTutorResponse(response)) {
     return {
