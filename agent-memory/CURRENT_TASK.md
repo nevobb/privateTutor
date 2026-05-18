@@ -1,7 +1,7 @@
 # Current Task
 
 ## Status
-Batch 4 / Phase 8 complete — metadata-first file intake/classify/index lifecycle implemented server-side (`/api/workspaces/[workspaceId]/files` GET/POST), with decision-log coverage and passing focused tests.
+Batch 4 / Phase 8 implemented and validated on branch, pending merge via PR #43 — metadata-first file intake/classify/index lifecycle server-side (`/api/workspaces/[workspaceId]/files` GET/POST), with decision-log coverage and passing focused tests.
 Batch 3 complete — retrieval decision boundary contract implemented (read-only, no retrieval execution), with decision-log wiring and passing matrix/provider/service tests.
 Batch 2 complete — Phase 7.2 move flow + Phase 15 subset closures implemented and validated (including emulator integration suites).
 Step 41E complete — diagnostics UX polish and sidebar developer toggle added.
@@ -46,7 +46,7 @@ Step 40C complete — conversation history passed to DeepSeek on every message.
 - Added report: `DEEPSEEK_SMOKE_TEST_REPORT.md`
 
 ## Next proposed task
-Batch 4 / Phase 9 — file summaries lifecycle (metadata-first continuation), after approval.
+Batch 4 / Phase 9 (A: metadata-only summary lifecycle) — add summary status/contract flow only, without generating real summaries from file content, after approval.
 
 ## What was done in Batch 4 / Phase 8
 - Added `POST /api/workspaces/[workspaceId]/files`:
@@ -73,6 +73,14 @@ Batch 4 / Phase 9 — file summaries lifecycle (metadata-first continuation), af
   - `DecisionLogEntry.decisionType` includes `topic_classification` and `file_indexing`
 - Added report:
   - `agent-memory/BATCH4_PHASE8_REPORT.md`
+- Scope boundaries kept explicit:
+  - no binary upload
+  - no Firebase Storage ingestion
+  - no text extraction
+  - no real vector/chunk index build
+  - no retrieval execution
+  - no summary generation
+  - `indexingStatus` is lifecycle-only bookkeeping in this phase
 
 ## Batch 4 / Phase 8 validation note
 - Focused unit + route + emulator suites pass, including:

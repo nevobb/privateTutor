@@ -9,7 +9,17 @@ Implemented Phase 8 as a server-first, metadata-only flow:
 - indexing lifecycle state transitions (`uploaded -> indexing -> indexed|failed`)
 - decision-log entries for assignment/classification/indexing
 
-No binary upload, no retrieval execution, no summary generation, no learner-memory expansion.
+Explicit non-goals in this PR:
+- no binary upload
+- no Firebase Storage ingestion pipeline
+- no text extraction/parsing from file content
+- no real chunk/vector index creation
+- no retrieval execution
+- no summary generation
+- no learner-memory expansion
+
+`indexingStatus` in this phase represents lifecycle state bookkeeping only.
+It does **not** mean that a real searchable retrieval index was built.
 
 ## Implemented Files
 - `src/app/api/workspaces/[workspaceId]/files/route.ts`
@@ -72,7 +82,7 @@ For successful POST, entries are written with:
   - **4 files passed, 29 tests passed**
 
 ## Deferred to Later Phases
-- Phase 9: summaries generation
+- Phase 9 (option A, metadata-only): summary lifecycle/state contracts only, without real content summaries
 - Phase 10: retrieval execution and source citation flow
 - Binary upload + storage ingestion pipeline (out of Phase 8 scope)
 

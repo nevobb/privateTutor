@@ -16,12 +16,11 @@ Before doing any work, read these files in order:
 
 ## Current status
 
-- Step 39 — Session transcript/message API boundary is complete and merged via PR #31.
-- Step 39.5 — Agent Task Protocol is complete and merged via PR #33.
-- Step 39.6A — Agent memory entry point and current state is complete and merged via PR #34.
-- Step 39.6B — Agent decisions and task log is complete and merged via PR #35.
-- Step 39.6C completes the initial repo-native memory layer.
-- Step 40 is not active yet.
+- Step 40A/40B/40C are complete and merged.
+- Step 41B/41C/41D/41E are complete and merged.
+- Batch 2 and Batch 3 are complete and merged.
+- Batch 4 / Phase 8 is implemented on branch and currently pending merge in PR #43.
+- Step 40+ is active; pre-Step40 notes in this file are outdated and replaced by `CURRENT_TASK.md`.
 
 ## Current product state
 
@@ -41,22 +40,24 @@ Still not implemented:
 - Retrieval.
 - Learner memory persistence.
 - File upload / Firebase Storage.
+- File text extraction/parsing.
+- Real vector/chunk indexing.
+- Retrieval execution.
+- Real file-content summaries.
 - Web search.
 - Production Firebase deploy.
 
-## Next recommended task after this PR
-
-Step 40 should not start blindly.
+## Next recommended task after PR #43 merge
 
 Recommended next task:
-Step 40A — Tutor provider boundary / Gemini-Genkit preflight.
+Batch 4 / Phase 9 (Option A only) — metadata-only summary lifecycle contract.
 
 Recommended branch:
-`feat/tutor-provider-boundary-preflight`
+`codex/batch4-phase9-summary-lifecycle`
 
 Recommended direction:
-Create or verify the provider abstraction and Genkit/Gemini integration plan first.
-Do not directly connect Gemini unless Nevo explicitly approves direct connection and any needed package/env changes.
+Keep it metadata-only and contract-first.
+Do not imply or implement real summary generation from file content until binary upload + extraction exists.
 
 ## Do not touch without explicit approval
 
