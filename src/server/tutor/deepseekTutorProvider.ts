@@ -4,44 +4,65 @@ import type { TutorProvider } from "./tutorProviderInterface";
 import { DEEPSEEK_API_URL, getDeepSeekApiKey, getDeepSeekModel } from "./deepseekConfig";
 import { buildSystemPrompt } from "./deepseekSystemPrompt";
 import type { TutorInternalUpdate } from "../../types";
+import { buildHarnessJsonContract } from "./deepseekHarnessPrompt";
+import { defaultClassification, parseHarnessJson } from "./harnessTypes";
 
-function buildInternalUpdate(request: TutorRequest): TutorInternalUpdate {
+function buildInternalUpdateFromHarness(
+  request: TutorRequest,
+  harnessRaw: string
+): { internalUpdate: TutorInternalUpdate; usedFallback: boolean } {
   const isTemporary = request.temporary === true || request.workMode === "Temporary Chat";
-  const isPractice = request.workMode === "Practice";
+  const parsed = parseHarnessJson(harnessRaw);
+  const classification = parsed
+    ? {
+        intent: parsed.intent,
+        confidence: parsed.confidence,
+        shouldStopProgression: parsed.shouldStopProgression,
+        localQuestion: {
+          detected: parsed.localQuestionDetected,
+          reason: parsed.localQuestionReason,
+        },
+        memoryUpdate: {
+          needed: parsed.memoryUpdateNeeded,
+          updateType: parsed.memoryUpdateType,
+          memoryType: parsed.memoryType,
+          content: parsed.memoryContent,
+          confidence: parsed.memoryConfidence,
+        },
+      }
+    : defaultClassification(isTemporary);
 
   return {
-    detected_intent: isPractice
-      ? "guidance_only"
-      : isTemporary
-        ? "temporary_chat"
-        : "factual_or_regular",
-    confidence: 0.8,
-    should_stop_progression: isPractice,
-    local_question: {
-      detected: false,
-      reason: "",
+    usedFallback: parsed === null,
+    internalUpdate: {
+      detected_intent: classification.intent,
+      confidence: classification.confidence,
+      should_stop_progression: classification.shouldStopProgression,
+      local_question: {
+        detected: classification.localQuestion.detected,
+        reason: classification.localQuestion.reason,
+      },
+      retrieval: {
+        used: false,
+        scope: "none",
+        source_ids: [],
+        why: "phase2_harness_no_retrieval",
+      },
+      learner_memory_update: {
+        needed: isTemporary ? false : classification.memoryUpdate.needed,
+        update_type: isTemporary ? "none" : classification.memoryUpdate.updateType,
+        memory_type: isTemporary ? "none" : (classification.memoryUpdate.memoryType as TutorInternalUpdate["learner_memory_update"]["memory_type"]),
+        content: isTemporary ? "" : classification.memoryUpdate.content,
+        confidence: isTemporary ? 0 : classification.memoryUpdate.confidence,
+      },
+      knowledge_base_action: {
+        needed: false,
+        action: "none",
+        confidence: 0,
+        requires_user_confirmation: false,
+      },
+      decision_log_entries: [],
     },
-    retrieval: {
-      used: false,
-      scope: "none",
-      source_ids: [],
-      // Phase 1: retrieval decisions will be added in Phase 2 Tutor Harness
-      why: "phase1_no_retrieval",
-    },
-    learner_memory_update: {
-      needed: false,
-      update_type: "none",
-      memory_type: "none",
-      content: "",
-      confidence: 0,
-    },
-    knowledge_base_action: {
-      needed: false,
-      action: "none",
-      confidence: 0,
-      requires_user_confirmation: false,
-    },
-    decision_log_entries: [],
   };
 }
 
@@ -63,7 +84,7 @@ export class DeepSeekTutorProvider implements TutorProvider {
     }
 
     const model = getDeepSeekModel(request.costMode);
-    const systemPrompt = buildSystemPrompt(request.workMode, request.costMode);
+    const systemPrompt = `${buildSystemPrompt(request.workMode, request.costMode)}\n\n${buildHarnessJsonContract()}`;
     const isTemporary = request.temporary === true || request.workMode === "Temporary Chat";
 
     // Build messages array: system prompt + conversation history + current user message
@@ -112,18 +133,29 @@ export class DeepSeekTutorProvider implements TutorProvider {
       throw new Error("DeepSeek returned an empty or invalid response.");
     }
 
+    const { internalUpdate, usedFallback } = buildInternalUpdateFromHarness(request, content.trim());
+    const parsedHarness = parseHarnessJson(content.trim());
+    const assistantContent = parsedHarness ? parsedHarness.message : content.trim();
+
     return {
       message: {
         id: uuidv4(),
         role: "tutor",
-        content: content.trim(),
+        content: assistantContent,
       },
-      internalUpdate: buildInternalUpdate(request),
+      internalUpdate,
       decisionLogEvents: [
         {
           type: "deepseek_provider",
           title: `DeepSeek provider used (${model})`,
           detail: `Real AI response via DeepSeek API. Model: ${model}. Work mode: ${request.workMode}. Cost mode: ${request.costMode}.`,
+        },
+        {
+          type: usedFallback ? "harness_fallback" : "harness_classification",
+          title: usedFallback ? "Harness JSON parse fallback used" : "Harness classification applied",
+          detail: usedFallback
+            ? "DeepSeek response was not valid harness JSON; default harness classification was applied."
+            : "DeepSeek response parsed as harness JSON and mapped into internalUpdate.",
         },
         ...(isTemporary
           ? [

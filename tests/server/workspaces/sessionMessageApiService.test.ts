@@ -12,12 +12,27 @@ type ServiceModule = {
     getSession: (userId: string, workspaceId: string, sessionId: string) => Promise<Record<string, unknown> | null>;
     listSessionMessages: (userId: string, workspaceId: string, sessionId: string) => Promise<Record<string, unknown>[]>;
     appendMessage: (userId: string, workspaceId: string, sessionId: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    writeDecisionLogEntry: (
+      userId: string,
+      input: {
+        decisionType: string;
+        title: string;
+        decision: string;
+        rationale: string;
+        workspaceId?: string;
+        sessionId?: string;
+      }
+    ) => Promise<Record<string, unknown>>;
     getMockTutorResponse: (
       msg: string,
       wm: string,
       cm: string,
       history?: Array<{ role: string; content: string }>
-    ) => Promise<{ message: { id: string; role: string; content: string }; internalUpdate: Record<string, unknown> }>;
+    ) => Promise<{
+      message: { id: string; role: string; content: string };
+      internalUpdate: Record<string, unknown>;
+      decisionLogEvents?: Array<{ type: string; title: string; detail: string }>;
+    }>;
   }) => {
     listMessagesForUser: (user: string, workspaceId: string, sessionId: string) => Promise<Record<string, unknown>[]>;
     sendMessageForUser: (user: string, sessionId: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>;
@@ -41,6 +56,10 @@ const tutorMessage = { ...baseMessage, id: "m2", role: "tutor", content: "respon
 const tutorResponse = {
   message: { id: "m2", role: "tutor", content: "response" },
   internalUpdate: { detected_intent: "factual_or_regular" },
+  decisionLogEvents: [
+    { type: "deepseek_provider", title: "DeepSeek provider used", detail: "Model deepseek-chat" },
+    { type: "harness_classification", title: "Harness classification applied", detail: "Parsed JSON" },
+  ],
 };
 
 function makeRepos(
@@ -60,6 +79,7 @@ function makeRepos(
       async (_uid: string, _wsId: string, _sessId: string, input: Record<string, unknown>) =>
         input.role === "user" ? baseMessage : tutorMessage
     ),
+    writeDecisionLogEntry: vi.fn(async () => ({ id: "d1" })),
     getMockTutorResponse: vi.fn(async () => tutorResponse),
     ...overrides,
   };
@@ -125,7 +145,20 @@ describeService("sessionMessageApiService", () => {
         "s-1",
         expect.objectContaining({ role: "user", content: "hi" })
       );
-      expect(repos.getMockTutorResponse).toHaveBeenCalledWith("hi", "Learning", "Normal Learning", []);
+      expect(repos.getMockTutorResponse).toHaveBeenCalledWith("hi", "Learning", "Normal Learning", [
+        { role: "user", content: "hi" },
+      ]);
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledTimes(2);
+      expect(repos.writeDecisionLogEntry).toHaveBeenNthCalledWith(
+        1,
+        "alice",
+        expect.objectContaining({
+          decisionType: "model_provider",
+          title: "DeepSeek provider used",
+          workspaceId: "ws-1",
+          sessionId: "s-1",
+        })
+      );
       expect(repos.appendMessage).toHaveBeenNthCalledWith(
         2,
         "alice",
@@ -136,6 +169,27 @@ describeService("sessionMessageApiService", () => {
       expect(result).toHaveProperty("userMessage");
       expect(result).toHaveProperty("assistantMessage");
       expect(result).toHaveProperty("internalUpdate");
+    });
+
+    it("maps memory_not_written events into memory_not_written decision type", async () => {
+      const repos = makeRepos({
+        getMockTutorResponse: vi.fn(async () => ({
+          ...tutorResponse,
+          decisionLogEvents: [{ type: "memory_not_written", title: "skip", detail: "tmp chat" }],
+        })),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "hi",
+        workMode: "Temporary Chat",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+        "alice",
+        expect.objectContaining({ decisionType: "memory_not_written" })
+      );
     });
 
     it("throws 'Workspace not found.' when workspace missing", async () => {

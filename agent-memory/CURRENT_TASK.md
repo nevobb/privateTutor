@@ -1,6 +1,8 @@
 # Current Task
 
 ## Status
+Step 41C complete — decision trace diagnostics API added (`GET /api/decision-log`).
+Step 41B complete — harness decision events now persist through session message API decision-log path.
 Step 40B complete — DeepSeek smoke test passed (real provider + persistence + isolation).
 Step 40C complete — conversation history passed to DeepSeek on every message.
 
@@ -39,7 +41,38 @@ Step 40C complete — conversation history passed to DeepSeek on every message.
 - Added report: `DEEPSEEK_SMOKE_TEST_REPORT.md`
 
 ## Next proposed task
-Step 41 — Tutor Harness (Phase 2 from product roadmap).
+Step 41D — add optional lightweight client diagnostics panel (read-only) behind a safe toggle, consuming `/api/decision-log`.
+
+## What was done in Step 41 (current slice)
+- Added Harness JSON contract prompt for DeepSeek (`src/server/tutor/deepseekHarnessPrompt.ts`)
+- Integrated harness parsing into `DeepSeekTutorProvider`:
+  - Parses structured JSON response when available
+  - Maps classification fields into `internalUpdate`
+  - Adds explicit `harness_classification` / `harness_fallback` decision events
+  - Falls back safely to default classification when JSON parsing fails
+- Added/used harness types parser (`src/server/tutor/harnessTypes.ts`)
+- Added tests:
+  - `tests/server/tutor/harnessTypes.test.ts`
+  - `tests/server/tutor/deepseekHarnessIntegration.test.ts`
+
+## What was done in Step 41B
+- Wired provider `decisionLogEvents` persistence into `sessionMessageApiService` using `writeDecisionLogEntry`
+- Added safe event-to-decision mapping:
+  - `memory_not_written` -> `memory_not_written`
+  - provider/harness/validation events -> `model_provider`
+- Added service-level assertions that decision-log writes occur for DeepSeek/harness events
+- Kept message flow and response shape unchanged
+
+## What was done in Step 41C
+- Added decision-log read capability in repository:
+  - `listDecisionLogEntries(userId, { workspaceId?, sessionId?, limit? })`
+- Added diagnostics API schema/service/route:
+  - `src/server/workspaces/decisionLogApiSchemas.ts`
+  - `src/server/workspaces/decisionLogApiService.ts`
+  - `GET /api/decision-log` in `src/app/api/decision-log/route.ts`
+- Added route tests for auth, validation, error handling, and success serialization:
+  - `tests/server/workspaces/decisionLogApiRoute.test.ts`
+- No chat UX changes; diagnostics is API-only in this slice.
 
 ## Roadmap
 - Phase 1 (current): real AI tutor via DeepSeek ✓ provider layer done
