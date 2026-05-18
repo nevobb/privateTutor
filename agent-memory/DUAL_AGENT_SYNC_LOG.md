@@ -87,3 +87,27 @@ Copy this block and fill all fields:
   - Current state: partial
   - Next recommended step: persist/observe harness decision events in the workspace decision-log flow and add service-level tests.
   - Blockers/Risks: existing unrelated local changes/untracked files in workspace; must keep commit scope strict.
+
+## 2026-05-18 22:39 (Asia/Jerusalem) — Codex
+- Step/Task ID: Step 41B
+- Task summary: Persist harness/provider decision events through session API decision-log path and validate with tests.
+- What I changed:
+  - Added decision-log persistence of provider `decisionLogEvents` inside `sessionMessageApiService`.
+  - Mapped `memory_not_written` directly and all provider/harness/validation events to `model_provider`.
+  - Extended service tests to assert decision-log writes and mapping behavior.
+- Files touched:
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/workspaces/sessionMessageApiService.test.ts tests/server/tutor/harnessTypes.test.ts tests/server/tutor/deepseekHarnessIntegration.test.ts tests/server/tutor/deepseekProviderSafety.test.ts`
+  - Result: passed (16/16)
+- Git status:
+  - Branch: `codex/step-41-tutor-harness`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: Step 41C diagnostics/trace visibility without changing primary chat UX.
+  - Blockers/Risks: unrelated local file changes still present in workspace; keep future commits scoped.

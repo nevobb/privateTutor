@@ -1,7 +1,7 @@
 # Current Task
 
 ## Status
-Step 41 started — Tutor Harness JSON classification scaffold integrated with safe fallback.
+Step 41B complete — harness decision events now persist through session message API decision-log path.
 Step 40B complete — DeepSeek smoke test passed (real provider + persistence + isolation).
 Step 40C complete — conversation history passed to DeepSeek on every message.
 
@@ -40,7 +40,7 @@ Step 40C complete — conversation history passed to DeepSeek on every message.
 - Added report: `DEEPSEEK_SMOKE_TEST_REPORT.md`
 
 ## Next proposed task
-Step 41B — wire harness outputs into decision-log persistence/observability path and add route/service level assertions.
+Step 41C — expose harness classification/decision trace in a lightweight diagnostics surface (report/log view) without changing core chat UX.
 
 ## What was done in Step 41 (current slice)
 - Added Harness JSON contract prompt for DeepSeek (`src/server/tutor/deepseekHarnessPrompt.ts`)
@@ -53,6 +53,14 @@ Step 41B — wire harness outputs into decision-log persistence/observability pa
 - Added tests:
   - `tests/server/tutor/harnessTypes.test.ts`
   - `tests/server/tutor/deepseekHarnessIntegration.test.ts`
+
+## What was done in Step 41B
+- Wired provider `decisionLogEvents` persistence into `sessionMessageApiService` using `writeDecisionLogEntry`
+- Added safe event-to-decision mapping:
+  - `memory_not_written` -> `memory_not_written`
+  - provider/harness/validation events -> `model_provider`
+- Added service-level assertions that decision-log writes occur for DeepSeek/harness events
+- Kept message flow and response shape unchanged
 
 ## Roadmap
 - Phase 1 (current): real AI tutor via DeepSeek ✓ provider layer done

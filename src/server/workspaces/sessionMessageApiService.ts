@@ -10,7 +10,10 @@ import type { PostMessageApiResponse, PostMessageRequest } from "./sessionMessag
 import { serializeMessage } from "./sessionMessageApiSchemas";
 import { getSession as defaultGetSession } from "./sessionRepository";
 import { getWorkspace as defaultGetWorkspace } from "./workspaceRepository";
+import { writeDecisionLogEntry as defaultWriteDecisionLogEntry } from "./decisionLogRepository";
 import type { MessageRecord } from "./workspaceTypes";
+import type { DecisionLogEvent } from "../tutor/schemas";
+import type { DecisionLogEntry } from "../../types";
 
 // Maximum number of previous turns to include as context for the AI provider.
 // Each "turn" is one message (user or tutor). 20 = 10 exchanges.
@@ -35,6 +38,7 @@ interface Repositories {
   getSession: typeof defaultGetSession;
   listSessionMessages: typeof defaultListSessionMessages;
   appendMessage: typeof defaultAppendMessage;
+  writeDecisionLogEntry: typeof defaultWriteDecisionLogEntry;
   getMockTutorResponse: (
     message: string,
     workMode: Parameters<typeof defaultGetMockTutorResponse>[1],
@@ -66,6 +70,7 @@ function defaultRepositories(): Repositories {
     getSession: defaultGetSession,
     listSessionMessages: defaultListSessionMessages,
     appendMessage: defaultAppendMessage,
+    writeDecisionLogEntry: defaultWriteDecisionLogEntry,
     getMockTutorResponse: defaultGetTutorResponse,
   };
 }
@@ -120,6 +125,14 @@ export function createSessionMessageApiService(
         citations: tutorResponse.message.citations,
       });
 
+      await persistDecisionLogEvents(
+        repositories,
+        userId,
+        input.workspaceId,
+        sessionId,
+        tutorResponse.decisionLogEvents
+      );
+
       return {
         userMessage: serializeMessage(userRecord),
         assistantMessage: serializeMessage(assistantRecord),
@@ -133,4 +146,42 @@ export const sessionMessageApiService: SessionMessageApiService = createSessionM
 
 function resolveTrustedUserId(user: AuthenticatedUser | string): string {
   return typeof user === "string" ? user : user.userId;
+}
+
+async function persistDecisionLogEvents(
+  repositories: Repositories,
+  userId: string,
+  workspaceId: string,
+  sessionId: string,
+  events: DecisionLogEvent[] | undefined
+): Promise<void> {
+  if (!events || events.length === 0) return;
+
+  await Promise.all(
+    events.map((event) =>
+      repositories.writeDecisionLogEntry(userId, {
+        decisionType: mapDecisionType(event.type),
+        title: event.title,
+        decision: event.detail,
+        rationale: `Event type: ${event.type}`,
+        workspaceId,
+        sessionId,
+      })
+    )
+  );
+}
+
+function mapDecisionType(eventType: DecisionLogEvent["type"]): DecisionLogEntry["decisionType"] {
+  switch (eventType) {
+    case "memory_not_written":
+      return "memory_not_written";
+    case "mock_provider":
+    case "deepseek_provider":
+    case "harness_classification":
+    case "harness_fallback":
+    case "request_validation":
+    case "response_validation":
+    default:
+      return "model_provider";
+  }
 }
