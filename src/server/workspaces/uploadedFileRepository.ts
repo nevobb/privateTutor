@@ -1,0 +1,180 @@
+import { randomUUID } from "node:crypto";
+import { collection, doc, getDoc, getDocs, orderBy, query, setDoc } from "firebase/firestore/lite";
+import { withFirestoreEmulatorClient } from "../firebase/firestoreEmulatorClient";
+import type { CreateUploadedFileInput, UploadedFileRecord } from "./workspaceTypes";
+import { toDate } from "./workspaceTypes";
+
+export function uploadedFilePath(userId: string, fileId: string): [string, string, string, string] {
+  return ["users", userId, "uploadedFiles", fileId];
+}
+
+export async function createUploadedFile(
+  userId: string,
+  input: CreateUploadedFileInput
+): Promise<UploadedFileRecord> {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
+    const fileId = randomUUID();
+    const now = new Date();
+    const ref = doc(db, ...uploadedFilePath(userId, fileId));
+
+    const record: UploadedFileRecord = {
+      id: fileId,
+      userId,
+      name: input.name,
+      url: "",
+      uploadedAt: now,
+      workspaceId: input.workspaceId,
+      assignmentStatus: input.assignmentStatus,
+      indexingStatus: input.indexingStatus,
+      sourceType: input.sourceType,
+      topic: input.topic,
+      confidence: input.confidence,
+      storagePath: input.storagePath,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await setDoc(ref, compactRecord(record));
+    return record;
+  });
+}
+
+export async function getUploadedFile(userId: string, fileId: string): Promise<UploadedFileRecord | null> {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
+    const snapshot = await getDoc(doc(db, ...uploadedFilePath(userId, fileId)));
+
+    if (!snapshot.exists()) {
+      return null;
+    }
+
+    const data = snapshot.data() as Record<string, unknown>;
+    if (getOwnerUserId(data) !== userId) {
+      return null;
+    }
+
+    return mapUploadedFileRecord(snapshot.id, data);
+  });
+}
+
+export async function listUploadedFiles(userId: string, workspaceId: string): Promise<UploadedFileRecord[]> {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
+    const ref = collection(db, "users", userId, "uploadedFiles");
+    const snapshot = await getDocs(query(ref, orderBy("updatedAt", "desc")));
+
+    return snapshot.docs
+      .filter((item) => {
+        const data = item.data() as Record<string, unknown>;
+        return getOwnerUserId(data) === userId && data.workspaceId === workspaceId;
+      })
+      .map((item) => mapUploadedFileRecord(item.id, item.data() as Record<string, unknown>));
+  });
+}
+
+export async function updateUploadedFile(
+  userId: string,
+  fileId: string,
+  updates: Partial<Pick<UploadedFileRecord, "assignmentStatus" | "indexingStatus" | "topic" | "confidence">>
+): Promise<UploadedFileRecord | null> {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
+    const ref = doc(db, ...uploadedFilePath(userId, fileId));
+    const snapshot = await getDoc(ref);
+
+    if (!snapshot.exists()) {
+      return null;
+    }
+
+    const data = snapshot.data() as Record<string, unknown>;
+    if (getOwnerUserId(data) !== userId) {
+      return null;
+    }
+
+    const current = mapUploadedFileRecord(snapshot.id, data);
+    const next: UploadedFileRecord = {
+      ...current,
+      assignmentStatus: updates.assignmentStatus ?? current.assignmentStatus,
+      indexingStatus: updates.indexingStatus ?? current.indexingStatus,
+      topic: updates.topic ?? current.topic,
+      confidence: updates.confidence ?? current.confidence,
+      updatedAt: new Date(),
+    };
+
+    await setDoc(ref, compactRecord(next));
+    return next;
+  });
+}
+
+function mapUploadedFileRecord(id: string, data: Record<string, unknown>): UploadedFileRecord {
+  return {
+    id,
+    userId: getOwnerUserId(data),
+    name: String(data.name ?? ""),
+    url: typeof data.url === "string" ? data.url : "",
+    uploadedAt: toDate(data.uploadedAt),
+    workspaceId: typeof data.workspaceId === "string" ? data.workspaceId : undefined,
+    assignedTopicId: typeof data.assignedTopicId === "string" ? data.assignedTopicId : undefined,
+    assignmentStatus: mapAssignmentStatus(data.assignmentStatus),
+    indexingStatus: mapIndexingStatus(data.indexingStatus),
+    sourceType: mapSourceType(data.sourceType),
+    filePolicy: mapFilePolicy(data.filePolicy),
+    topic: typeof data.topic === "string" ? data.topic : undefined,
+    subtopic: typeof data.subtopic === "string" ? data.subtopic : undefined,
+    summaryId: typeof data.summaryId === "string" ? data.summaryId : undefined,
+    indexProvider: typeof data.indexProvider === "string" ? data.indexProvider : undefined,
+    indexId: typeof data.indexId === "string" ? data.indexId : undefined,
+    confidence: typeof data.confidence === "number" ? data.confidence : undefined,
+    storagePath: typeof data.storagePath === "string" ? data.storagePath : undefined,
+    createdAt: toDate(data.createdAt),
+    updatedAt: toDate(data.updatedAt),
+  };
+}
+
+function mapAssignmentStatus(value: unknown): UploadedFileRecord["assignmentStatus"] {
+  if (value === "assigned" || value === "needs-review") {
+    return value;
+  }
+  return "unassigned";
+}
+
+function mapIndexingStatus(value: unknown): UploadedFileRecord["indexingStatus"] {
+  if (
+    value === "not-indexed" ||
+    value === "queued" ||
+    value === "uploaded" ||
+    value === "indexing" ||
+    value === "indexed" ||
+    value === "failed"
+  ) {
+    return value;
+  }
+  return "not-indexed";
+}
+
+function mapSourceType(value: unknown): UploadedFileRecord["sourceType"] {
+  if (value === "pdf" || value === "docx" || value === "note" || value === "other") {
+    return value;
+  }
+  return "other";
+}
+
+function mapFilePolicy(value: unknown): UploadedFileRecord["filePolicy"] {
+  if (
+    value === "knowledge_base_source" ||
+    value === "context_for_practice_generation" ||
+    value === "temporary_reference"
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function compactRecord(record: object): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(record as Record<string, unknown>).filter(([, value]) => value !== undefined)
+  );
+}
+
+function getOwnerUserId(data: Record<string, unknown>): string {
+  if (typeof data.userId === "string") return data.userId;
+  if (typeof data.user_id === "string") return data.user_id;
+  return "";
+}

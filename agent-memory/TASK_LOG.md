@@ -5,6 +5,20 @@ Full details live in PRs and task reports.
 
 ## Recent tasks
 
+### Batch 4 / Phase 8 — File metadata intake/classify/index lifecycle (metadata-first)
+- Branch: `codex/batch4-phase8-files`
+- PR: #43
+- Status: pending review/merge
+- Result: adds `POST/GET /api/workspaces/[workspaceId]/files`, deterministic classification, assignment status, lifecycle-only `indexingStatus` transitions, and decision-log events.
+- Notes: metadata-only. No binary upload, no Firebase Storage ingestion, no text extraction, no real vector/chunk indexing, no retrieval execution, no summary generation.
+
+### Batch 3 — Retrieval decision boundary (read-only)
+- Branch: merged branch (see git history)
+- PR: merged (see git history)
+- Status: complete
+- Result: contract and fallback decision matrix for retrieval boundary; logs persisted.
+- Notes: no retrieval execution.
+
 ### Step 38C/38D — Research-based UX corrections
 - Branch: `design/research-based-ux-corrections-final`
 - PR: #30

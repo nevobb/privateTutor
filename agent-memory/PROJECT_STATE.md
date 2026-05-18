@@ -10,6 +10,14 @@
 - Step 38C/38D — Research-based UX corrections — complete and merged via PR #30.
 - Step 39 — Session transcript/message API boundary — complete and merged via PR #31.
 - Step 39.5 — Agent Task Protocol — complete and merged via PR #33.
+- Step 40A/40B/40C — provider boundary + DeepSeek smoke/history wiring — complete and merged.
+- Step 41B/41C/41D/41E — decision-log persistence, diagnostics API/panel, composer layout, dev diagnostics toggle — complete and merged.
+- Batch 2 — Phase 7.2 move closure + Phase 15 subset tests — complete and merged.
+- Batch 3 — retrieval decision boundary (read-only, no retrieval execution) — complete and merged.
+
+## Pending PR milestone
+- Batch 4 / Phase 8 — metadata-first file intake/classify/index lifecycle — implemented on branch and pending merge in PR #43.
+- Important: this milestone is metadata-only and does not include binary upload, Firebase Storage ingestion, text extraction, real vector/chunk indexing, retrieval execution, or summary generation.
 
 ## Current capabilities
 - Auth emulator flow works.
@@ -30,6 +38,9 @@
 - Retrieval not implemented.
 - Learner memory persistence not implemented.
 - File upload / Firebase Storage not implemented.
+- File text extraction/parsing not implemented.
+- Real retrieval index/chunk execution not implemented.
+- File-content summary generation not implemented.
 - Web search not implemented.
 - Production Firebase deployment not done.
 - Subspace not integrated into the app and not part of MVP.
@@ -49,8 +60,8 @@
 - Future tasks must maintain these files.
 
 ## Current/next memory step
-- Current: Step 39.6C — Agent handoff and open questions.
-- Next: Step 40A — Tutor provider boundary / Gemini-Genkit preflight, pending Nevo decision.
+- Current: Batch 4 / Phase 8 PR review and merge readiness.
+- Next: Batch 4 / Phase 9 (metadata-only summary lifecycle contract), only after explicit approval.
 
 ## Last known safe base
 `origin/main` after PR #35 merge (`1ac077d`).
