@@ -138,3 +138,32 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: Step 41D optional UI diagnostics panel behind a safe toggle.
   - Blockers/Risks: unrelated local/untracked artifacts remain in workspace and must stay out of commits.
+
+## 2026-05-18 22:51 (Asia/Jerusalem) — Codex
+- Step/Task ID: Step 41D
+- Task summary: Implement diagnostics panel in chat UI and fix send-button/textarea overlap layout.
+- What I changed:
+  - Added diagnostics API client + types for `/api/decision-log`.
+  - Added collapsed read-only Diagnostics panel to `TutorConversation` with disabled/loading/empty/error/success states.
+  - Added re-fetch trigger after assistant response is appended.
+  - Refactored composer: send button moved outside textarea (left fixed), removed overlay pattern.
+  - Preserved Enter submit and Shift+Enter newline logic.
+- Files touched:
+  - `src/lib/diagnostics/decisionLogApiClient.ts`
+  - `src/lib/diagnostics/decisionLogApiTypes.ts`
+  - `src/components/tutor/TutorConversation.tsx`
+  - `tests/lib/diagnostics/decisionLogApiClient.test.ts`
+  - `tests/components/tutor/TutorConversation.test.tsx`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/lib/diagnostics/decisionLogApiClient.test.ts tests/components/tutor/TutorConversation.test.tsx tests/server/workspaces/decisionLogApiRoute.test.ts tests/server/workspaces/sessionMessageApiService.test.ts tests/server/tutor/deepseekHarnessIntegration.test.ts`
+  - Result: passed (26/26)
+- Git status:
+  - Branch: `codex/step-41-tutor-harness`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: open PR for Step 41D and run visual QA for Hebrew/English input in composer.
+  - Blockers/Risks: unrelated local files (including existing `route.ts` change) remain in workspace and must stay excluded.

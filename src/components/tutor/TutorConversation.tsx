@@ -4,11 +4,17 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { TutorMessage, WorkMode, CostMode } from "../../types";
 import WorkModeSelector from "../workModes/WorkModeSelector";
 import CostModeSelector from "../costModes/CostModeSelector";
+import CollapsiblePanel from "../layout/CollapsiblePanel";
 import {
   fetchSessionMessages,
   sendSessionMessage,
   SessionMessagesApiError,
 } from "../../lib/sessions/sessionMessagesApiClient";
+import {
+  fetchDecisionLogEntries,
+  DecisionLogApiError,
+} from "../../lib/diagnostics/decisionLogApiClient";
+import type { DecisionLogListItem } from "../../lib/diagnostics/decisionLogApiTypes";
 
 const SCOPE_MODE_LABELS: Record<WorkMode, string> = {
   Learning: "Learn",
@@ -43,6 +49,15 @@ export default function TutorConversation({
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [decisionLogState, setDecisionLogState] = useState<
+    | { status: "disabled"; message: string }
+    | { status: "loading" }
+    | { status: "ready"; entries: DecisionLogListItem[] }
+    | { status: "empty"; message: string }
+    | { status: "error"; message: string }
+  >({ status: "disabled", message: "Select a workspace and session to view diagnostics." });
+  const [decisionLogRefreshKey, setDecisionLogRefreshKey] = useState(0);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -78,6 +93,48 @@ export default function TutorConversation({
     };
   }, [activeSessionId, activeWorkspaceId, getToken]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      if (!activeWorkspaceId || !activeSessionId) {
+        if (!cancelled) {
+          setDecisionLogState({
+            status: "disabled",
+            message: "Select a workspace and session to view diagnostics.",
+          });
+        }
+        return;
+      }
+
+      if (!cancelled) setDecisionLogState({ status: "loading" });
+      try {
+        const token = await getToken();
+        if (!token || cancelled) return;
+        const entries = await fetchDecisionLogEntries(token, {
+          workspaceId: activeWorkspaceId,
+          sessionId: activeSessionId,
+          limit: 20,
+        });
+        if (cancelled) return;
+        if (entries.length === 0) {
+          setDecisionLogState({ status: "empty", message: "No diagnostics entries yet." });
+          return;
+        }
+        setDecisionLogState({ status: "ready", entries });
+      } catch (error: unknown) {
+        if (cancelled) return;
+        const message =
+          error instanceof DecisionLogApiError ? error.message : "Failed to load diagnostics entries.";
+        setDecisionLogState({ status: "error", message });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSessionId, activeWorkspaceId, decisionLogRefreshKey, getToken]);
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -89,6 +146,9 @@ export default function TutorConversation({
 
       setMessages((prev) => [...prev, optimisticMsg]);
       setInputValue("");
+      if (inputRef.current) {
+        inputRef.current.style.height = "52px";
+      }
       setIsTyping(true);
 
       try {
@@ -108,6 +168,7 @@ export default function TutorConversation({
           result.userMessage,
           result.assistantMessage,
         ]);
+        setDecisionLogRefreshKey((prev) => prev + 1);
       } catch (error) {
         console.error(error);
         setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
@@ -119,7 +180,7 @@ export default function TutorConversation({
   );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (shouldSubmitOnKeyDown(e.key, e.shiftKey)) {
       e.preventDefault();
       void handleSubmit(e as unknown as React.FormEvent);
     }
@@ -226,16 +287,61 @@ export default function TutorConversation({
         <div ref={bottomRef} />
       </div>
 
+      {/* Diagnostics panel */}
+      <div className="px-6 pb-3 flex-shrink-0" dir="ltr">
+        <div
+          className="rounded-xl overflow-hidden"
+          style={{
+            border: "1px solid var(--tutor-border-subtle)",
+            background: "var(--tutor-surface-raised)",
+          }}
+        >
+          <CollapsiblePanel title="Diagnostics" defaultOpen={false}>
+            <DecisionLogPanelBody state={decisionLogState} />
+          </CollapsiblePanel>
+        </div>
+      </div>
+
       {/* Input bar */}
       <div
         className="px-6 pb-5 pt-3 flex-shrink-0"
         style={{ borderTop: "1px solid var(--tutor-border-subtle)" }}
       >
-        <form onSubmit={handleSubmit} className="relative">
+        <form onSubmit={handleSubmit} className="flex items-end gap-2.5">
+          <button
+            type="submit"
+            disabled={isTyping || !inputValue.trim() || !activeSessionId}
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-40 flex-shrink-0"
+            style={{
+              background:
+                inputValue.trim() && activeSessionId
+                  ? "var(--tutor-accent)"
+                  : "var(--tutor-border)",
+              color: "#FFFFFF",
+            }}
+            aria-label="Send"
+            data-testid="send-button"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
           <textarea
+            ref={inputRef}
             rows={1}
             placeholder={activeSessionId ? "Type a message..." : "Create or select a conversation first..."}
-            className="w-full resize-none rounded-2xl px-5 py-3.5 pr-14 text-sm outline-none transition-all"
+            className="flex-1 resize-none rounded-2xl px-5 py-3.5 text-sm outline-none transition-all"
             style={{
               background: "var(--tutor-surface)",
               border: "1px solid var(--tutor-border)",
@@ -253,39 +359,70 @@ export default function TutorConversation({
             onKeyDown={handleKeyDown}
             disabled={isTyping || !activeSessionId}
             dir="auto"
+            data-testid="message-textarea"
           />
-          <button
-            type="submit"
-            disabled={isTyping || !inputValue.trim() || !activeSessionId}
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-40"
-            style={{
-              background:
-                inputValue.trim() && activeSessionId
-                  ? "var(--tutor-accent)"
-                  : "var(--tutor-border)",
-              color: "#FFFFFF",
-            }}
-            aria-label="Send"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
-          </button>
         </form>
       </div>
     </div>
   );
+}
+
+export function DecisionLogPanelBody({
+  state,
+}: {
+  state:
+    | { status: "disabled"; message: string }
+    | { status: "loading" }
+    | { status: "ready"; entries: DecisionLogListItem[] }
+    | { status: "empty"; message: string }
+    | { status: "error"; message: string };
+}) {
+  if (state.status === "loading") {
+    return <p className="text-xs" style={{ color: "var(--tutor-text-muted)" }}>Loading diagnostics...</p>;
+  }
+
+  if (state.status === "disabled" || state.status === "empty" || state.status === "error") {
+    return <p className="text-xs" style={{ color: "var(--tutor-text-muted)" }}>{state.message}</p>;
+  }
+
+  return (
+    <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+      {state.entries.map((entry) => (
+        <div
+          key={entry.id}
+          className="rounded-lg px-2.5 py-2 text-[11px]"
+          style={{
+            background: "var(--tutor-surface)",
+            border: "1px solid var(--tutor-border-subtle)",
+          }}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span style={{ color: "var(--tutor-text-secondary)" }}>{entry.decisionType}</span>
+            <span style={{ color: "var(--tutor-text-muted)" }}>
+              {new Date(entry.createdAt).toLocaleTimeString()}
+            </span>
+          </div>
+          <p className="mt-1" style={{ color: "var(--tutor-text)" }}>{entry.title}</p>
+          <p
+            className="mt-1"
+            style={{
+              color: "var(--tutor-text-secondary)",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {entry.decision}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function shouldSubmitOnKeyDown(key: string, shiftKey: boolean): boolean {
+  return key === "Enter" && !shiftKey;
 }
 
 function MessageBubble({ msg }: { msg: TutorMessage }) {

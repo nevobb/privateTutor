@@ -1,6 +1,7 @@
 # Current Task
 
 ## Status
+Step 41D complete — diagnostics panel and composer layout fix shipped.
 Step 41C complete — decision trace diagnostics API added (`GET /api/decision-log`).
 Step 41B complete — harness decision events now persist through session message API decision-log path.
 Step 40B complete — DeepSeek smoke test passed (real provider + persistence + isolation).
@@ -41,7 +42,7 @@ Step 40C complete — conversation history passed to DeepSeek on every message.
 - Added report: `DEEPSEEK_SMOKE_TEST_REPORT.md`
 
 ## Next proposed task
-Step 41D — add optional lightweight client diagnostics panel (read-only) behind a safe toggle, consuming `/api/decision-log`.
+Step 41E — tune diagnostics UX copy + optional timestamp/label formatting polish after product review.
 
 ## What was done in Step 41 (current slice)
 - Added Harness JSON contract prompt for DeepSeek (`src/server/tutor/deepseekHarnessPrompt.ts`)
@@ -73,6 +74,22 @@ Step 41D — add optional lightweight client diagnostics panel (read-only) behin
 - Added route tests for auth, validation, error handling, and success serialization:
   - `tests/server/workspaces/decisionLogApiRoute.test.ts`
 - No chat UX changes; diagnostics is API-only in this slice.
+
+## What was done in Step 41D
+- Added diagnostics client data layer:
+  - `src/lib/diagnostics/decisionLogApiClient.ts`
+  - `src/lib/diagnostics/decisionLogApiTypes.ts`
+- Integrated a collapsed-by-default, read-only Diagnostics panel in `TutorConversation`:
+  - Loads by active `workspaceId` + `sessionId` with `limit=20`
+  - Supports states: disabled/loading/empty/error/success
+  - Re-fetches after tutor response append
+- Refactored chat composer layout:
+  - Send button moved outside textarea (fixed left, non-floating)
+  - Removed overlay padding dependency
+  - Preserved Enter/Shift+Enter behavior and `dir=\"auto\"`
+- Added tests:
+  - `tests/lib/diagnostics/decisionLogApiClient.test.ts`
+  - `tests/components/tutor/TutorConversation.test.tsx`
 
 ## Roadmap
 - Phase 1 (current): real AI tutor via DeepSeek ✓ provider layer done
