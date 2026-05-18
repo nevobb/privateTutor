@@ -167,3 +167,80 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: open PR for Step 41D and run visual QA for Hebrew/English input in composer.
   - Blockers/Risks: unrelated local files (including existing `route.ts` change) remain in workspace and must stay excluded.
+
+## 2026-05-18 22:59 (Asia/Jerusalem) — Codex
+- Step/Task ID: Track B (Step 41E diagnostics polish slice)
+- Task summary: Implement diagnostics feature-flag behavior and formatting polish in TutorConversation only.
+- What I changed:
+  - Added `developerDiagnosticsEnabled` prop to `TutorConversation` and gated diagnostics panel rendering.
+  - Skipped diagnostics fetch/re-fetch logic when diagnostics are disabled, including post-send refresh increments.
+  - Polished diagnostics copy for disabled/loading/empty/error states.
+  - Added decision type label mapping (`model_provider` -> `Model`, `memory_not_written` -> `Memory`, fallback raw token) and local `HH:mm:ss` timestamp formatting.
+  - Kept composer submit/layout behavior unchanged.
+- Files touched:
+  - `src/components/tutor/TutorConversation.tsx`
+  - `tests/components/tutor/TutorConversation.test.tsx`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/components/tutor/TutorConversation.test.tsx`
+  - Result: passed (6/6)
+- Git status:
+  - Branch: `codex/step-41-tutor-harness`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: propagate `developerDiagnosticsEnabled` at caller sites and run wider tutor/component suite.
+  - Blockers/Risks: workspace contains unrelated modified/untracked files; they were intentionally not touched.
+
+## 2026-05-18 22:59 (Asia/Jerusalem) — Codex
+- Step/Task ID: Track A diagnostics toggle wiring
+- Task summary: Add sidebar Developer diagnostics toggle under ThemePicker with localStorage persistence/hydration and pass parent prop to TutorConversation.
+- What I changed:
+  - Added `developerDiagnosticsEnabled` state in `src/app/page.tsx` with safe client hydration from `privateTutor.devDiagnostics.enabled` and safe persistence back to localStorage.
+  - Added `Developer diagnostics` sidebar switch directly under `ThemePicker`.
+  - Wired `developerDiagnosticsEnabled` prop from page to `TutorConversation`.
+- Files touched:
+  - `src/app/page.tsx`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/components/tutor/TutorConversation.test.tsx`
+  - Result: passed (6/6)
+  - `npx tsc --noEmit`
+  - Result: failed due pre-existing repository-wide TypeScript errors outside this task scope
+- Git status:
+  - Branch: `codex/step-41-tutor-harness`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: if desired, add a focused test for page-level localStorage toggle hydration behavior.
+  - Blockers/Risks: workspace already contains unrelated modified/untracked files; kept out of this task edits.
+
+## 2026-05-18 23:00 (Asia/Jerusalem) — Codex
+- Step/Task ID: Step 41E
+- Task summary: Finish diagnostics UX polish with sidebar toggle persistence/hydration and strict diagnostics gating.
+- What I changed:
+  - Integrated Track A + Track B outputs and finalized Step 41E behavior.
+  - Added sidebar `Developer diagnostics` toggle under Theme with localStorage persistence/hydration.
+  - Added explicit helper exports for parse/serialize key logic and test coverage.
+  - Gated diagnostics panel + fetch/re-fetch when disabled.
+  - Polished diagnostics labels (`Model`/`Memory` mapping) and local `HH:mm:ss` timestamps.
+- Files touched:
+  - `src/app/page.tsx`
+  - `src/components/tutor/TutorConversation.tsx`
+  - `tests/components/tutor/TutorConversation.test.tsx`
+  - `tests/components/pageDiagnosticsToggle.test.ts`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/components/pageDiagnosticsToggle.test.ts tests/components/tutor/TutorConversation.test.tsx tests/lib/diagnostics/decisionLogApiClient.test.ts tests/server/workspaces/decisionLogApiRoute.test.ts tests/server/workspaces/sessionMessageApiService.test.ts`
+  - Result: passed (27/27)
+- Git status:
+  - Branch: `codex/step-41e-diagnostics-polish`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: open PR for Step 41E and merge after checks.
+  - Blockers/Risks: unrelated local/untracked files still exist in workspace and must stay excluded (including pre-existing `src/app/api/sessions/[sessionId]/messages/route.ts` local change).

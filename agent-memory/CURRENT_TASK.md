@@ -1,6 +1,7 @@
 # Current Task
 
 ## Status
+Step 41E complete — diagnostics UX polish and sidebar developer toggle added.
 Step 41D complete — diagnostics panel and composer layout fix shipped.
 Step 41C complete — decision trace diagnostics API added (`GET /api/decision-log`).
 Step 41B complete — harness decision events now persist through session message API decision-log path.
@@ -42,7 +43,7 @@ Step 40C complete — conversation history passed to DeepSeek on every message.
 - Added report: `DEEPSEEK_SMOKE_TEST_REPORT.md`
 
 ## Next proposed task
-Step 41E — tune diagnostics UX copy + optional timestamp/label formatting polish after product review.
+Step 42A — start structured retrieval decision boundary (still read-only decisioning, no retrieval execution yet).
 
 ## What was done in Step 41 (current slice)
 - Added Harness JSON contract prompt for DeepSeek (`src/server/tutor/deepseekHarnessPrompt.ts`)
@@ -90,6 +91,22 @@ Step 41E — tune diagnostics UX copy + optional timestamp/label formatting poli
 - Added tests:
   - `tests/lib/diagnostics/decisionLogApiClient.test.ts`
   - `tests/components/tutor/TutorConversation.test.tsx`
+
+## What was done in Step 41E
+- Added sidebar `Developer diagnostics` toggle under Theme section.
+- Added localStorage persistence/hydration for the toggle:
+  - key: `privateTutor.devDiagnostics.enabled`
+  - default: `false`
+- Wired `developerDiagnosticsEnabled` from page container into `TutorConversation`.
+- Gated diagnostics behavior when disabled:
+  - hide diagnostics panel
+  - skip diagnostics fetch and refresh triggers
+- Polished diagnostics presentation:
+  - decision labels (`model_provider` -> `Model`, `memory_not_written` -> `Memory`)
+  - local timestamp format `HH:mm:ss`
+  - improved disabled/loading/empty/error copy
+- Added helper tests for toggle persistence parsing/serialization:
+  - `tests/components/pageDiagnosticsToggle.test.ts`
 
 ## Roadmap
 - Phase 1 (current): real AI tutor via DeepSeek ✓ provider layer done
