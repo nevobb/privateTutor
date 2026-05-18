@@ -8,6 +8,12 @@ export interface CreateWorkspaceApiRequest {
   stableIdentityNote?: string;
 }
 
+export interface MoveWorkspaceApiRequest {
+  currentPath: string;
+  parentWorkspaceId?: string;
+  stableIdentityNote?: string;
+}
+
 export interface WorkspaceApiResponse {
   id: string;
   userId: string;
@@ -17,6 +23,8 @@ export interface WorkspaceApiResponse {
   createdAt: string;
   updatedAt: string;
   path?: string[];
+  currentPath?: string;
+  previousPaths?: string[];
   parentWorkspaceId?: string;
   stableIdentityNote?: string;
   lastSessionId?: string;
@@ -29,6 +37,10 @@ export interface WorkspaceListApiResponse {
 
 export type CreateWorkspaceValidationResult =
   | { ok: true; input: CreateWorkspaceApiRequest }
+  | { ok: false; error: string };
+
+export type MoveWorkspaceValidationResult =
+  | { ok: true; input: MoveWorkspaceApiRequest }
   | { ok: false; error: string };
 
 export function validateCreateWorkspaceRequest(body: unknown): CreateWorkspaceValidationResult {
@@ -72,6 +84,41 @@ export function validateCreateWorkspaceRequest(body: unknown): CreateWorkspaceVa
   };
 }
 
+export function validateMoveWorkspaceRequest(body: unknown): MoveWorkspaceValidationResult {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return { ok: false, error: "Request body must be a JSON object." };
+  }
+
+  const raw = body as Record<string, unknown>;
+  if (typeof raw.currentPath !== "string") {
+    return { ok: false, error: "currentPath is required and must be a string." };
+  }
+
+  const currentPath = normalizeCurrentPath(raw.currentPath);
+  if (!currentPath) {
+    return { ok: false, error: "currentPath must be a non-empty path." };
+  }
+
+  if (raw.parentWorkspaceId !== undefined && typeof raw.parentWorkspaceId !== "string") {
+    return { ok: false, error: "parentWorkspaceId must be a string." };
+  }
+
+  if (raw.stableIdentityNote !== undefined && typeof raw.stableIdentityNote !== "string") {
+    return { ok: false, error: "stableIdentityNote must be a string." };
+  }
+
+  return {
+    ok: true,
+    input: {
+      currentPath,
+      parentWorkspaceId:
+        typeof raw.parentWorkspaceId === "string" ? raw.parentWorkspaceId : undefined,
+      stableIdentityNote:
+        typeof raw.stableIdentityNote === "string" ? raw.stableIdentityNote : undefined,
+    },
+  };
+}
+
 export function toWorkspaceApiResponse(record: WorkspaceRecord): WorkspaceApiResponse {
   return {
     id: record.id,
@@ -82,9 +129,21 @@ export function toWorkspaceApiResponse(record: WorkspaceRecord): WorkspaceApiRes
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     path: record.path,
+    currentPath: record.currentPath,
+    previousPaths: record.previousPaths,
     parentWorkspaceId: record.parentWorkspaceId,
     stableIdentityNote: record.stableIdentityNote,
     lastSessionId: record.lastSessionId,
     lastActivityAt: record.lastActivityAt?.toISOString(),
   };
+}
+
+function normalizeCurrentPath(value: string): string {
+  const parts = value
+    .split("/")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+
+  if (parts.length === 0) return "";
+  return parts.join(" / ");
 }

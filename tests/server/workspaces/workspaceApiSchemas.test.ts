@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   toWorkspaceApiResponse,
   validateCreateWorkspaceRequest,
+  validateMoveWorkspaceRequest,
 } from "../../../src/server/workspaces/workspaceApiSchemas";
 import type { WorkspaceRecord } from "../../../src/server/workspaces/workspaceTypes";
 
@@ -122,6 +123,8 @@ describe("toWorkspaceApiResponse", () => {
     updatedAt: now,
     lastActivityAt: now,
     path: ["root"],
+    currentPath: "root / Test Workspace",
+    previousPaths: ["root / Old Workspace"],
     stableIdentityNote: "stable",
   };
 
@@ -135,6 +138,8 @@ describe("toWorkspaceApiResponse", () => {
     expect(response.updatedAt).toBe("2026-01-01T00:00:00.000Z");
     expect(response.lastActivityAt).toBe("2026-01-01T00:00:00.000Z");
     expect(response.path).toEqual(["root"]);
+    expect(response.currentPath).toBe("root / Test Workspace");
+    expect(response.previousPaths).toEqual(["root / Old Workspace"]);
     expect(response.stableIdentityNote).toBe("stable");
   });
 
@@ -150,8 +155,62 @@ describe("toWorkspaceApiResponse", () => {
     };
     const response = toWorkspaceApiResponse(minRecord);
     expect(response.path).toBeUndefined();
+    expect(response.currentPath).toBeUndefined();
+    expect(response.previousPaths).toBeUndefined();
     expect(response.lastSessionId).toBeUndefined();
     expect(response.lastActivityAt).toBeUndefined();
     expect(response.stableIdentityNote).toBeUndefined();
+  });
+});
+
+describe("validateMoveWorkspaceRequest", () => {
+  it("accepts a valid move request", () => {
+    const result = validateMoveWorkspaceRequest({
+      currentPath: " Year 1 / Semester B / Physics 2 ",
+      parentWorkspaceId: "parent-1",
+      stableIdentityNote: "keep identity",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.input.currentPath).toBe("Year 1 / Semester B / Physics 2");
+      expect(result.input.parentWorkspaceId).toBe("parent-1");
+      expect(result.input.stableIdentityNote).toBe("keep identity");
+    }
+  });
+
+  it("normalizes dense separators and spaces", () => {
+    const result = validateMoveWorkspaceRequest({
+      currentPath: "  Year 1/  Semester B   /Physics 2  ",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.input.currentPath).toBe("Year 1 / Semester B / Physics 2");
+    }
+  });
+
+  it("rejects missing currentPath", () => {
+    const result = validateMoveWorkspaceRequest({});
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects empty normalized currentPath", () => {
+    const result = validateMoveWorkspaceRequest({ currentPath: " /  /  " });
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects non-string parentWorkspaceId", () => {
+    const result = validateMoveWorkspaceRequest({
+      currentPath: "A / B",
+      parentWorkspaceId: 7,
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects non-string stableIdentityNote", () => {
+    const result = validateMoveWorkspaceRequest({
+      currentPath: "A / B",
+      stableIdentityNote: false,
+    });
+    expect(result.ok).toBe(false);
   });
 });

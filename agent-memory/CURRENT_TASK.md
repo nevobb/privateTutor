@@ -1,6 +1,7 @@
 # Current Task
 
 ## Status
+Batch 2 complete — Phase 7.2 move flow + Phase 15 subset closures implemented and validated (including emulator integration suites).
 Step 41E complete — diagnostics UX polish and sidebar developer toggle added.
 Step 41D complete — diagnostics panel and composer layout fix shipped.
 Step 41C complete — decision trace diagnostics API added (`GET /api/decision-log`).
@@ -44,6 +45,23 @@ Step 40C complete — conversation history passed to DeepSeek on every message.
 
 ## Next proposed task
 Step 42A — start structured retrieval decision boundary (still read-only decisioning, no retrieval execution yet).
+
+## What was done in Batch 2
+- Added workspace move API route:
+  - `POST /api/workspaces/[workspaceId]/move`
+  - Validation: `currentPath` required + normalized, optional `parentWorkspaceId` / `stableIdentityNote`
+- Added repository/service move behavior with stable identity:
+  - `workspaceId` unchanged
+  - `currentPath` updated
+  - `previousPaths` append old value without duplicates
+  - `updatedAt` / `lastActivityAt` refreshed
+  - legacy `path` array kept for backward compatibility
+- Added tests for move schema/service/route and behavior subset coverage artifacts.
+- Added report: `agent-memory/BATCH2_PARTIAL_CLOSURE_REPORT.md`
+
+## Batch 2 validation note
+- Focused non-emulator test suites pass.
+- Emulator integration suites for the Batch 2 scope now pass after test harness stabilization; see Batch 2 report for command output and details.
 
 ## What was done in Step 41 (current slice)
 - Added Harness JSON contract prompt for DeepSeek (`src/server/tutor/deepseekHarnessPrompt.ts`)

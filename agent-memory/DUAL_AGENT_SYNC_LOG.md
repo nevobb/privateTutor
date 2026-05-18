@@ -244,3 +244,90 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: open PR for Step 41E and merge after checks.
   - Blockers/Risks: unrelated local/untracked files still exist in workspace and must stay excluded (including pre-existing `src/app/api/sessions/[sessionId]/messages/route.ts` local change).
+
+## 2026-05-18 23:16 (Asia/Jerusalem) — Codex
+- Step/Task ID: Batch 1 — Truth Alignment Only
+- Task summary: Crosswalk `08` checklist vs updated HTML plan vs actual repo implementation status (done/partial/not-started) with concrete evidence.
+- What I changed:
+  - Produced a full alignment matrix across all 08 phases with status and evidence anchors.
+  - Added a reality-check note clarifying that HTML status labels are outdated relative to merged PRs.
+  - Prioritized next closures (7.2 + 15 subset) for explicit approval before Batch 2.
+- Files touched:
+  - `agent-memory/BATCH1_TRUTH_ALIGNMENT_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git log --oneline --decorate -n 25`
+  - `git status --short`
+- Git status:
+  - Branch: `codex/batch1-truth-alignment`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: user approval of Batch 1 report priorities, then execute Batch 2 only (close partial items).
+  - Blockers/Risks: workspace contains unrelated pre-existing modified/untracked local artifacts that must stay excluded from future commits.
+
+## 2026-05-18 23:28 (Asia/Jerusalem) — Codex
+- Step/Task ID: Batch 2 — Partial Closure (Phase 7.2 + Phase 15 subset)
+- Task summary: Implement workspace move API/data behavior and close feasible behavior-test subset only.
+- What I changed:
+  - Added `POST /api/workspaces/[workspaceId]/move` route with auth, payload validation, 400/401/404/503/500/200 handling, and normalized `currentPath` contract.
+  - Added service/repository move flow preserving `workspaceId`, updating `currentPath`, appending unique `previousPaths`, refreshing timestamps, and keeping legacy `path` compatibility.
+  - Added focused tests for move schema/service/route and added explicit DeepSeek cost-mode model-routing unit tests.
+  - Added Batch 2 closure report and updated `CURRENT_TASK` with Batch 2 status + blocker note.
+- Files touched:
+  - `src/app/api/workspaces/[workspaceId]/move/route.ts`
+  - `src/server/workspaces/workspaceApiSchemas.ts`
+  - `src/server/workspaces/workspaceApiService.ts`
+  - `src/server/workspaces/workspaceRepository.ts`
+  - `src/lib/workspaces/workspaceApiTypes.ts`
+  - `tests/server/workspaces/workspaceMoveApiRoute.test.ts`
+  - `tests/server/workspaces/workspaceApiSchemas.test.ts`
+  - `tests/server/workspaces/workspaceApiService.test.ts`
+  - `tests/server/workspaces/workspaceRepository.test.ts`
+  - `tests/firebase/workspaceApi.emulator.test.ts`
+  - `tests/server/tutor/deepseekConfig.test.ts`
+  - `agent-memory/BATCH2_PARTIAL_CLOSURE_REPORT.md`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/workspaces/workspaceApiSchemas.test.ts tests/server/workspaces/workspaceApiService.test.ts tests/server/workspaces/workspaceMoveApiRoute.test.ts tests/server/workspaces/workspaceApiRoute.test.ts tests/behavior.test.ts tests/server/tutor/deepseekConfig.test.ts`
+  - Result: passed (80/80)
+  - `FIREBASE_WORKSPACE_EMULATOR_TEST=1 FIREBASE_WORKSPACE_API_EMULATOR_TEST=1 npx vitest run tests/server/workspaces/workspaceRepository.test.ts tests/firebase/workspaceApi.emulator.test.ts`
+  - Result: failed due existing Firestore Lite emulator harness compatibility issue.
+- Git status:
+  - Branch: `codex/batch2-partial-closure`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: partial (implementation complete, integration-validation blocked)
+  - Next recommended step: decide whether to treat Firestore Lite emulator harness instability as an infra blocker to resolve now or accept focused-test completion and proceed to Batch 3.
+  - Blockers/Risks: pre-existing emulator compatibility instability affects integration suites and causes 500/400 statuses in those test paths.
+
+## 2026-05-18 23:35 (Asia/Jerusalem) — Codex
+- Step/Task ID: Batch 2 — Emulator harness stabilization
+- Task summary: Resolve Batch 2 integration-test blocker by stabilizing workspace emulator suites under Firestore Lite.
+- What I changed:
+  - Reworked `workspaceRepository` and `workspaceApi` emulator integration suites to run against direct emulator-backed flows instead of the legacy mocked Firestore harness.
+  - Removed cross-suite race from global Firestore flush between tests by isolating data per run/user.
+  - Kept move API/domain behavior intact; validated integration semantics after stabilization.
+  - Updated Batch 2 report and `CURRENT_TASK` to mark blocker resolved and Batch 2 complete.
+- Files touched:
+  - `tests/server/workspaces/workspaceRepository.test.ts`
+  - `tests/firebase/workspaceApi.emulator.test.ts`
+  - `agent-memory/BATCH2_PARTIAL_CLOSURE_REPORT.md`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/workspaces/workspaceApiSchemas.test.ts tests/server/workspaces/workspaceApiService.test.ts tests/server/workspaces/workspaceMoveApiRoute.test.ts tests/server/workspaces/workspaceApiRoute.test.ts tests/server/workspaces/workspaceRepository.test.ts tests/firebase/workspaceApi.emulator.test.ts tests/server/tutor/deepseekConfig.test.ts tests/behavior.test.ts`
+  - Result: focused suites passed (non-emulator files pass; emulator files skipped without env flags)
+  - `FIREBASE_WORKSPACE_EMULATOR_TEST=1 FIREBASE_WORKSPACE_API_EMULATOR_TEST=1 npx vitest run tests/server/workspaces/workspaceRepository.test.ts tests/firebase/workspaceApi.emulator.test.ts`
+  - Result: passed (14/14)
+- Git status:
+  - Branch: `codex/batch2-partial-closure`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: prepare clean commit/PR for Batch 2 and proceed to Batch 3 only after merge.
+  - Blockers/Risks: pre-existing unrelated local modifications/untracked artifacts still present and must remain excluded from commit scope.

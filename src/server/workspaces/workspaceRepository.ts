@@ -71,7 +71,10 @@ export async function listWorkspaces(userId: string): Promise<WorkspaceRecord[]>
     const ref = collection(db, "users", userId, "workspaces");
     const snapshot = await getDocs(query(ref, orderBy("updatedAt", "desc")));
     return snapshot.docs
-      .filter((d) => d.data().userId === userId)
+      .filter((d) => {
+        const data = d.data() as Record<string, unknown>;
+        return getOwnerUserId(data) === userId;
+      })
       .map((d) => mapWorkspaceRecord(d.id, d.data()));
   });
 }
@@ -84,12 +87,82 @@ export async function getWorkspace(userId: string, workspaceId: string): Promise
       return null;
     }
 
-    const data = snapshot.data();
-    if (data.userId !== userId) {
+    const data = snapshot.data() as Record<string, unknown>;
+    if (getOwnerUserId(data) !== userId) {
       return null;
     }
 
     return mapWorkspaceRecord(snapshot.id, data);
+  });
+}
+
+export interface MoveWorkspaceInput {
+  currentPath: string;
+  parentWorkspaceId?: string;
+  stableIdentityNote?: string;
+}
+
+export async function moveWorkspace(
+  userId: string,
+  workspaceId: string,
+  input: MoveWorkspaceInput
+): Promise<WorkspaceRecord | null> {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
+    const ref = doc(db, ...workspacePath(userId, workspaceId));
+    const snapshot = await getDoc(ref);
+
+    if (!snapshot.exists()) {
+      return null;
+    }
+
+    const current = snapshot.data();
+    const ownerId =
+      typeof current.userId === "string"
+        ? current.userId
+        : typeof current.user_id === "string"
+          ? current.user_id
+          : "";
+
+    if (ownerId !== userId) {
+      return null;
+    }
+
+    const now = new Date();
+    const existingRecord = mapWorkspaceRecord(snapshot.id, current);
+    const currentPath =
+      typeof current.currentPath === "string" ? current.currentPath : undefined;
+    const previousPaths = Array.isArray(current.previousPaths)
+      ? current.previousPaths.filter((entry) => typeof entry === "string").map((entry) => String(entry))
+      : [];
+
+    if (
+      currentPath &&
+      currentPath !== input.currentPath &&
+      !previousPaths.includes(currentPath)
+    ) {
+      previousPaths.push(currentPath);
+    }
+
+    const legacyPath = input.currentPath
+      .split("/")
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+
+    const nextRecord: WorkspaceRecord = {
+      ...existingRecord,
+      id: snapshot.id,
+      userId: ownerId,
+      path: legacyPath.length > 0 ? legacyPath : undefined,
+      currentPath: input.currentPath,
+      previousPaths: previousPaths.length > 0 ? previousPaths : undefined,
+      parentWorkspaceId: input.parentWorkspaceId ?? existingRecord.parentWorkspaceId,
+      stableIdentityNote: input.stableIdentityNote ?? existingRecord.stableIdentityNote,
+      updatedAt: now,
+      lastActivityAt: now,
+    };
+
+    await setDoc(ref, compactRecord(nextRecord));
+    return nextRecord;
   });
 }
 
@@ -102,10 +175,14 @@ function compactRecord(record: object): Record<string, unknown> {
 function mapWorkspaceRecord(id: string, data: Record<string, unknown>): WorkspaceRecord {
   return {
     id,
-    userId: String(data.userId ?? ""),
+    userId: getOwnerUserId(data),
     name: String(data.name ?? ""),
     description: String(data.description ?? ""),
     path: Array.isArray(data.path) ? data.path.map((item) => String(item)) : undefined,
+    currentPath: typeof data.currentPath === "string" ? data.currentPath : undefined,
+    previousPaths: Array.isArray(data.previousPaths)
+      ? data.previousPaths.map((item) => String(item))
+      : undefined,
     parentWorkspaceId: typeof data.parentWorkspaceId === "string" ? data.parentWorkspaceId : undefined,
     stableIdentityNote: typeof data.stableIdentityNote === "string" ? data.stableIdentityNote : undefined,
     status: (data.status as WorkspaceRecord["status"]) ?? "active",
@@ -114,4 +191,10 @@ function mapWorkspaceRecord(id: string, data: Record<string, unknown>): Workspac
     lastSessionId: typeof data.lastSessionId === "string" ? data.lastSessionId : undefined,
     lastActivityAt: data.lastActivityAt ? toDate(data.lastActivityAt) : undefined,
   };
+}
+
+function getOwnerUserId(data: Record<string, unknown>): string {
+  if (typeof data.userId === "string") return data.userId;
+  if (typeof data.user_id === "string") return data.user_id;
+  return "";
 }
