@@ -331,3 +331,40 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: prepare clean commit/PR for Batch 2 and proceed to Batch 3 only after merge.
   - Blockers/Risks: pre-existing unrelated local modifications/untracked artifacts still present and must remain excluded from commit scope.
+
+## 2026-05-18 23:59 (Asia/Jerusalem) — Codex
+- Step/Task ID: Batch 3 — Retrieval Decision Boundary (read-only)
+- Task summary: Implement decision-only retrieval contract, deterministic fallback matrix, and decision-log persistence without retrieval execution.
+- What I changed:
+  - Added retrieval decision contract fields (`needs_retrieval`, `retrieval_scope`, `max_chunks`, `max_tokens`, `should_ask_clarification_first`) into harness prompt/parsing and `internalUpdate.retrieval_decision`.
+  - Added deterministic fallback engine for simple fact / broad question / active-context / cost-mode budget behavior.
+  - Wired provider retrieval-boundary event (`retrieval_scope`) and persisted it through session message decision-log mapping to `decisionType: retrieval_scope`.
+  - Added Batch 3 report and updated CURRENT_TASK status.
+- Files touched:
+  - `src/server/tutor/deepseekHarnessPrompt.ts`
+  - `src/server/tutor/harnessTypes.ts`
+  - `src/server/tutor/retrievalDecisionBoundary.ts`
+  - `src/server/tutor/deepseekTutorProvider.ts`
+  - `src/server/tutor/schemas.ts`
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `src/types/index.ts`
+  - `tests/server/tutor/harnessTypes.test.ts`
+  - `tests/server/tutor/retrievalDecisionBoundary.test.ts`
+  - `tests/server/tutor/deepseekHarnessIntegration.test.ts`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `agent-memory/BATCH3_DECISION_BOUNDARY_REPORT.md`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/tutor/harnessTypes.test.ts tests/server/tutor/retrievalDecisionBoundary.test.ts tests/server/tutor/deepseekHarnessIntegration.test.ts tests/server/workspaces/sessionMessageApiService.test.ts tests/server/tutor/deepseekProviderSafety.test.ts`
+  - Result: passed (22/22)
+  - `npx vitest run tests/server/tutor.handler.test.ts tests/server/tutor.schemas.test.ts tests/server/workspaces/sessionMessageApiRoute.test.ts tests/server/workspaces/decisionLogApiRoute.test.ts`
+  - Result: passed (30/30)
+- Git status:
+  - Branch: `codex/batch3-retrieval-boundary`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: prepare PR for Batch 3, then start Batch 4 Phase 8 only after merge approval.
+  - Blockers/Risks: unrelated local modified/untracked artifacts remain in workspace and must stay excluded from commit scope.

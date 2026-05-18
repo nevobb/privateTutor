@@ -168,6 +168,14 @@ export interface TutorResponse {
   internalUpdate: TutorInternalUpdate;
 }
 
+export interface RetrievalBoundaryDecision {
+  needs_retrieval: boolean;
+  retrieval_scope: RetrievalScope;
+  max_chunks: number;
+  max_tokens: number;
+  should_ask_clarification_first: boolean;
+}
+
 // Spec-aligned structured internal update type for mock and real provider responses.
 export interface TutorInternalUpdate {
   detected_intent: string;
@@ -183,6 +191,7 @@ export interface TutorInternalUpdate {
     source_ids: string[];
     why: string;
   };
+  retrieval_decision?: RetrievalBoundaryDecision;
   learner_memory_update: {
     needed: boolean;
     update_type: "none" | "small_auto" | "requires_approval";

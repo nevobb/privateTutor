@@ -55,10 +55,24 @@ const baseMessage = {
 const tutorMessage = { ...baseMessage, id: "m2", role: "tutor", content: "response", sequence: 2 };
 const tutorResponse = {
   message: { id: "m2", role: "tutor", content: "response" },
-  internalUpdate: { detected_intent: "factual_or_regular" },
+  internalUpdate: {
+    detected_intent: "factual_or_regular",
+    retrieval_decision: {
+      needs_retrieval: true,
+      retrieval_scope: "topic",
+      max_chunks: 4,
+      max_tokens: 1400,
+      should_ask_clarification_first: false,
+    },
+  },
   decisionLogEvents: [
     { type: "deepseek_provider", title: "DeepSeek provider used", detail: "Model deepseek-chat" },
     { type: "harness_classification", title: "Harness classification applied", detail: "Parsed JSON" },
+    {
+      type: "retrieval_scope",
+      title: "Retrieval boundary decision",
+      detail: "needs_retrieval=true; retrieval_scope=topic; max_chunks=4; max_tokens=1400",
+    },
   ],
 };
 
@@ -148,7 +162,7 @@ describeService("sessionMessageApiService", () => {
       expect(repos.getMockTutorResponse).toHaveBeenCalledWith("hi", "Learning", "Normal Learning", [
         { role: "user", content: "hi" },
       ]);
-      expect(repos.writeDecisionLogEntry).toHaveBeenCalledTimes(2);
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledTimes(3);
       expect(repos.writeDecisionLogEntry).toHaveBeenNthCalledWith(
         1,
         "alice",
@@ -165,6 +179,10 @@ describeService("sessionMessageApiService", () => {
         "ws-1",
         "s-1",
         expect.objectContaining({ role: "tutor" })
+      );
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+        "alice",
+        expect.objectContaining({ decisionType: "retrieval_scope" })
       );
       expect(result).toHaveProperty("userMessage");
       expect(result).toHaveProperty("assistantMessage");

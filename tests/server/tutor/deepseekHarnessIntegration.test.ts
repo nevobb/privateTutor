@@ -35,6 +35,11 @@ describe("DeepSeek harness mapping", () => {
                     memoryType: "preference",
                     memoryContent: "Wants hints first",
                     memoryConfidence: 0.7,
+                    needs_retrieval: true,
+                    retrieval_scope: "topic",
+                    max_chunks: 4,
+                    max_tokens: 1400,
+                    should_ask_clarification_first: false,
                   }),
                 },
               },
@@ -58,7 +63,15 @@ describe("DeepSeek harness mapping", () => {
     expect(response.internalUpdate.detected_intent).toBe("guidance_only");
     expect(response.internalUpdate.should_stop_progression).toBe(true);
     expect(response.internalUpdate.learner_memory_update.update_type).toBe("small_auto");
+    expect(response.internalUpdate.retrieval_decision).toEqual({
+      needs_retrieval: true,
+      retrieval_scope: "topic",
+      max_chunks: 4,
+      max_tokens: 1400,
+      should_ask_clarification_first: false,
+    });
     expect(response.decisionLogEvents?.some((e) => e.type === "harness_classification")).toBe(true);
+    expect(response.decisionLogEvents?.some((e) => e.type === "retrieval_scope")).toBe(true);
   });
 
   it("falls back when model returns non-JSON content", async () => {
@@ -86,6 +99,8 @@ describe("DeepSeek harness mapping", () => {
 
     expect(response.message.content).toBe("Plain tutor text without JSON.");
     expect(response.internalUpdate.detected_intent).toBe("factual_or_regular");
+    expect(response.internalUpdate.retrieval_decision).toBeDefined();
     expect(response.decisionLogEvents?.some((e) => e.type === "harness_fallback")).toBe(true);
+    expect(response.decisionLogEvents?.some((e) => e.type === "retrieval_scope")).toBe(true);
   });
 });
