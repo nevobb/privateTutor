@@ -111,3 +111,30 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: Step 41C diagnostics/trace visibility without changing primary chat UX.
   - Blockers/Risks: unrelated local file changes still present in workspace; keep future commits scoped.
+
+## 2026-05-18 22:41 (Asia/Jerusalem) — Codex
+- Step/Task ID: Step 41C
+- Task summary: Add lightweight diagnostics API to read harness/provider decision traces without changing chat UX.
+- What I changed:
+  - Added decision-log listing capability with workspace/session filters and bounded limit.
+  - Added `GET /api/decision-log` route with auth boundary, query validation, safe error handling, and serialization.
+  - Added route tests covering 401/400/503/500/200 flows.
+- Files touched:
+  - `src/server/workspaces/decisionLogRepository.ts`
+  - `src/server/workspaces/decisionLogApiSchemas.ts`
+  - `src/server/workspaces/decisionLogApiService.ts`
+  - `src/app/api/decision-log/route.ts`
+  - `tests/server/workspaces/decisionLogApiRoute.test.ts`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/workspaces/decisionLogApiRoute.test.ts tests/server/workspaces/sessionMessageApiService.test.ts tests/server/tutor/harnessTypes.test.ts tests/server/tutor/deepseekHarnessIntegration.test.ts tests/server/tutor/deepseekProviderSafety.test.ts`
+  - Result: passed (21/21)
+- Git status:
+  - Branch: `codex/step-41-tutor-harness`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: Step 41D optional UI diagnostics panel behind a safe toggle.
+  - Blockers/Risks: unrelated local/untracked artifacts remain in workspace and must stay out of commits.

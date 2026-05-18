@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { doc, getDoc, setDoc } from "firebase/firestore/lite";
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, setDoc, where } from "firebase/firestore/lite";
 import { withFirestoreEmulatorClient } from "../firebase/firestoreEmulatorClient";
 import type { DecisionLogEntryRecord, WriteDecisionLogEntryInput } from "./workspaceTypes";
 import { toDate } from "./workspaceTypes";
@@ -40,6 +40,35 @@ export async function writeDecisionLogEntry(
     }
 
     return mapDecisionLog(snapshot.id, snapshot.data());
+  });
+}
+
+export interface ListDecisionLogFilters {
+  workspaceId?: string;
+  sessionId?: string;
+  limit?: number;
+}
+
+export async function listDecisionLogEntries(
+  userId: string,
+  filters: ListDecisionLogFilters = {}
+): Promise<DecisionLogEntryRecord[]> {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
+    const constraints = [];
+
+    if (filters.workspaceId) {
+      constraints.push(where("workspaceId", "==", filters.workspaceId));
+    }
+    if (filters.sessionId) {
+      constraints.push(where("sessionId", "==", filters.sessionId));
+    }
+
+    constraints.push(orderBy("createdAt", "desc"));
+    constraints.push(limit(filters.limit ?? 20));
+
+    const ref = collection(db, "users", userId, "decisionLog");
+    const snapshot = await getDocs(query(ref, ...constraints));
+    return snapshot.docs.map((d) => mapDecisionLog(d.id, d.data()));
   });
 }
 

@@ -1,6 +1,7 @@
 # Current Task
 
 ## Status
+Step 41C complete — decision trace diagnostics API added (`GET /api/decision-log`).
 Step 41B complete — harness decision events now persist through session message API decision-log path.
 Step 40B complete — DeepSeek smoke test passed (real provider + persistence + isolation).
 Step 40C complete — conversation history passed to DeepSeek on every message.
@@ -40,7 +41,7 @@ Step 40C complete — conversation history passed to DeepSeek on every message.
 - Added report: `DEEPSEEK_SMOKE_TEST_REPORT.md`
 
 ## Next proposed task
-Step 41C — expose harness classification/decision trace in a lightweight diagnostics surface (report/log view) without changing core chat UX.
+Step 41D — add optional lightweight client diagnostics panel (read-only) behind a safe toggle, consuming `/api/decision-log`.
 
 ## What was done in Step 41 (current slice)
 - Added Harness JSON contract prompt for DeepSeek (`src/server/tutor/deepseekHarnessPrompt.ts`)
@@ -61,6 +62,17 @@ Step 41C — expose harness classification/decision trace in a lightweight diagn
   - provider/harness/validation events -> `model_provider`
 - Added service-level assertions that decision-log writes occur for DeepSeek/harness events
 - Kept message flow and response shape unchanged
+
+## What was done in Step 41C
+- Added decision-log read capability in repository:
+  - `listDecisionLogEntries(userId, { workspaceId?, sessionId?, limit? })`
+- Added diagnostics API schema/service/route:
+  - `src/server/workspaces/decisionLogApiSchemas.ts`
+  - `src/server/workspaces/decisionLogApiService.ts`
+  - `GET /api/decision-log` in `src/app/api/decision-log/route.ts`
+- Added route tests for auth, validation, error handling, and success serialization:
+  - `tests/server/workspaces/decisionLogApiRoute.test.ts`
+- No chat UX changes; diagnostics is API-only in this slice.
 
 ## Roadmap
 - Phase 1 (current): real AI tutor via DeepSeek ✓ provider layer done
