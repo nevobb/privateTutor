@@ -20,6 +20,11 @@ export interface UploadedFileApiResponse {
   confidence?: number;
   assignmentStatus: UploadedFileRecord["assignmentStatus"];
   indexingStatus: UploadedFileRecord["indexingStatus"];
+  summaryStatus: UploadedFileRecord["summaryStatus"];
+  summaryText: string | null;
+  summarySource: UploadedFileRecord["summarySource"];
+  summaryErrorCode: string | null;
+  summaryUpdatedAt: string | null;
   uploadedAt: string;
   createdAt: string;
   updatedAt: string;
@@ -80,6 +85,11 @@ export function toUploadedFileApiResponse(record: UploadedFileRecord): UploadedF
     confidence: record.confidence,
     assignmentStatus: record.assignmentStatus,
     indexingStatus: record.indexingStatus,
+    summaryStatus: record.summaryStatus ?? "not_requested",
+    summaryText: record.summaryText ?? null,
+    summarySource: record.summarySource ?? "none",
+    summaryErrorCode: record.summaryErrorCode ?? null,
+    summaryUpdatedAt: record.summaryUpdatedAt ? record.summaryUpdatedAt.toISOString() : null,
     uploadedAt: record.uploadedAt.toISOString(),
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),

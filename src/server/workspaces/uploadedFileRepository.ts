@@ -30,6 +30,11 @@ export async function createUploadedFile(
       topic: input.topic,
       confidence: input.confidence,
       storagePath: input.storagePath,
+      summaryStatus: input.summaryStatus,
+      summaryText: input.summaryText,
+      summarySource: input.summarySource,
+      summaryErrorCode: input.summaryErrorCode,
+      summaryUpdatedAt: input.summaryUpdatedAt,
       createdAt: now,
       updatedAt: now,
     };
@@ -73,7 +78,20 @@ export async function listUploadedFiles(userId: string, workspaceId: string): Pr
 export async function updateUploadedFile(
   userId: string,
   fileId: string,
-  updates: Partial<Pick<UploadedFileRecord, "assignmentStatus" | "indexingStatus" | "topic" | "confidence">>
+  updates: Partial<
+    Pick<
+      UploadedFileRecord,
+      | "assignmentStatus"
+      | "indexingStatus"
+      | "topic"
+      | "confidence"
+      | "summaryStatus"
+      | "summaryText"
+      | "summarySource"
+      | "summaryErrorCode"
+      | "summaryUpdatedAt"
+    >
+  >
 ): Promise<UploadedFileRecord | null> {
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const ref = doc(db, ...uploadedFilePath(userId, fileId));
@@ -95,6 +113,11 @@ export async function updateUploadedFile(
       indexingStatus: updates.indexingStatus ?? current.indexingStatus,
       topic: updates.topic ?? current.topic,
       confidence: updates.confidence ?? current.confidence,
+      summaryStatus: updates.summaryStatus ?? current.summaryStatus,
+      summaryText: updates.summaryText ?? current.summaryText,
+      summarySource: updates.summarySource ?? current.summarySource,
+      summaryErrorCode: updates.summaryErrorCode ?? current.summaryErrorCode,
+      summaryUpdatedAt: updates.summaryUpdatedAt ?? current.summaryUpdatedAt,
       updatedAt: new Date(),
     };
 
@@ -123,6 +146,11 @@ function mapUploadedFileRecord(id: string, data: Record<string, unknown>): Uploa
     indexId: typeof data.indexId === "string" ? data.indexId : undefined,
     confidence: typeof data.confidence === "number" ? data.confidence : undefined,
     storagePath: typeof data.storagePath === "string" ? data.storagePath : undefined,
+    summaryStatus: mapSummaryStatus(data.summaryStatus),
+    summaryText: typeof data.summaryText === "string" ? data.summaryText : null,
+    summarySource: mapSummarySource(data.summarySource),
+    summaryErrorCode: typeof data.summaryErrorCode === "string" ? data.summaryErrorCode : null,
+    summaryUpdatedAt: data.summaryUpdatedAt ? toDate(data.summaryUpdatedAt) : null,
     createdAt: toDate(data.createdAt),
     updatedAt: toDate(data.updatedAt),
   };
@@ -165,6 +193,20 @@ function mapFilePolicy(value: unknown): UploadedFileRecord["filePolicy"] {
     return value;
   }
   return undefined;
+}
+
+function mapSummaryStatus(value: unknown): UploadedFileRecord["summaryStatus"] {
+  if (value === "not_requested" || value === "pending" || value === "ready" || value === "failed") {
+    return value;
+  }
+  return "not_requested";
+}
+
+function mapSummarySource(value: unknown): UploadedFileRecord["summarySource"] {
+  if (value === "none" || value === "placeholder") {
+    return value;
+  }
+  return "none";
 }
 
 function compactRecord(record: object): Record<string, unknown> {

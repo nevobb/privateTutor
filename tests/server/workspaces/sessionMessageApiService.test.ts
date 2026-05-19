@@ -12,6 +12,7 @@ type ServiceModule = {
     getSession: (userId: string, workspaceId: string, sessionId: string) => Promise<Record<string, unknown> | null>;
     listSessionMessages: (userId: string, workspaceId: string, sessionId: string) => Promise<Record<string, unknown>[]>;
     appendMessage: (userId: string, workspaceId: string, sessionId: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    listUploadedFiles: (userId: string, workspaceId: string) => Promise<Array<Record<string, unknown>>>;
     writeDecisionLogEntry: (
       userId: string,
       input: {
@@ -93,6 +94,16 @@ function makeRepos(
       async (_uid: string, _wsId: string, _sessId: string, input: Record<string, unknown>) =>
         input.role === "user" ? baseMessage : tutorMessage
     ),
+    listUploadedFiles: vi.fn(async () => [
+      {
+        id: "file-1",
+        name: "Mechanics.pdf",
+        indexingStatus: "indexed",
+        summaryStatus: "ready",
+        summaryText: "Summary placeholder; content extraction not enabled yet.",
+        confidence: 0.9,
+      },
+    ]),
     writeDecisionLogEntry: vi.fn(async () => ({ id: "d1" })),
     getMockTutorResponse: vi.fn(async () => tutorResponse),
     ...overrides,
@@ -162,7 +173,7 @@ describeService("sessionMessageApiService", () => {
       expect(repos.getMockTutorResponse).toHaveBeenCalledWith("hi", "Learning", "Normal Learning", [
         { role: "user", content: "hi" },
       ]);
-      expect(repos.writeDecisionLogEntry).toHaveBeenCalledTimes(3);
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledTimes(5);
       expect(repos.writeDecisionLogEntry).toHaveBeenNthCalledWith(
         1,
         "alice",
@@ -184,6 +195,14 @@ describeService("sessionMessageApiService", () => {
         "alice",
         expect.objectContaining({ decisionType: "retrieval_scope" })
       );
+      expect(result).toMatchObject({
+        internalUpdate: {
+          retrieval: {
+            used: true,
+            source_ids: ["file-1"],
+          },
+        },
+      });
       expect(result).toHaveProperty("userMessage");
       expect(result).toHaveProperty("assistantMessage");
       expect(result).toHaveProperty("internalUpdate");
@@ -234,6 +253,57 @@ describeService("sessionMessageApiService", () => {
           costMode: "Normal Learning",
         })
       ).rejects.toThrow("Session not found.");
+    });
+
+    it("skips retrieval execution when no indexed files are available", async () => {
+      const repos = makeRepos({
+        listUploadedFiles: vi.fn(async () => []),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "hi",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(result).toMatchObject({
+        internalUpdate: {
+          retrieval: {
+            used: false,
+            source_ids: [],
+            why: "retrieval_skipped_no_indexed_files",
+          },
+        },
+      });
+    });
+
+    it("marks retrieval failed when repository lookup throws", async () => {
+      const repos = makeRepos({
+        listUploadedFiles: vi.fn(async () => {
+          throw new Error("db_down");
+        }),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "hi",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(result).toMatchObject({
+        internalUpdate: {
+          retrieval: {
+            used: false,
+            why: "retrieval_failed_internal_error",
+          },
+        },
+      });
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+        "alice",
+        expect.objectContaining({ decision: expect.stringContaining("db_down"), decisionType: "retrieval_scope" })
+      );
     });
   });
 });

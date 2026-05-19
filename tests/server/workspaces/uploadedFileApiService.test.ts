@@ -29,6 +29,11 @@ function createRecord(overrides: Partial<UploadedFileRecord> = {}): UploadedFile
     sourceType: "pdf",
     topic: "Mechanics",
     confidence: 0.92,
+    summaryStatus: "not_requested",
+    summaryText: null,
+    summarySource: "none",
+    summaryErrorCode: null,
+    summaryUpdatedAt: null,
     createdAt: baseDate,
     updatedAt: baseDate,
     ...overrides,
@@ -37,8 +42,7 @@ function createRecord(overrides: Partial<UploadedFileRecord> = {}): UploadedFile
 
 function makeRepositories() {
   const createUploadedFile = vi.fn(async () => createRecord());
-  const updateUploadedFile = vi.fn(
-    async (_userId: string, _fileId: string, updates: Partial<Pick<UploadedFileRecord, "indexingStatus">>) => {
+  const updateUploadedFile = vi.fn(async (_userId: string, _fileId: string, updates: Partial<UploadedFileRecord>) => {
       if (updates.indexingStatus === "indexing") {
         return createRecord({ indexingStatus: "indexing" });
       }
@@ -48,9 +52,28 @@ function makeRepositories() {
       if (updates.indexingStatus === "failed") {
         return createRecord({ indexingStatus: "failed" });
       }
+      if (updates.summaryStatus === "pending") {
+        return createRecord({ summaryStatus: "pending", summaryUpdatedAt: baseDate });
+      }
+      if (updates.summaryStatus === "ready") {
+        return createRecord({
+          summaryStatus: "ready",
+          summaryText: "Summary placeholder; content extraction not enabled yet.",
+          summarySource: "placeholder",
+          summaryErrorCode: null,
+          summaryUpdatedAt: baseDate,
+        });
+      }
+      if (updates.summaryStatus === "failed") {
+        return createRecord({
+          summaryStatus: "failed",
+          summarySource: "none",
+          summaryErrorCode: "summary_lifecycle_failed",
+          summaryUpdatedAt: baseDate,
+        });
+      }
       return createRecord();
-    }
-  );
+  });
 
   const writeDecisionLogEntry = vi.fn(async () => ({
     id: "decision-1",
@@ -66,6 +89,7 @@ function makeRepositories() {
   return {
     getWorkspace: vi.fn(async (): Promise<WorkspaceRecord | null> => workspace),
     createUploadedFile,
+    getUploadedFile: vi.fn(async () => createRecord()),
     updateUploadedFile,
     listUploadedFiles: vi.fn(async () => [createRecord({ indexingStatus: "indexed" })]),
     writeDecisionLogEntry,
@@ -92,6 +116,11 @@ describe("uploadedFileApiService.createFileForWorkspace", () => {
         indexingStatus: "uploaded",
         assignmentStatus: "assigned",
         topic: "Classical Mechanics",
+        summaryStatus: "not_requested",
+        summarySource: "none",
+        summaryText: null,
+        summaryErrorCode: null,
+        summaryUpdatedAt: null,
       })
     );
 
@@ -180,6 +209,97 @@ describe("uploadedFileApiService.createFileForWorkspace", () => {
 
     expect(result).toBeNull();
     expect(repos.createUploadedFile).not.toHaveBeenCalled();
+  });
+});
+
+describe("uploadedFileApiService.runSummaryLifecycleForFile", () => {
+  it("runs metadata summary lifecycle from not_requested to ready", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () => createRecord({ summaryStatus: "not_requested" }));
+    const service = createUploadedFileApiService(repos);
+
+    const result = await service.runSummaryLifecycleForFile(user, "ws-1", "file-1");
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.file.summaryStatus).toBe("ready");
+      expect(result.file.summarySource).toBe("placeholder");
+      expect(result.file.summaryText).toContain("Summary placeholder");
+    }
+    expect(repos.updateUploadedFile).toHaveBeenCalledWith(
+      "alice",
+      "file-1",
+      expect.objectContaining({ summaryStatus: "pending" })
+    );
+    expect(repos.updateUploadedFile).toHaveBeenCalledWith(
+      "alice",
+      "file-1",
+      expect.objectContaining({ summaryStatus: "ready" })
+    );
+    expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+      "alice",
+      expect.objectContaining({ decisionType: "file_summary", decision: "summary_requested" })
+    );
+    expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+      "alice",
+      expect.objectContaining({ decisionType: "file_summary", decision: "summary_completed" })
+    );
+  });
+
+  it("allows rerun from failed to ready", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () => createRecord({ summaryStatus: "failed" }));
+    const service = createUploadedFileApiService(repos);
+
+    const result = await service.runSummaryLifecycleForFile(user, "ws-1", "file-1");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.file.summaryStatus).toBe("ready");
+    }
+  });
+
+  it("rejects invalid transition when summary is already ready", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () => createRecord({ summaryStatus: "ready" }));
+    const service = createUploadedFileApiService(repos);
+
+    const result = await service.runSummaryLifecycleForFile(user, "ws-1", "file-1");
+    expect(result).toEqual({ ok: false, code: "invalid_transition" });
+    expect(repos.updateUploadedFile).not.toHaveBeenCalledWith(
+      "alice",
+      "file-1",
+      expect.objectContaining({ summaryStatus: "pending" })
+    );
+  });
+
+  it("marks summary failed when ready transition throws", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () => createRecord({ summaryStatus: "not_requested" }));
+    repos.updateUploadedFile = vi.fn(async (_userId: string, _fileId: string, updates: Partial<UploadedFileRecord>) => {
+      if (updates.summaryStatus === "pending") {
+        return createRecord({ summaryStatus: "pending" });
+      }
+      if (updates.summaryStatus === "ready") {
+        throw new Error("boom");
+      }
+      if (updates.summaryStatus === "failed") {
+        return createRecord({ summaryStatus: "failed", summaryErrorCode: "summary_lifecycle_failed" });
+      }
+      return createRecord();
+    });
+
+    const service = createUploadedFileApiService(repos);
+    const result = await service.runSummaryLifecycleForFile(user, "ws-1", "file-1");
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.file.summaryStatus).toBe("failed");
+      expect(result.file.summaryErrorCode).toBe("summary_lifecycle_failed");
+    }
+    expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+      "alice",
+      expect.objectContaining({ decisionType: "file_summary", decision: "summary_failed" })
+    );
   });
 });
 

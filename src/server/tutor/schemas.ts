@@ -35,6 +35,10 @@ export interface DecisionLogEvent {
     | "harness_classification"
     | "harness_fallback"
     | "retrieval_scope"
+    | "retrieval_requested"
+    | "retrieval_executed"
+    | "retrieval_skipped"
+    | "retrieval_failed"
     | "request_validation"
     | "response_validation"
     | "memory_not_written";

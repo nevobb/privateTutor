@@ -1,6 +1,8 @@
 # Current Task
 
 ## Status
+Batch 4 / Phase 10 implemented and validated on branch — retrieval execution now runs in session message flow when `retrieval_decision.needs_retrieval=true`, with execution/skipped/failed decision-log coverage and passing focused retrieval/session tests.
+Batch 4 / Phase 9 (Option A) implemented and validated on branch — metadata-only summary lifecycle contract (`POST /api/workspaces/[workspaceId]/files/[fileId]/summary`) plus summary metadata fields on file create/list responses, with decision-log coverage and passing focused tests.
 Batch 4 / Phase 8 implemented and validated on branch, pending merge via PR #43 — metadata-first file intake/classify/index lifecycle server-side (`/api/workspaces/[workspaceId]/files` GET/POST), with decision-log coverage and passing focused tests.
 Batch 3 complete — retrieval decision boundary contract implemented (read-only, no retrieval execution), with decision-log wiring and passing matrix/provider/service tests.
 Batch 2 complete — Phase 7.2 move flow + Phase 15 subset closures implemented and validated (including emulator integration suites).
@@ -46,7 +48,60 @@ Step 40C complete — conversation history passed to DeepSeek on every message.
 - Added report: `DEEPSEEK_SMOKE_TEST_REPORT.md`
 
 ## Next proposed task
-Batch 4 / Phase 9 (A: metadata-only summary lifecycle) — add summary status/contract flow only, without generating real summaries from file content, after approval.
+Repo hygiene + full validation pass before PR:
+- remove duplicate scratch test artifacts (`* 2.ts`) from working tree
+- run full build/lint/test matrix
+- then prepare Phase 9+10 combined PR scope review
+
+## What was done in Batch 4 / Phase 10
+- Added retrieval execution in `sessionMessageApiService` based on provider retrieval boundary decisions.
+- Execution behavior:
+  - if `needs_retrieval=false`: keep retrieval disabled (`used=false`) with explicit why.
+  - if `needs_retrieval=true`:
+    - fetch workspace uploaded files via existing ownership-safe repository path
+    - filter to `indexingStatus=indexed`
+    - rank candidates preferring `summaryStatus=ready` and higher confidence
+    - select up to decision budget (`max_chunks`, minimum 1 when retrieval is requested)
+    - set `internalUpdate.retrieval.used=true`, `source_ids=[selected file ids]`, and execution rationale
+    - attach retrieval citations from summary placeholder text or deterministic file fallback text
+  - if no indexed files: mark skipped with `used=false` and explicit rationale
+  - if repository error: mark failed with `used=false` and explicit rationale
+- Added retrieval execution lifecycle decision-log events:
+  - `retrieval_requested`
+  - `retrieval_executed`
+  - `retrieval_skipped`
+  - `retrieval_failed`
+- Mapped retrieval execution lifecycle events to persisted `decisionType: retrieval_scope`.
+- Added report:
+  - `agent-memory/BATCH4_PHASE10_REPORT.md`
+
+## What was done in Batch 4 / Phase 9 (Option A)
+- Added `FileSummaryStatus` and summary metadata fields to shared uploaded-file contracts.
+- Extended file metadata persistence/mapping with:
+  - `summaryStatus`
+  - `summaryText`
+  - `summarySource`
+  - `summaryErrorCode`
+  - `summaryUpdatedAt`
+- Added metadata-only summary lifecycle service flow:
+  - allowed start states: `not_requested` or `failed`
+  - transition: `pending -> ready` with deterministic placeholder text
+  - fallback on internal failure: `failed` with `summaryErrorCode=summary_lifecycle_failed`
+- Added summary lifecycle endpoint:
+  - `POST /api/workspaces/[workspaceId]/files/[fileId]/summary`
+  - ownership-safe `401/404` behavior
+  - invalid transition returns `400`
+- Added decision-log events mapped as `decisionType: file_summary`:
+  - `summary_requested`
+  - `summary_completed`
+  - `summary_failed`
+- Added report:
+  - `agent-memory/BATCH4_PHASE9_REPORT.md`
+- Scope boundaries kept explicit:
+  - no binary upload
+  - no content extraction/parsing
+  - no real summary generation from content
+  - no retrieval execution
 
 ## What was done in Batch 4 / Phase 8
 - Added `POST /api/workspaces/[workspaceId]/files`:

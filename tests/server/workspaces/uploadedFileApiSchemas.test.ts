@@ -57,6 +57,11 @@ describe("uploadedFileApiSchemas", () => {
       topic: "Physics",
       confidence: 0.9,
       storagePath: "uploads/alice/lecture-1.pdf",
+      summaryStatus: "ready",
+      summaryText: "Summary placeholder; content extraction not enabled yet.",
+      summarySource: "placeholder",
+      summaryErrorCode: null,
+      summaryUpdatedAt: now,
       createdAt: now,
       updatedAt: now,
     };
@@ -65,6 +70,10 @@ describe("uploadedFileApiSchemas", () => {
     expect(response.fileName).toBe("Lecture 1.pdf");
     expect(response.assignmentStatus).toBe("assigned");
     expect(response.indexingStatus).toBe("indexed");
+    expect(response.summaryStatus).toBe("ready");
+    expect(response.summarySource).toBe("placeholder");
+    expect(response.summaryErrorCode).toBeNull();
+    expect(response.summaryUpdatedAt).toBe(now.toISOString());
     expect(response.uploadedAt).toBe(now.toISOString());
   });
 });
