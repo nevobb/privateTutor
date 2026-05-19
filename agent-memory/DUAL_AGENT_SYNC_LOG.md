@@ -853,3 +853,46 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: open PR for Step 23 and then start Step 24 embedding lifecycle boundary.
   - Blockers/Risks: none.
+
+## 2026-05-20 00:36 (Asia/Jerusalem) — Codex
+- Step/Task ID: Step 24
+- Task summary: Implement embedding lifecycle boundary for persisted file chunks without semantic retrieval execution.
+- What I changed:
+  - Added chunk embedding lifecycle metadata, deterministic mock embedding provider, embedding hash utility, and embedding repository/service boundaries.
+  - Added route `POST /api/workspaces/[workspaceId]/files/[fileId]/embeddings` with ownership/auth/error handling.
+  - Added focused tests for embedding provider/repository/service/route and validated retrieval regressions.
+- Files touched:
+  - `src/types/index.ts`
+  - `src/server/workspaces/workspaceTypes.ts`
+  - `src/server/workspaces/fileChunkRepository.ts`
+  - `src/server/workspaces/fileChunkEmbeddingHash.ts`
+  - `src/server/workspaces/fileChunkEmbeddingProvider.ts`
+  - `src/server/workspaces/fileChunkEmbeddingRepository.ts`
+  - `src/server/workspaces/fileChunkEmbeddingService.ts`
+  - `src/app/api/workspaces/[workspaceId]/files/[fileId]/embeddings/route.ts`
+  - `tests/server/workspaces/fileChunkEmbeddingProvider.test.ts`
+  - `tests/server/workspaces/fileChunkEmbeddingRepository.test.ts`
+  - `tests/server/workspaces/fileChunkEmbeddingService.test.ts`
+  - `tests/server/workspaces/workspaceFileEmbeddingsApiRoute.test.ts`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/AGENT_HANDOFF.md`
+  - `agent-memory/TASK_LOG.md`
+  - `agent-memory/PROJECT_STATE.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git diff --check`
+  - Result: passed
+  - `npm run build`
+  - Result: passed
+  - `npx vitest run tests/server/workspaces/fileChunkEmbeddingProvider.test.ts tests/server/workspaces/fileChunkEmbeddingRepository.test.ts tests/server/workspaces/workspaceFileEmbeddingsApiRoute.test.ts`
+  - Result: passed (6 passed, 1 skipped)
+  - `npx vitest run tests/server/workspaces/fileChunkRetrievalService.test.ts tests/server/workspaces/sessionMessageApiService.test.ts`
+  - Result: passed (37/37)
+- Git status:
+  - Branch: `codex/phase24-embedding-lifecycle-boundary`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: open PR for Step 24, then start Step 25 semantic retrieval execution.
+  - Blockers/Risks: none.

@@ -15,6 +15,12 @@ export type FileIndexingStatus =
 export type FileSummaryStatus = "not_requested" | "pending" | "ready" | "failed";
 export type FileExtractionStatus = "not_started" | "pending" | "completed" | "failed";
 export type FileChunkingStatus = "not_started" | "pending" | "completed" | "failed";
+export type FileChunkEmbeddingStatus =
+  | "not_started"
+  | "pending"
+  | "completed"
+  | "failed"
+  | "stale";
 
 // Extended to include spec lifecycle values alongside legacy "candidate"
 export type MemoryObservationState =
@@ -147,6 +153,13 @@ export interface FileChunk {
   charEnd: number;
   tokenEstimate: number;
   source: "extracted_text";
+  embeddingStatus?: FileChunkEmbeddingStatus;
+  embeddingProvider?: string;
+  embeddingModel?: string;
+  embeddingDimension?: number;
+  embeddingUpdatedAt?: Date | null;
+  embeddingErrorCode?: string | null;
+  embeddingSourceTextHash?: string;
   createdAt: string;
 }
 

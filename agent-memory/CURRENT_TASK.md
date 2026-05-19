@@ -1,33 +1,41 @@
 # Current Task
 
 ## Active task
-Step 23 — Semantic/Vector retrieval architecture decision.
+Step 24 — Embedding lifecycle boundary.
 
 ## Status
-Completed on branch `codex/phase23-semantic-retrieval-decision`.
+Completed on branch `codex/phase24-embedding-lifecycle-boundary`.
 
 ## What was implemented
-- Added architecture decision document:
-  - `docs/SEMANTIC_RETRIEVAL_DECISION.md`
-- Document defines:
-  - options analysis (Firestore-only vs external vector DB vs local index vs staged hybrid)
-  - recommended staged hybrid approach
-  - chunk embedding lifecycle design (`not_started|pending|completed|failed|stale`)
-  - provider-neutral storage strategy and migration path
-  - hybrid semantic+keyword retrieval strategy with fallback
-  - cost-mode behavior and failure policy
-  - next phases (Step 24 and Step 25)
+- Added chunk embedding lifecycle fields on `FileChunk` metadata:
+  - `embeddingStatus`, `embeddingProvider`, `embeddingModel`, `embeddingDimension`, `embeddingUpdatedAt`, `embeddingErrorCode`, `embeddingSourceTextHash`
+- Added deterministic mock embedding provider boundary:
+  - `src/server/workspaces/fileChunkEmbeddingProvider.ts`
+- Added embedding hash utility:
+  - `src/server/workspaces/fileChunkEmbeddingHash.ts`
+- Added embedding repository for storage path:
+  - `users/{userId}/workspaces/{workspaceId}/files/{fileId}/chunks/{chunkId}/embedding/current`
+  - file: `src/server/workspaces/fileChunkEmbeddingRepository.ts`
+- Added embedding lifecycle service:
+  - `src/server/workspaces/fileChunkEmbeddingService.ts`
+- Added endpoint:
+  - `POST /api/workspaces/[workspaceId]/files/[fileId]/embeddings`
+- Added focused tests for provider/repository/service/route.
 
 ## Explicit boundaries preserved
-- No runtime retrieval changes.
-- No embeddings implemented.
-- No vector DB code.
-- No parser/extraction/provider prompt changes.
-- No package/Firebase rules/config changes.
+- No real embedding provider calls.
+- No vector DB.
+- No semantic retrieval execution.
+- No runtime retrieval behavior changes.
+- No parser/extraction changes.
+- No provider prompt grounding changes.
+- No package or Firebase rules changes.
 
 ## Validation executed
 - `git diff --check` ✅
 - `npm run build` ✅
+- `npx vitest run tests/server/workspaces/fileChunkEmbeddingProvider.test.ts tests/server/workspaces/fileChunkEmbeddingRepository.test.ts tests/server/workspaces/workspaceFileEmbeddingsApiRoute.test.ts` ✅
+- `npx vitest run tests/server/workspaces/fileChunkRetrievalService.test.ts tests/server/workspaces/sessionMessageApiService.test.ts` ✅
 
 ## Recommended next phase
-Step 24 — Embedding Lifecycle Boundary (data model + provider interface + deterministic/mock embedding flow; no semantic execution yet).
+Step 25 — Semantic retrieval execution (hybrid semantic+keyword), with keyword fallback retained.
