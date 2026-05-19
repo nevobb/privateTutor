@@ -36,6 +36,8 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       indexingStatus: "uploaded",
       topic: "Mechanics",
       confidence: 0.88,
+      summaryStatus: "not_requested",
+      summarySource: "none",
     });
 
     const loaded = await getUploadedFile(alice, created.id);
@@ -50,6 +52,8 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       indexingStatus: "uploaded",
       topic: "Mechanics",
       confidence: 0.88,
+      summaryStatus: "not_requested",
+      summarySource: "none",
     });
   });
 
@@ -64,6 +68,8 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       sourceType: "pdf",
       assignmentStatus: "assigned",
       indexingStatus: "uploaded",
+      summaryStatus: "not_requested",
+      summarySource: "none",
     });
 
     await createUploadedFile(alice, {
@@ -72,6 +78,8 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       sourceType: "pdf",
       assignmentStatus: "assigned",
       indexingStatus: "uploaded",
+      summaryStatus: "not_requested",
+      summarySource: "none",
     });
 
     const files = await listUploadedFiles(alice, wsA.id);
@@ -90,6 +98,8 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       sourceType: "pdf",
       assignmentStatus: "needs-review",
       indexingStatus: "uploaded",
+      summaryStatus: "not_requested",
+      summarySource: "none",
     });
 
     const indexing = await updateUploadedFile(alice, created.id, { indexingStatus: "indexing" });
@@ -97,6 +107,16 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
 
     const failed = await updateUploadedFile(alice, created.id, { indexingStatus: "failed" });
     expect(failed?.indexingStatus).toBe("failed");
+
+    const summaryReady = await updateUploadedFile(alice, created.id, {
+      summaryStatus: "ready",
+      summaryText: "Summary placeholder; content extraction not enabled yet.",
+      summarySource: "placeholder",
+      summaryErrorCode: null,
+      summaryUpdatedAt: new Date(),
+    });
+    expect(summaryReady?.summaryStatus).toBe("ready");
+    expect(summaryReady?.summarySource).toBe("placeholder");
   });
 
   it("blocks cross-user access to another user's uploaded file metadata", async () => {
@@ -110,6 +130,8 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       sourceType: "pdf",
       assignmentStatus: "assigned",
       indexingStatus: "uploaded",
+      summaryStatus: "not_requested",
+      summarySource: "none",
     });
 
     await expect(getUploadedFile(bob, created.id)).resolves.toBeNull();

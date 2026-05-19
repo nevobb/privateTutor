@@ -3,6 +3,7 @@ import { writeDecisionLogEntry } from "./decisionLogRepository";
 import { getWorkspace } from "./workspaceRepository";
 import {
   createUploadedFile,
+  getUploadedFile,
   listUploadedFiles,
   updateUploadedFile,
 } from "./uploadedFileRepository";
@@ -10,6 +11,14 @@ import type { CreateUploadedFileApiRequest } from "./uploadedFileApiSchemas";
 import type { UploadedFileRecord } from "./workspaceTypes";
 
 const LOW_CONFIDENCE_THRESHOLD = 0.7;
+const SUMMARY_PLACEHOLDER_TEXT = "Summary placeholder; content extraction not enabled yet.";
+const SUMMARY_FAILURE_CODE = "summary_lifecycle_failed";
+
+type SummaryRunFailureCode = "workspace_not_found" | "file_not_found" | "invalid_transition";
+
+type SummaryRunResult =
+  | { ok: true; file: UploadedFileRecord }
+  | { ok: false; code: SummaryRunFailureCode };
 
 export interface UploadedFileApiService {
   createFileForWorkspace(
@@ -18,11 +27,17 @@ export interface UploadedFileApiService {
     input: CreateUploadedFileApiRequest
   ): Promise<UploadedFileRecord | null>;
   listFilesForWorkspace(user: AuthenticatedUser, workspaceId: string): Promise<UploadedFileRecord[] | null>;
+  runSummaryLifecycleForFile(
+    user: AuthenticatedUser,
+    workspaceId: string,
+    fileId: string
+  ): Promise<SummaryRunResult>;
 }
 
 interface Repositories {
   getWorkspace: typeof getWorkspace;
   createUploadedFile: typeof createUploadedFile;
+  getUploadedFile: typeof getUploadedFile;
   updateUploadedFile: typeof updateUploadedFile;
   listUploadedFiles: typeof listUploadedFiles;
   writeDecisionLogEntry: typeof writeDecisionLogEntry;
@@ -32,6 +47,7 @@ function defaultRepositories(): Repositories {
   return {
     getWorkspace,
     createUploadedFile,
+    getUploadedFile,
     updateUploadedFile,
     listUploadedFiles,
     writeDecisionLogEntry,
@@ -63,6 +79,11 @@ export function createUploadedFileApiService(
         confidence,
         assignmentStatus,
         indexingStatus: "uploaded",
+        summaryStatus: "not_requested",
+        summaryText: null,
+        summarySource: "none",
+        summaryErrorCode: null,
+        summaryUpdatedAt: null,
       });
 
       await Promise.all([
@@ -142,6 +163,87 @@ export function createUploadedFileApiService(
       }
 
       return repositories.listUploadedFiles(user.userId, workspaceId);
+    },
+
+    async runSummaryLifecycleForFile(user, workspaceId, fileId) {
+      const workspace = await repositories.getWorkspace(user.userId, workspaceId);
+      if (!workspace) {
+        return { ok: false, code: "workspace_not_found" };
+      }
+
+      const current = await repositories.getUploadedFile(user.userId, fileId);
+      if (!current || current.workspaceId !== workspaceId) {
+        return { ok: false, code: "file_not_found" };
+      }
+
+      if (current.summaryStatus === "ready" || current.summaryStatus === "pending") {
+        return { ok: false, code: "invalid_transition" };
+      }
+
+      await repositories.writeDecisionLogEntry(user.userId, {
+        decisionType: "file_summary",
+        title: "Summary lifecycle",
+        decision: "summary_requested",
+        rationale: "Summary lifecycle trigger started in metadata-only mode.",
+        workspaceId,
+      });
+
+      try {
+        const pending = await repositories.updateUploadedFile(user.userId, fileId, {
+          summaryStatus: "pending",
+          summaryText: null,
+          summarySource: "none",
+          summaryErrorCode: null,
+          summaryUpdatedAt: new Date(),
+        });
+
+        if (!pending) {
+          return { ok: false, code: "file_not_found" };
+        }
+
+        const ready = await repositories.updateUploadedFile(user.userId, fileId, {
+          summaryStatus: "ready",
+          summaryText: SUMMARY_PLACEHOLDER_TEXT,
+          summarySource: "placeholder",
+          summaryErrorCode: null,
+          summaryUpdatedAt: new Date(),
+        });
+
+        if (!ready) {
+          return { ok: false, code: "file_not_found" };
+        }
+
+        await repositories.writeDecisionLogEntry(user.userId, {
+          decisionType: "file_summary",
+          title: "Summary lifecycle",
+          decision: "summary_completed",
+          rationale: "Summary status marked ready with deterministic placeholder text (metadata-only).",
+          workspaceId,
+        });
+
+        return { ok: true, file: ready };
+      } catch {
+        const failed = await repositories.updateUploadedFile(user.userId, fileId, {
+          summaryStatus: "failed",
+          summarySource: "none",
+          summaryErrorCode: SUMMARY_FAILURE_CODE,
+          summaryUpdatedAt: new Date(),
+        });
+
+        await repositories.writeDecisionLogEntry(user.userId, {
+          decisionType: "file_summary",
+          title: "Summary lifecycle",
+          decision: "summary_failed",
+          rationale: "Summary lifecycle fell back to failed status in metadata-only mode.",
+          workspaceId,
+        });
+
+        if (!failed) {
+          return { ok: false, code: "file_not_found" };
+        }
+
+        return { ok: true, file: failed };
+      }
     },
   };
 }

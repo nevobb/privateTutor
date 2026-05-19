@@ -12,6 +12,8 @@ export type FileIndexingStatus =
   | "indexed"
   | "failed";
 
+export type FileSummaryStatus = "not_requested" | "pending" | "ready" | "failed";
+
 // Extended to include spec lifecycle values alongside legacy "candidate"
 export type MemoryObservationState =
   | "candidate"
@@ -112,6 +114,11 @@ export interface UploadedFile {
   indexId?: string;
   confidence?: number;
   storagePath?: string;
+  summaryStatus?: FileSummaryStatus;
+  summaryText?: string | null;
+  summarySource?: "none" | "placeholder";
+  summaryErrorCode?: string | null;
+  summaryUpdatedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -254,6 +261,7 @@ export interface DecisionLogEntry {
     | "file_assignment"
     | "topic_classification"
     | "file_indexing"
+    | "file_summary"
     | "model_provider"
     | "cost_mode"
     | "mock_alignment";

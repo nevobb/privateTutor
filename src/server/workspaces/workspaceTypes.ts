@@ -109,6 +109,11 @@ export interface CreateUploadedFileInput {
   confidence?: number;
   assignmentStatus: UploadedFileRecord["assignmentStatus"];
   indexingStatus: UploadedFileRecord["indexingStatus"];
+  summaryStatus: UploadedFileRecord["summaryStatus"];
+  summaryText?: UploadedFileRecord["summaryText"];
+  summarySource: UploadedFileRecord["summarySource"];
+  summaryErrorCode?: UploadedFileRecord["summaryErrorCode"];
+  summaryUpdatedAt?: UploadedFileRecord["summaryUpdatedAt"];
 }
 
 export function toDate(value: unknown): Date {

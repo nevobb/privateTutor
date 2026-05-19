@@ -368,3 +368,102 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: prepare PR for Batch 3, then start Batch 4 Phase 8 only after merge approval.
   - Blockers/Risks: unrelated local modified/untracked artifacts remain in workspace and must stay excluded from commit scope.
+
+## 2026-05-19 18:47 (Asia/Jerusalem) — Codex
+- Step/Task ID: Batch 4 / Phase 9 (Option A)
+- Task summary: Implement summary lifecycle metadata-only contract for uploaded files (no extraction/retrieval execution).
+- What I changed:
+  - Added summary metadata contract fields and status union (`not_requested|pending|ready|failed`) across shared types and repository mappings.
+  - Added service lifecycle flow for summary trigger with valid transitions, deterministic placeholder completion, failed fallback path, and decision-log events (`summary_requested/completed/failed`) mapped to `file_summary`.
+  - Added new API route `POST /api/workspaces/[workspaceId]/files/[fileId]/summary` with auth, ownership-safe not-found handling, and invalid-transition `400`.
+  - Extended tests for schema serialization, service transition matrix, repository persistence updates, and new summary route behavior.
+  - Updated task memory and added `agent-memory/BATCH4_PHASE9_REPORT.md`.
+- Files touched:
+  - `src/types/index.ts`
+  - `src/server/workspaces/workspaceTypes.ts`
+  - `src/server/workspaces/uploadedFileRepository.ts`
+  - `src/server/workspaces/uploadedFileApiService.ts`
+  - `src/server/workspaces/uploadedFileApiSchemas.ts`
+  - `src/app/api/workspaces/[workspaceId]/files/[fileId]/summary/route.ts`
+  - `tests/server/workspaces/uploadedFileApiSchemas.test.ts`
+  - `tests/server/workspaces/uploadedFileApiService.test.ts`
+  - `tests/server/workspaces/uploadedFileRepository.test.ts`
+  - `tests/server/workspaces/workspaceFileSummaryApiRoute.test.ts`
+  - `agent-memory/BATCH4_PHASE9_REPORT.md`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/workspaces/uploadedFileApiSchemas.test.ts tests/server/workspaces/uploadedFileApiService.test.ts tests/server/workspaces/workspaceFilesApiRoute.test.ts tests/server/workspaces/workspaceFileSummaryApiRoute.test.ts tests/server/workspaces/uploadedFileRepository.test.ts`
+  - Result: passed (5 files, 30 passed, 4 skipped)
+  - `npm run build`
+  - Result: failed due pre-existing unrelated type error in `src/server/workspaces/sessionMessageApiService.ts` (`TutorResponse.decisionLogEvents`)
+  - `npm run lint`
+  - Result: failed due pre-existing unrelated lint error in `src/app/page.tsx` (`react-hooks/set-state-in-effect`) + existing warnings
+  - `git diff --check`
+  - Result: passed
+- Git status:
+  - Branch: `codex/batch4-phase8-files`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: start Batch 4 / Phase 10 retrieval execution using the new summary/indexing metadata contracts.
+  - Blockers/Risks: repository has pre-existing unrelated build/lint failures outside this phase scope.
+
+## 2026-05-19 18:55 (Asia/Jerusalem) — Codex
+- Step/Task ID: Batch 4 / Phase 10
+- Task summary: Implement retrieval execution (real run path) after retrieval boundary decision, using workspace file metadata only.
+- What I changed:
+  - Added retrieval execution orchestration in `sessionMessageApiService` when `internalUpdate.retrieval_decision.needs_retrieval=true`.
+  - Selected retrieval candidates from indexed workspace files (`indexingStatus=indexed`), ranked by summary readiness and confidence, capped by `max_chunks`.
+  - Updated `internalUpdate.retrieval` to reflect true runtime outcomes (`used/source_ids/why`) for requested/executed/skipped/failed paths.
+  - Added retrieval lifecycle decision events (`retrieval_requested/executed/skipped/failed`) and mapped them to persisted `retrieval_scope` decision type.
+  - Extended service tests to cover executed/skipped/failed retrieval execution scenarios.
+- Files touched:
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `src/server/tutor/schemas.ts`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `agent-memory/BATCH4_PHASE10_REPORT.md`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/workspaces/sessionMessageApiService.test.ts tests/server/workspaces/sessionMessageApiRoute.test.ts tests/server/tutor/deepseekHarnessIntegration.test.ts tests/server/tutor/retrievalDecisionBoundary.test.ts tests/server/tutor.handler.test.ts`
+  - Result: passed (5 files, 35 passed)
+  - `npm run build`
+  - Result: failed due unrelated duplicate scratch test artifact `tests/server/workspaces/sessionMessageApiSchemas.test 2.ts`
+  - `git diff --check`
+  - Result: passed
+- Git status:
+  - Branch: `codex/batch4-phase8-files`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: clean duplicate scratch test files and run full repo validation before opening PR.
+  - Blockers/Risks: pre-existing unrelated working tree artifacts still present and can fail full build/lint.
+
+## 2026-05-19 19:00 (Asia/Jerusalem) — Codex
+- Step/Task ID: Repo cleanup after Phase 9/10
+- Task summary: Clean unrelated artifacts and rerun validation to ensure a reviewable working tree.
+- What I changed:
+  - Removed untracked agent/tooling artifacts and scratch files (`.claude/.codex/.superpowers/.playwright-mcp`, `design-input`, local debug log files).
+  - Removed duplicate scratch test artifacts with `* 2.ts` suffix, including tracked duplicate `tests/server/workspaces/sessionMessageApiService.test 2.ts`.
+  - Re-ran build and focused test suites to verify cleanup did not break the Phase 9/10 changes.
+- Files touched:
+  - `tests/server/workspaces/sessionMessageApiService.test 2.ts` (deleted)
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npm run build`
+  - Result: passed
+  - `npx vitest run tests/server/workspaces/uploadedFileApiSchemas.test.ts tests/server/workspaces/uploadedFileApiService.test.ts tests/server/workspaces/workspaceFilesApiRoute.test.ts tests/server/workspaces/workspaceFileSummaryApiRoute.test.ts tests/server/workspaces/uploadedFileRepository.test.ts tests/server/workspaces/sessionMessageApiService.test.ts tests/server/workspaces/sessionMessageApiRoute.test.ts tests/server/tutor/deepseekHarnessIntegration.test.ts tests/server/tutor/retrievalDecisionBoundary.test.ts tests/server/tutor.handler.test.ts`
+  - Result: passed (10 files, 65 passed, 4 skipped)
+  - `npm run lint`
+  - Result: still failing on pre-existing unrelated `src/app/page.tsx` react-hooks/set-state-in-effect rule
+- Git status:
+  - Branch: `codex/batch4-phase8-files`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: stage only Phase 9/10 + memory/report files, then commit and open PR.
+  - Blockers/Risks: repository still has pre-existing tracked modification in `src/app/api/sessions/[sessionId]/messages/route.ts` outside this implementation scope.
