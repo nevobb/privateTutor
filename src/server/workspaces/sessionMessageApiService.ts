@@ -1,6 +1,6 @@
 import { getMockTutorResponse as defaultGetMockTutorResponse } from "../../lib/tutor";
 import { getActiveTutorProvider } from "../tutor/providerRegistry";
-import type { ConversationTurn } from "../tutor/schemas";
+import type { ConversationTurn, TutorGroundingContext } from "../tutor/schemas";
 import type { AuthenticatedUser } from "../auth/authTypes";
 import {
   appendMessage as defaultAppendMessage,
@@ -23,7 +23,7 @@ import { webSearchProvider as defaultWebSearchProvider } from "../tutor/webSearc
 import {
   retrieveRelevantFileChunks as defaultRetrieveFileChunks,
 } from "./fileChunkRetrievalService";
-import type { FileChunkRetrievalInput, FileChunkRetrievalResult } from "./fileChunkRetrievalService";
+import type { FileChunkRetrievalInput, FileChunkRetrievalResult, RetrievedFileChunk } from "./fileChunkRetrievalService";
 
 // Maximum number of previous turns to include as context for the AI provider.
 // Each "turn" is one message (user or tutor). 20 = 10 exchanges.
@@ -57,7 +57,8 @@ interface Repositories {
     message: string,
     workMode: Parameters<typeof defaultGetMockTutorResponse>[1],
     costMode: Parameters<typeof defaultGetMockTutorResponse>[2],
-    conversationHistory?: ConversationTurn[]
+    conversationHistory?: ConversationTurn[],
+    groundingContext?: TutorGroundingContext
   ) => Promise<TutorBoundaryResponse>;
 }
 
@@ -65,7 +66,8 @@ function defaultGetTutorResponse(
   message: string,
   workMode: Parameters<typeof defaultGetMockTutorResponse>[1],
   costMode: Parameters<typeof defaultGetMockTutorResponse>[2],
-  conversationHistory?: ConversationTurn[]
+  conversationHistory?: ConversationTurn[],
+  groundingContext?: TutorGroundingContext
 ): ReturnType<typeof defaultGetMockTutorResponse> {
   const provider = getActiveTutorProvider();
   return provider.call({
@@ -75,6 +77,7 @@ function defaultGetTutorResponse(
     workMode,
     costMode,
     conversationHistory,
+    groundingContext,
   }) as ReturnType<typeof defaultGetMockTutorResponse>;
 }
 
@@ -161,6 +164,26 @@ export function createSessionMessageApiService(
         guardedDecision,
         input.costMode
       );
+
+      if (retrievalExecution.retrievedChunks.length > 0) {
+        const groundingContext = buildGroundingContextFromChunks(retrievalExecution.retrievedChunks);
+        const groundedResponse = await repositories.getMockTutorResponse(
+          input.userMessage,
+          input.workMode,
+          input.costMode,
+          conversationHistory,
+          groundingContext
+        );
+        tutorResponse.message = { ...tutorResponse.message, content: groundedResponse.message.content };
+        tutorResponse.decisionLogEvents = [
+          ...(tutorResponse.decisionLogEvents ?? []),
+          {
+            type: "retrieval_executed",
+            title: "Grounded provider call executed",
+            detail: `grounding_context_injected=true; chunks=${retrievalExecution.retrievedChunks.length}; total_token_estimate=${groundingContext.totalTokenEstimate}`,
+          },
+        ];
+      }
 
       if (input.workMode === "Temporary Chat") {
         tutorResponse.internalUpdate.learner_memory_update = {
@@ -249,7 +272,7 @@ async function executeRetrievalForTutorResponse(
   tutorResponse: TutorBoundaryResponse,
   decision: RetrievalBoundaryDecision,
   costMode: CostMode
-): Promise<{ citations: TutorBoundaryResponse["message"]["citations"] }> {
+): Promise<{ citations: TutorBoundaryResponse["message"]["citations"]; retrievedChunks: RetrievedFileChunk[] }> {
   if (!decision.needs_retrieval) {
     tutorResponse.internalUpdate.retrieval = {
       ...tutorResponse.internalUpdate.retrieval,
@@ -258,7 +281,7 @@ async function executeRetrievalForTutorResponse(
       source_ids: [],
       why: "retrieval_not_requested_by_decision",
     };
-    return { citations: tutorResponse.message.citations };
+    return { citations: tutorResponse.message.citations, retrievedChunks: [] };
   }
 
   tutorResponse.decisionLogEvents = [
@@ -318,7 +341,7 @@ async function executeRetrievalForTutorResponse(
       title: "Retrieval failed",
       detail: error instanceof Error ? error.message : "Unknown retrieval error",
     });
-    return { citations: tutorResponse.message.citations };
+    return { citations: tutorResponse.message.citations, retrievedChunks: [] };
   }
 }
 
@@ -328,7 +351,7 @@ async function executeWebSearchRetrieval(
   workMode: WorkMode,
   maxChunks: number,
   tutorResponse: TutorBoundaryResponse
-): Promise<{ citations: TutorBoundaryResponse["message"]["citations"] }> {
+): Promise<{ citations: TutorBoundaryResponse["message"]["citations"]; retrievedChunks: RetrievedFileChunk[] }> {
   const isResearchMode = workMode === "Research";
   const hasFreshnessCue = /(latest|recent|today|current|news|update|up-to-date|היום|עדכני|אחרון)/i.test(
     userMessage
@@ -351,7 +374,7 @@ async function executeWebSearchRetrieval(
         ? "Policy guardrail: web retrieval only eligible in Research mode."
         : "Web retrieval requested but no freshness/recentness cue was detected.",
     });
-    return { citations: tutorResponse.message.citations };
+    return { citations: tutorResponse.message.citations, retrievedChunks: [] };
   }
 
   tutorResponse.decisionLogEvents?.push({
@@ -378,7 +401,7 @@ async function executeWebSearchRetrieval(
         title: "Web search skipped",
         detail: "Web provider returned no results.",
       });
-      return { citations: tutorResponse.message.citations };
+      return { citations: tutorResponse.message.citations, retrievedChunks: [] };
     }
 
     tutorResponse.internalUpdate.retrieval = {
@@ -410,7 +433,7 @@ async function executeWebSearchRetrieval(
       });
     }
 
-    return { citations };
+    return { citations, retrievedChunks: [] };
   } catch (error) {
     tutorResponse.internalUpdate.retrieval = {
       ...tutorResponse.internalUpdate.retrieval,
@@ -424,7 +447,7 @@ async function executeWebSearchRetrieval(
       title: "Web search failed",
       detail: error instanceof Error ? error.message : "Unknown web search error",
     });
-    return { citations: tutorResponse.message.citations };
+    return { citations: tutorResponse.message.citations, retrievedChunks: [] };
   }
 }
 
@@ -434,7 +457,7 @@ function executeChunkRetrieval(
   chunkResult: FileChunkRetrievalResult,
   effectiveMaxChunks: number,
   effectiveMaxTokens: number
-): { citations: TutorBoundaryResponse["message"]["citations"] } {
+): { citations: TutorBoundaryResponse["message"]["citations"]; retrievedChunks: RetrievedFileChunk[] } {
   const { chunks, eligibleFileCount } = chunkResult;
 
   if (chunks.length === 0) {
@@ -450,7 +473,7 @@ function executeChunkRetrieval(
       title: "Retrieval skipped",
       detail: `No matching file chunks found; eligible_files=${eligibleFileCount}; applied_max_chunks=${effectiveMaxChunks}`,
     });
-    return { citations: tutorResponse.message.citations };
+    return { citations: tutorResponse.message.citations, retrievedChunks: [] };
   }
 
   const chunkIds = chunks.map((c) => c.chunkId);
@@ -472,10 +495,10 @@ function executeChunkRetrieval(
   tutorResponse.decisionLogEvents?.push({
     type: "retrieval_executed",
     title: "Retrieval executed",
-    detail: `selected_chunk_ids=${chunkIds.join(",")}; selected_file_ids=${fileIds.join(",")}; total_candidates=${eligibleFileCount}; applied_max_chunks=${effectiveMaxChunks}; applied_max_tokens=${effectiveMaxTokens}`,
+    detail: `selected_chunk_ids=${chunkIds.join(",")}; selected_file_ids=${fileIds.join(",")}; total_candidates=${eligibleFileCount}; applied_max_chunks=${effectiveMaxChunks}; applied_max_tokens=${effectiveMaxTokens}; grounding_context_injected=true`,
   });
 
-  return { citations };
+  return { citations, retrievedChunks: chunks };
 }
 
 async function executeLegacyIndexedFileRetrieval(
@@ -486,7 +509,7 @@ async function executeLegacyIndexedFileRetrieval(
   decision: RetrievalBoundaryDecision,
   effectiveMaxChunks: number,
   effectiveMaxTokens: number
-): Promise<{ citations: TutorBoundaryResponse["message"]["citations"] }> {
+): Promise<{ citations: TutorBoundaryResponse["message"]["citations"]; retrievedChunks: RetrievedFileChunk[] }> {
   const files = await repositories.listUploadedFiles(userId, workspaceId);
   const indexed = files.filter((file) => file.indexingStatus === "indexed");
 
@@ -503,7 +526,7 @@ async function executeLegacyIndexedFileRetrieval(
       title: "Retrieval skipped",
       detail: "No indexed files are available in this workspace.",
     });
-    return { citations: tutorResponse.message.citations };
+    return { citations: tutorResponse.message.citations, retrievedChunks: [] };
   }
 
   const ranked = indexed.sort((a, b) => {
@@ -536,7 +559,7 @@ async function executeLegacyIndexedFileRetrieval(
     detail: `selected_sources=${sourceIds.join(",")}; indexed_candidates=${indexed.length}; applied_max_chunks=${effectiveMaxChunks}; applied_max_tokens=${effectiveMaxTokens}`,
   });
 
-  return { citations: citations.length > 0 ? citations : tutorResponse.message.citations };
+  return { citations: citations.length > 0 ? citations : tutorResponse.message.citations, retrievedChunks: [] };
 }
 
 function ensureRetrievalDecision(
@@ -642,6 +665,23 @@ function applyWorkModeGuardrails(
 
 function clampScope(scope: RetrievalScope, allowed: RetrievalScope[]): RetrievalScope {
   return allowed.includes(scope) ? scope : "topic";
+}
+
+function buildGroundingContextFromChunks(chunks: RetrievedFileChunk[]): TutorGroundingContext {
+  return {
+    mode: "file_chunks",
+    chunks: chunks.map((c) => ({
+      sourceId: `${c.fileId}:${c.chunkId}`,
+      fileId: c.fileId,
+      chunkId: c.chunkId,
+      chunkIndex: c.chunkIndex,
+      text: c.text,
+      tokenEstimate: c.tokenEstimate,
+      sourceLabel: c.sourceLabel,
+    })),
+    totalTokenEstimate: chunks.reduce((sum, c) => sum + c.tokenEstimate, 0),
+    instruction: "Use the following retrieved learning-material excerpts to inform your answer. Treat them as internal course material.",
+  };
 }
 
 function mapDecisionType(eventType: DecisionLogEvent["type"]): DecisionLogEntry["decisionType"] {

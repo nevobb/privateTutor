@@ -16,6 +16,23 @@ export interface ConversationTurn {
   content: string;
 }
 
+export type GroundingChunkContext = {
+  sourceId: string;
+  fileId: string;
+  chunkId: string;
+  chunkIndex: number;
+  text: string;
+  tokenEstimate: number;
+  sourceLabel?: string;
+};
+
+export type TutorGroundingContext = {
+  mode: "none" | "file_chunks";
+  chunks: GroundingChunkContext[];
+  totalTokenEstimate: number;
+  instruction: string;
+};
+
 export interface TutorRequest {
   userId: string;
   workspaceId: string;
@@ -26,6 +43,7 @@ export interface TutorRequest {
   activeFileIds?: string[];
   temporary?: boolean;
   conversationHistory?: ConversationTurn[];
+  groundingContext?: TutorGroundingContext;
 }
 
 export interface DecisionLogEvent {

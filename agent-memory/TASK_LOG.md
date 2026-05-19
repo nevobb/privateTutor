@@ -2,6 +2,21 @@
 
 ## Recent tasks
 
+### Phase 19 — Provider prompt-context injection / grounded tutor answer
+- Branch: `codex/phase19-grounded-tutor-answer`
+- Status: implemented on branch
+- Result:
+  - Added `GroundingChunkContext` / `TutorGroundingContext` types; `groundingContext?` on `TutorRequest`.
+  - Added `deepseekGroundingPrompt.ts` with bounded SOURCE block formatter.
+  - DeepSeek provider injects SOURCE blocks when `groundingContext` provided.
+  - Mock provider surfaces grounding metadata in decision log.
+  - Session service: second provider call with grounding context when chunks found; message content replaced with grounded answer.
+  - Tests: 5 grounding prompt unit tests + 6 session grounding integration tests.
+- Notes:
+  - MVP full pipeline complete (upload → extract → chunk → retrieve → ground → answer).
+  - Retrieval is deterministic keyword-based, NOT semantic.
+  - Real extraction placeholder still active; no embeddings added.
+
 ### Phase 18 — Retrieval over persisted file chunks
 - Branch: `codex/phase18-retrieval-over-file-chunks`
 - Status: implemented on branch

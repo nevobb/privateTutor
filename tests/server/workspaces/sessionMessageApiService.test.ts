@@ -62,7 +62,13 @@ type ServiceModule = {
       msg: string,
       wm: string,
       cm: string,
-      history?: Array<{ role: string; content: string }>
+      history?: Array<{ role: string; content: string }>,
+      groundingContext?: {
+        mode: "none" | "file_chunks";
+        chunks: Array<{ sourceId: string; fileId: string; chunkId: string; chunkIndex: number; text: string; tokenEstimate: number; sourceLabel?: string }>;
+        totalTokenEstimate: number;
+        instruction: string;
+      }
     ) => Promise<{
       message: { id: string; role: string; content: string };
       internalUpdate: Record<string, unknown>;
@@ -902,6 +908,193 @@ describeService("sessionMessageApiService", () => {
 
       expect(repos.retrieveFileChunks).not.toHaveBeenCalled();
       expect(repos.webSearchProvider.search).toHaveBeenCalledWith("latest news today");
+    });
+  });
+
+  describe("grounded provider call (Phase 19)", () => {
+    const chunkedTutorDecision = {
+      ...tutorResponse,
+      internalUpdate: {
+        ...tutorResponse.internalUpdate,
+        retrieval_decision: {
+          needs_retrieval: true,
+          retrieval_scope: "workspace",
+          max_chunks: 4,
+          max_tokens: 5000,
+          should_ask_clarification_first: false,
+        },
+      },
+    };
+
+    const matchingChunk = {
+      chunkId: "ck-grnd",
+      fileId: "file-G",
+      workspaceId: "ws-1",
+      text: "Grounding text from uploaded file",
+      chunkIndex: 0,
+      tokenEstimate: 80,
+      score: 3,
+      sourceLabel: "Physics.pdf",
+    };
+
+    it("calls getMockTutorResponse twice when chunks are found — once initial, once grounded", async () => {
+      const repos = makeRepos({
+        retrieveFileChunks: vi.fn(async () => ({
+          chunks: [matchingChunk],
+          eligibleFileCount: 1,
+        })),
+        getMockTutorResponse: vi.fn(async () => chunkedTutorDecision),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "explain Newton",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).toHaveBeenCalledTimes(2);
+    });
+
+    it("second provider call receives groundingContext with retrieved chunks", async () => {
+      const repos = makeRepos({
+        retrieveFileChunks: vi.fn(async () => ({
+          chunks: [matchingChunk],
+          eligibleFileCount: 1,
+        })),
+        getMockTutorResponse: vi.fn(async () => chunkedTutorDecision),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "explain Newton",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      const calls = (repos.getMockTutorResponse as ReturnType<typeof vi.fn>).mock.calls;
+      const secondCall = calls[1];
+      const groundingContext = secondCall[4];
+      expect(groundingContext).toBeDefined();
+      expect(groundingContext.mode).toBe("file_chunks");
+      expect(groundingContext.chunks).toHaveLength(1);
+      expect(groundingContext.chunks[0].sourceId).toBe("file-G:ck-grnd");
+      expect(groundingContext.chunks[0].text).toContain("Grounding text");
+    });
+
+    it("does NOT call getMockTutorResponse a second time when no chunks found", async () => {
+      const repos = makeRepos({
+        retrieveFileChunks: vi.fn(async () => ({ chunks: [], eligibleFileCount: 0 })),
+        getMockTutorResponse: vi.fn(async () => chunkedTutorDecision),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "hi",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).toHaveBeenCalledTimes(1);
+    });
+
+    it("transcript has exactly one user and one tutor message when chunks found", async () => {
+      const repos = makeRepos({
+        retrieveFileChunks: vi.fn(async () => ({
+          chunks: [matchingChunk],
+          eligibleFileCount: 1,
+        })),
+        getMockTutorResponse: vi.fn(async () => chunkedTutorDecision),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "explain Newton",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.appendMessage).toHaveBeenCalledTimes(2);
+      expect(repos.appendMessage).toHaveBeenNthCalledWith(
+        1, "alice", "ws-1", "s-1", expect.objectContaining({ role: "user" })
+      );
+      expect(repos.appendMessage).toHaveBeenNthCalledWith(
+        2, "alice", "ws-1", "s-1", expect.objectContaining({ role: "tutor" })
+      );
+    });
+
+    it("decision log includes grounded provider call event when chunks found", async () => {
+      const repos = makeRepos({
+        retrieveFileChunks: vi.fn(async () => ({
+          chunks: [matchingChunk],
+          eligibleFileCount: 1,
+        })),
+        getMockTutorResponse: vi.fn(async () => chunkedTutorDecision),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "explain Newton",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+        "alice",
+        expect.objectContaining({
+          decisionType: "retrieval_scope",
+          title: "Grounded provider call executed",
+          decision: expect.stringContaining("grounding_context_injected=true"),
+        })
+      );
+    });
+
+    it("grounded content from second provider call replaces initial message content", async () => {
+      const repos = makeRepos({
+        appendMessage: vi.fn(
+          async (_uid: string, _wsId: string, _sessId: string, input: Record<string, unknown>) =>
+            input.role === "user"
+              ? baseMessage
+              : { ...tutorMessage, content: input.content as string }
+        ),
+        retrieveFileChunks: vi.fn(async () => ({
+          chunks: [matchingChunk],
+          eligibleFileCount: 1,
+        })),
+        getMockTutorResponse: vi.fn(
+          async (
+            _msg: string,
+            _wm: string,
+            _cm: string,
+            _hist?: unknown,
+            groundingCtx?: { mode: string; chunks?: unknown[] }
+          ) => {
+            if (groundingCtx?.mode === "file_chunks") {
+              return {
+                ...chunkedTutorDecision,
+                message: { id: "m2", role: "tutor", content: "grounded answer with file content" },
+              };
+            }
+            return chunkedTutorDecision;
+          }
+        ),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "explain Newton",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toBe("grounded answer with file content");
     });
   });
 });
