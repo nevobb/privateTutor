@@ -25,8 +25,14 @@ import {
   SessionApiError,
 } from "../lib/sessions/sessionApiClient";
 import type { SessionApiSession } from "../lib/sessions/sessionApiTypes";
+import {
+  deleteLearnerMemory,
+  fetchLearnerMemory,
+  patchLearnerMemory,
+} from "../lib/memory/learnerMemoryApiClient";
+import type { LearnerMemoryObservationItem } from "../lib/memory/learnerMemoryApiTypes";
 import type { CostMode, WorkMode } from "../types";
-import { mockFiles, mockLearnerMemory } from "../mock/data";
+import { mockFiles } from "../mock/data";
 
 export const DEV_DIAGNOSTICS_STORAGE_KEY = "privateTutor.devDiagnostics.enabled";
 
@@ -85,6 +91,8 @@ export default function Home() {
   const [workMode, setWorkMode] = useState<WorkMode>("Learning");
   const [costMode, setCostMode] = useState<CostMode>("Normal Learning");
   const [developerDiagnosticsEnabled, setDeveloperDiagnosticsEnabled] = useState(false);
+  const [memoryObservations, setMemoryObservations] = useState<LearnerMemoryObservationItem[]>([]);
+  const [memoryLoading, setMemoryLoading] = useState(false);
 
   useEffect(() => {
     try {
@@ -250,6 +258,27 @@ export default function Home() {
     }
   }, [activeWorkspaceId, costMode, getToken, workMode]);
 
+  const reloadMemory = useCallback(async (): Promise<void> => {
+    if (authState.status !== "signed-in") {
+      setMemoryObservations([]);
+      return;
+    }
+
+    setMemoryLoading(true);
+    try {
+      const observations = await fetchLearnerMemory(getToken, activeWorkspaceId ?? undefined);
+      setMemoryObservations(observations);
+    } catch {
+      setMemoryObservations([]);
+    } finally {
+      setMemoryLoading(false);
+    }
+  }, [activeWorkspaceId, authState.status, getToken]);
+
+  useEffect(() => {
+    void reloadMemory();
+  }, [reloadMemory]);
+
   const displayName =
     authState.status === "signed-in"
       ? (authState.user?.displayName ?? authState.user?.email ?? "משתמש")
@@ -325,7 +354,26 @@ export default function Home() {
           title="Tutor memory"
           defaultOpen={false}
         >
-          <MemoryPanel memory={mockLearnerMemory} />
+          <MemoryPanel
+            observations={memoryObservations}
+            loading={memoryLoading}
+            onApprove={async (id) => {
+              await patchLearnerMemory(getToken, id, { action: "approve" });
+              await reloadMemory();
+            }}
+            onReject={async (id) => {
+              await patchLearnerMemory(getToken, id, { action: "reject" });
+              await reloadMemory();
+            }}
+            onEdit={async (id, content) => {
+              await patchLearnerMemory(getToken, id, { action: "edit", content });
+              await reloadMemory();
+            }}
+            onDelete={async (id) => {
+              await deleteLearnerMemory(getToken, id);
+              await reloadMemory();
+            }}
+          />
         </CollapsiblePanel>
         <ThemePicker />
         <div

@@ -1,6 +1,7 @@
 # Current Task
 
 ## Status
+Batch 5 / Phase 11 implemented and validated on branch — learner memory candidate detection/write policy and memory viewer CRUD/approve/reject are now wired end-to-end.
 Batch 4 / Phase 10 implemented and validated on branch — retrieval execution now runs in session message flow when `retrieval_decision.needs_retrieval=true`, with execution/skipped/failed decision-log coverage and passing focused retrieval/session tests.
 Batch 4 / Phase 9 (Option A) implemented and validated on branch — metadata-only summary lifecycle contract (`POST /api/workspaces/[workspaceId]/files/[fileId]/summary`) plus summary metadata fields on file create/list responses, with decision-log coverage and passing focused tests.
 Batch 4 / Phase 8 implemented and validated on branch, pending merge via PR #43 — metadata-first file intake/classify/index lifecycle server-side (`/api/workspaces/[workspaceId]/files` GET/POST), with decision-log coverage and passing focused tests.
@@ -48,10 +49,37 @@ Step 40C complete — conversation history passed to DeepSeek on every message.
 - Added report: `DEEPSEEK_SMOKE_TEST_REPORT.md`
 
 ## Next proposed task
-Repo hygiene + full validation pass before PR:
-- remove duplicate scratch test artifacts (`* 2.ts`) from working tree
-- run full build/lint/test matrix
-- then prepare Phase 9+10 combined PR scope review
+Phase 12 — Cost modes budget verification in execution path:
+- assert Cheap Practice / Normal Learning / Deep Research budgets are honored at retrieval execution step
+- add focused tests for budget and mode-policy behavior
+- keep scope away from upload/extraction/web search in this slice
+
+## What was done in Batch 5 / Phase 11
+- Added learner-memory persistence boundary:
+  - repository under user-scoped path `users/{userId}/learnerMemory`
+  - create/list/get/update/delete operations
+- Added learner-memory API routes:
+  - `GET /api/learner-memory`
+  - `PATCH /api/learner-memory/[observationId]` (`edit|approve|reject`)
+  - `DELETE /api/learner-memory/[observationId]`
+- Added memory write policy integration in session message flow:
+  - high confidence + `small_auto` + no contradiction/deletion-like intent => auto-save (`state=active`)
+  - otherwise => proposed memory (`state=tentative`, requires approval)
+  - decision log policy event written as `memory_write` or `memory_not_written`
+- Added memory type detection fallback for:
+  - `preference`
+  - `difficulty`
+  - `correction`
+  - `explanation_pattern`
+  - `pacing`
+  - `behavior_rule`
+- Replaced mock memory viewer in sidebar with real API-backed viewer:
+  - view observations
+  - edit observation content
+  - delete observation
+  - approve/reject proposed memory
+- Added report:
+  - `agent-memory/BATCH5_PHASE11_MEMORY_REPORT.md`
 
 ## What was done in Batch 4 / Phase 10
 - Added retrieval execution in `sessionMessageApiService` based on provider retrieval boundary decisions.

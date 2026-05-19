@@ -24,6 +24,7 @@ type ServiceModule = {
         sessionId?: string;
       }
     ) => Promise<Record<string, unknown>>;
+    processMemoryCandidate: (input: Record<string, unknown>) => Promise<void>;
     getMockTutorResponse: (
       msg: string,
       wm: string,
@@ -105,6 +106,7 @@ function makeRepos(
       },
     ]),
     writeDecisionLogEntry: vi.fn(async () => ({ id: "d1" })),
+    processMemoryCandidate: vi.fn(async () => {}),
     getMockTutorResponse: vi.fn(async () => tutorResponse),
     ...overrides,
   };
@@ -173,6 +175,9 @@ describeService("sessionMessageApiService", () => {
       expect(repos.getMockTutorResponse).toHaveBeenCalledWith("hi", "Learning", "Normal Learning", [
         { role: "user", content: "hi" },
       ]);
+      expect(repos.processMemoryCandidate).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId: "ws-1", userMessage: "hi" })
+      );
       expect(repos.writeDecisionLogEntry).toHaveBeenCalledTimes(5);
       expect(repos.writeDecisionLogEntry).toHaveBeenNthCalledWith(
         1,

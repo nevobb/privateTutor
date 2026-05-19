@@ -12,6 +12,7 @@ import { serializeMessage } from "./sessionMessageApiSchemas";
 import { getSession as defaultGetSession } from "./sessionRepository";
 import { getWorkspace as defaultGetWorkspace } from "./workspaceRepository";
 import { writeDecisionLogEntry as defaultWriteDecisionLogEntry } from "./decisionLogRepository";
+import { learnerMemoryApiService as defaultLearnerMemoryApiService } from "./learnerMemoryApiService";
 import type { MessageRecord } from "./workspaceTypes";
 import type { DecisionLogEvent } from "../tutor/schemas";
 import type { DecisionLogEntry } from "../../types";
@@ -42,6 +43,7 @@ interface Repositories {
   appendMessage: typeof defaultAppendMessage;
   listUploadedFiles: typeof defaultListUploadedFiles;
   writeDecisionLogEntry: typeof defaultWriteDecisionLogEntry;
+  processMemoryCandidate: typeof defaultLearnerMemoryApiService.processMemoryCandidate;
   getMockTutorResponse: (
     message: string,
     workMode: Parameters<typeof defaultGetMockTutorResponse>[1],
@@ -75,6 +77,7 @@ function defaultRepositories(): Repositories {
     appendMessage: defaultAppendMessage,
     listUploadedFiles: defaultListUploadedFiles,
     writeDecisionLogEntry: defaultWriteDecisionLogEntry,
+    processMemoryCandidate: defaultLearnerMemoryApiService.processMemoryCandidate,
     getMockTutorResponse: defaultGetTutorResponse,
   };
 }
@@ -129,6 +132,14 @@ export function createSessionMessageApiService(
         input.workspaceId,
         tutorResponse
       );
+
+      await repositories.processMemoryCandidate({
+        user: typeof user === "string" ? { userId, email: `${userId}@local` } : user,
+        workspaceId: input.workspaceId,
+        userMessage: input.userMessage,
+        internalUpdate: tutorResponse.internalUpdate,
+        temporaryChat: input.workMode === "Temporary Chat",
+      });
 
       const assistantRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
         role: "tutor",
