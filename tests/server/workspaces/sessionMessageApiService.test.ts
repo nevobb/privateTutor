@@ -24,6 +24,7 @@ type ServiceModule = {
         sessionId?: string;
       }
     ) => Promise<Record<string, unknown>>;
+    processMemoryCandidate: (input: Record<string, unknown>) => Promise<void>;
     getMockTutorResponse: (
       msg: string,
       wm: string,
@@ -77,6 +78,17 @@ const tutorResponse = {
   ],
 };
 
+function makeIndexedFiles(count: number) {
+  return Array.from({ length: count }).map((_, i) => ({
+    id: `file-${i + 1}`,
+    name: `doc-${i + 1}.pdf`,
+    indexingStatus: "indexed",
+    summaryStatus: "ready",
+    summaryText: `Summary ${i + 1}`,
+    confidence: 0.9 - i * 0.01,
+  }));
+}
+
 function makeRepos(
   overrides: Partial<Parameters<ServiceModule["createSessionMessageApiService"]>[0]> = {}
 ) {
@@ -105,6 +117,7 @@ function makeRepos(
       },
     ]),
     writeDecisionLogEntry: vi.fn(async () => ({ id: "d1" })),
+    processMemoryCandidate: vi.fn(async () => {}),
     getMockTutorResponse: vi.fn(async () => tutorResponse),
     ...overrides,
   };
@@ -173,6 +186,9 @@ describeService("sessionMessageApiService", () => {
       expect(repos.getMockTutorResponse).toHaveBeenCalledWith("hi", "Learning", "Normal Learning", [
         { role: "user", content: "hi" },
       ]);
+      expect(repos.processMemoryCandidate).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId: "ws-1", userMessage: "hi" })
+      );
       expect(repos.writeDecisionLogEntry).toHaveBeenCalledTimes(5);
       expect(repos.writeDecisionLogEntry).toHaveBeenNthCalledWith(
         1,
@@ -304,6 +320,96 @@ describeService("sessionMessageApiService", () => {
         "alice",
         expect.objectContaining({ decision: expect.stringContaining("db_down"), decisionType: "retrieval_scope" })
       );
+    });
+
+    it("enforces Cheap Practice retrieval chunk budget", async () => {
+      const repos = makeRepos({
+        listUploadedFiles: vi.fn(async () => makeIndexedFiles(8)),
+        getMockTutorResponse: vi.fn(async () => ({
+          ...tutorResponse,
+          internalUpdate: {
+            ...tutorResponse.internalUpdate,
+            retrieval_decision: {
+              needs_retrieval: true,
+              retrieval_scope: "workspace",
+              max_chunks: 8,
+              max_tokens: 9000,
+              should_ask_clarification_first: false,
+            },
+          },
+        })),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "from my notes",
+        workMode: "Practice",
+        costMode: "Cheap Practice",
+      });
+
+      const internal = result.internalUpdate as { retrieval: { source_ids: string[] } };
+      expect(internal.retrieval.source_ids).toHaveLength(2);
+    });
+
+    it("enforces Normal Learning retrieval chunk budget", async () => {
+      const repos = makeRepos({
+        listUploadedFiles: vi.fn(async () => makeIndexedFiles(8)),
+        getMockTutorResponse: vi.fn(async () => ({
+          ...tutorResponse,
+          internalUpdate: {
+            ...tutorResponse.internalUpdate,
+            retrieval_decision: {
+              needs_retrieval: true,
+              retrieval_scope: "workspace",
+              max_chunks: 8,
+              max_tokens: 9000,
+              should_ask_clarification_first: false,
+            },
+          },
+        })),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "from my notes",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      const internal = result.internalUpdate as { retrieval: { source_ids: string[] } };
+      expect(internal.retrieval.source_ids).toHaveLength(4);
+    });
+
+    it("enforces Deep Research retrieval chunk budget", async () => {
+      const repos = makeRepos({
+        listUploadedFiles: vi.fn(async () => makeIndexedFiles(12)),
+        getMockTutorResponse: vi.fn(async () => ({
+          ...tutorResponse,
+          internalUpdate: {
+            ...tutorResponse.internalUpdate,
+            retrieval_decision: {
+              needs_retrieval: true,
+              retrieval_scope: "workspace",
+              max_chunks: 12,
+              max_tokens: 18000,
+              should_ask_clarification_first: false,
+            },
+          },
+        })),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "from my notes",
+        workMode: "Research",
+        costMode: "Deep Research",
+      });
+
+      const internal = result.internalUpdate as { retrieval: { source_ids: string[] } };
+      expect(internal.retrieval.source_ids).toHaveLength(10);
     });
   });
 });

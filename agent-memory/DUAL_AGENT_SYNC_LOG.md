@@ -467,3 +467,75 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: stage only Phase 9/10 + memory/report files, then commit and open PR.
   - Blockers/Risks: repository still has pre-existing tracked modification in `src/app/api/sessions/[sessionId]/messages/route.ts` outside this implementation scope.
+
+## 2026-05-19 21:40 (Asia/Jerusalem) — Codex
+- Step/Task ID: Batch 5 / Phase 11
+- Task summary: Implement learner memory candidate detection, write policy, and memory viewer CRUD/approve/reject.
+- What I changed:
+  - Added learner-memory repository + API service + schemas for user-scoped observation persistence and policy decisions.
+  - Added learner-memory API routes (`GET`, `PATCH`, `DELETE`) with auth, validation, and safe error handling.
+  - Wired memory candidate policy execution into `sessionMessageApiService` after tutor response classification.
+  - Replaced mock memory panel with API-backed viewer supporting view/edit/delete/approve/reject.
+  - Added focused tests for memory policy service and routes, and updated session message service tests for memory processing call.
+- Files touched:
+  - `src/server/workspaces/learnerMemoryRepository.ts`
+  - `src/server/workspaces/learnerMemoryApiSchemas.ts`
+  - `src/server/workspaces/learnerMemoryApiService.ts`
+  - `src/app/api/learner-memory/route.ts`
+  - `src/app/api/learner-memory/[observationId]/route.ts`
+  - `src/lib/memory/learnerMemoryApiTypes.ts`
+  - `src/lib/memory/learnerMemoryApiClient.ts`
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `src/components/memory/MemoryPanel.tsx`
+  - `src/app/page.tsx`
+  - `tests/server/workspaces/learnerMemoryApiService.test.ts`
+  - `tests/server/workspaces/learnerMemoryApiRoute.test.ts`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `agent-memory/BATCH5_PHASE11_MEMORY_REPORT.md`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/workspaces/learnerMemoryApiService.test.ts tests/server/workspaces/learnerMemoryApiRoute.test.ts tests/server/workspaces/sessionMessageApiService.test.ts tests/server/workspaces/workspaceFileSummaryApiRoute.test.ts tests/server/workspaces/uploadedFileApiService.test.ts`
+  - Result: passed (32/32)
+  - `npm run build`
+  - Result: passed
+  - `git diff --check`
+  - Result: passed
+- Git status:
+  - Branch: `codex/batch5-next-phase`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: Phase 12 cost-mode budget verification hardening with focused execution-policy tests.
+  - Blockers/Risks: none in this slice.
+
+## 2026-05-19 21:44 (Asia/Jerusalem) — Codex
+- Step/Task ID: Batch 5 / Phase 12
+- Task summary: Enforce and verify cost-mode retrieval budgets in execution path.
+- What I changed:
+  - Added retrieval decision fallback creation in session message service when provider response omits retrieval decision.
+  - Enforced execution-time cost-mode caps for retrieval budgets (Cheap/Normal/Deep) by applying min(decision budget, mode cap).
+  - Added execution detail logging with applied chunk/token caps for observability.
+  - Added focused budget tests for each cost mode in session message service tests.
+- Files touched:
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `agent-memory/BATCH5_PHASE12_COST_MODES_REPORT.md`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/workspaces/sessionMessageApiService.test.ts tests/server/workspaces/learnerMemoryApiService.test.ts tests/server/workspaces/learnerMemoryApiRoute.test.ts tests/server/tutor/retrievalDecisionBoundary.test.ts`
+  - Result: passed (24/24)
+  - `npm run build`
+  - Result: passed
+  - `git diff --check`
+  - Result: passed
+- Git status:
+  - Branch: `codex/batch5-next-phase`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: Phase 13 work-mode policy hardening and focused verification.
+  - Blockers/Risks: none.
