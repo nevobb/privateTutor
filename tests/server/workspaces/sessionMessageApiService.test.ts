@@ -243,6 +243,7 @@ describeService("sessionMessageApiService", () => {
         "alice",
         expect.objectContaining({ decisionType: "memory_not_written" })
       );
+      expect(repos.processMemoryCandidate).not.toHaveBeenCalled();
     });
 
     it("throws 'Workspace not found.' when workspace missing", async () => {
@@ -350,6 +351,13 @@ describeService("sessionMessageApiService", () => {
 
       const internal = result.internalUpdate as { retrieval: { source_ids: string[] } };
       expect(internal.retrieval.source_ids).toHaveLength(2);
+      expect(result).toMatchObject({
+        internalUpdate: {
+          retrieval_decision: {
+            retrieval_scope: "topic",
+          },
+        },
+      });
     });
 
     it("enforces Normal Learning retrieval chunk budget", async () => {
@@ -410,6 +418,94 @@ describeService("sessionMessageApiService", () => {
 
       const internal = result.internalUpdate as { retrieval: { source_ids: string[] } };
       expect(internal.retrieval.source_ids).toHaveLength(10);
+    });
+
+    it("keeps Research web scope as policy-allowed without web execution", async () => {
+      const repos = makeRepos({
+        listUploadedFiles: vi.fn(async () => makeIndexedFiles(5)),
+        getMockTutorResponse: vi.fn(async () => ({
+          ...tutorResponse,
+          internalUpdate: {
+            ...tutorResponse.internalUpdate,
+            retrieval_decision: {
+              needs_retrieval: true,
+              retrieval_scope: "web",
+              max_chunks: 6,
+              max_tokens: 7000,
+              should_ask_clarification_first: false,
+            },
+          },
+        })),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "latest updates",
+        workMode: "Research",
+        costMode: "Normal Learning",
+      });
+
+      expect(result).toMatchObject({
+        internalUpdate: {
+          retrieval: {
+            scope: "web",
+            used: true,
+          },
+        },
+      });
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+        "alice",
+        expect.objectContaining({
+          decisionType: "retrieval_scope",
+          title: "Research web policy eligibility",
+        })
+      );
+    });
+
+    it("applies Build project-context policy to workspace scope", async () => {
+      const repos = makeRepos({
+        listUploadedFiles: vi.fn(async () => makeIndexedFiles(5)),
+        getMockTutorResponse: vi.fn(async () => ({
+          ...tutorResponse,
+          internalUpdate: {
+            ...tutorResponse.internalUpdate,
+            retrieval_decision: {
+              needs_retrieval: true,
+              retrieval_scope: "session",
+              max_chunks: 4,
+              max_tokens: 5000,
+              should_ask_clarification_first: false,
+            },
+          },
+        })),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "help me build this project",
+        workMode: "Build",
+        costMode: "Normal Learning",
+      });
+
+      expect(result).toMatchObject({
+        internalUpdate: {
+          retrieval_decision: {
+            retrieval_scope: "workspace",
+          },
+          retrieval: {
+            scope: "workspace",
+          },
+        },
+      });
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+        "alice",
+        expect.objectContaining({
+          decisionType: "retrieval_scope",
+          title: "Build project-context policy applied",
+        })
+      );
     });
   });
 });

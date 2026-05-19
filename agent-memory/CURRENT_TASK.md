@@ -1,6 +1,7 @@
 # Current Task
 
 ## Status
+Batch 5 / Phase 13 implemented and validated on branch — work-mode policy guardrails now enforce Temporary Chat memory suppression, Practice retrieval minimization, Research web-policy eligibility logging, and Build project-context scope behavior in session execution flow.
 Batch 5 / Phase 12 implemented and validated on branch — retrieval execution now enforces cost-mode budget caps (Cheap/Normal/Deep) with focused budget tests.
 Batch 5 / Phase 11 implemented and validated on branch — learner memory candidate detection/write policy and memory viewer CRUD/approve/reject are now wired end-to-end.
 Batch 4 / Phase 10 implemented and validated on branch — retrieval execution now runs in session message flow when `retrieval_decision.needs_retrieval=true`, with execution/skipped/failed decision-log coverage and passing focused retrieval/session tests.
@@ -50,10 +51,23 @@ Step 40C complete — conversation history passed to DeepSeek on every message.
 - Added report: `DEEPSEEK_SMOKE_TEST_REPORT.md`
 
 ## Next proposed task
-Phase 13 — Work modes policy verification hardening:
-- verify Temporary Chat avoids permanent memory writes end-to-end
-- verify Practice retrieval minimization stays enforced
-- verify Research remains broader scope and web-eligible policy boundary without adding web provider execution
+Phase 14 — Web search execution boundary:
+- introduce web execution provider boundary (Google Search Grounding MVP contract)
+- allow web execution only when justified and explicitly disclosed
+- record decision-log entries for web usage and source/conflict visibility
+
+## What was done in Batch 5 / Phase 13
+- Added work-mode policy guardrails at service layer before retrieval execution:
+  - `Temporary Chat`: force `learner_memory_update` to none, skip memory candidate persistence, emit `memory_not_written`
+  - `Practice`: clamp retrieval scope to `none|session|topic` and emit minimization policy event
+  - `Research`: keep broad scope and log web-policy eligibility without adding web execution provider
+  - `Build`: promote retrieval-enabled session scope to workspace project-context scope and log policy event
+- Added new decision event type:
+  - `work_mode_policy` (mapped to existing `decisionType: retrieval_scope`)
+- Kept `POST /api/sessions/[sessionId]/messages` response shape unchanged.
+- Added focused service tests covering all four mode-policy behaviors.
+- Added report:
+  - `agent-memory/BATCH5_PHASE13_WORK_MODES_REPORT.md`
 
 ## What was done in Batch 5 / Phase 12
 - Added retrieval-decision fallback generation in session message service when provider output is missing `retrieval_decision`.

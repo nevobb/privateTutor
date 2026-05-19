@@ -539,3 +539,37 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: Phase 13 work-mode policy hardening and focused verification.
   - Blockers/Risks: none.
+
+## 2026-05-19 21:59 (Asia/Jerusalem) — Codex
+- Step/Task ID: Batch 5 / Phase 13
+- Task summary: Implement work-mode policy hardening in session execution flow.
+- What I changed:
+  - Added work-mode guardrails in session service before retrieval execution.
+  - Enforced Temporary Chat memory suppression at service layer (force none, skip memory write processing, add memory_not_written event).
+  - Enforced Practice retrieval minimization by clamping scope away from workspace/web and logging policy event.
+  - Added Research web-policy eligibility event without adding web execution provider.
+  - Added Build project-context policy that promotes retrieval-enabled session scope to workspace scope.
+  - Added new tutor decision event type `work_mode_policy` and mapped it to persisted retrieval-scope decision type.
+  - Added/updated service tests for Temporary/Practice/Research/Build policy behavior.
+- Files touched:
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `src/server/tutor/schemas.ts`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `agent-memory/BATCH5_PHASE13_WORK_MODES_REPORT.md`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/workspaces/sessionMessageApiService.test.ts tests/server/workspaces/learnerMemoryApiService.test.ts tests/server/workspaces/learnerMemoryApiRoute.test.ts tests/server/tutor/retrievalDecisionBoundary.test.ts tests/server/tutor.handler.test.ts`
+  - Result: passed (33/33)
+  - `npm run build`
+  - Result: passed
+  - `git diff --check`
+  - Result: passed
+- Git status:
+  - Branch: `codex/batch5-next-phase`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: Phase 14 web-search execution boundary with explicit justification/disclosure and conflict visibility in logs.
+  - Blockers/Risks: none.

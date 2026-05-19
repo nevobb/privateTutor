@@ -18,7 +18,7 @@ import type { DecisionLogEvent } from "../tutor/schemas";
 import type { DecisionLogEntry } from "../../types";
 import type { TutorBoundaryResponse } from "../tutor/schemas";
 import { decideRetrievalBoundary } from "../tutor/retrievalDecisionBoundary";
-import type { CostMode, RetrievalBoundaryDecision } from "../../types";
+import type { CostMode, RetrievalBoundaryDecision, RetrievalScope, WorkMode } from "../../types";
 
 // Maximum number of previous turns to include as context for the AI provider.
 // Each "turn" is one message (user or tutor). 20 = 10 exchanges.
@@ -135,22 +135,47 @@ export function createSessionMessageApiService(
         input.costMode
       );
 
+      const guardedDecision = applyWorkModeGuardrails(
+        tutorResponse,
+        retrievalDecision,
+        input.workMode,
+        input.costMode
+      );
+
       const retrievalExecution = await executeRetrievalForTutorResponse(
         repositories,
         userId,
         input.workspaceId,
         tutorResponse,
-        retrievalDecision,
+        guardedDecision,
         input.costMode
       );
 
-      await repositories.processMemoryCandidate({
-        user: typeof user === "string" ? { userId, email: `${userId}@local` } : user,
-        workspaceId: input.workspaceId,
-        userMessage: input.userMessage,
-        internalUpdate: tutorResponse.internalUpdate,
-        temporaryChat: input.workMode === "Temporary Chat",
-      });
+      if (input.workMode === "Temporary Chat") {
+        tutorResponse.internalUpdate.learner_memory_update = {
+          needed: false,
+          update_type: "none",
+          memory_type: "none",
+          content: "",
+          confidence: 0,
+        };
+        tutorResponse.decisionLogEvents = [
+          ...(tutorResponse.decisionLogEvents ?? []),
+          {
+            type: "memory_not_written",
+            title: "Temporary chat memory write skipped",
+            detail: "Temporary Chat avoids permanent learner memory writes by policy.",
+          },
+        ];
+      } else {
+        await repositories.processMemoryCandidate({
+          user: typeof user === "string" ? { userId, email: `${userId}@local` } : user,
+          workspaceId: input.workspaceId,
+          userMessage: input.userMessage,
+          internalUpdate: tutorResponse.internalUpdate,
+          temporaryChat: false,
+        });
+      }
 
       const assistantRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
         role: "tutor",
@@ -345,6 +370,68 @@ function getRetrievalBudgetForCostMode(costMode: CostMode): { maxChunks: number;
   return { maxChunks: 4, maxTokens: 5000 };
 }
 
+function applyWorkModeGuardrails(
+  tutorResponse: TutorBoundaryResponse,
+  decision: RetrievalBoundaryDecision,
+  workMode: WorkMode,
+  costMode: CostMode
+): RetrievalBoundaryDecision {
+  let next = { ...decision };
+
+  if (workMode === "Practice") {
+    const scoped = clampScope(next.retrieval_scope, ["none", "session", "topic"]);
+    next = {
+      ...next,
+      retrieval_scope: scoped,
+      needs_retrieval: scoped !== "none" && next.needs_retrieval,
+    };
+
+    tutorResponse.decisionLogEvents = [
+      ...(tutorResponse.decisionLogEvents ?? []),
+      {
+        type: "work_mode_policy",
+        title: "Practice retrieval minimization applied",
+        detail: `scope=${next.retrieval_scope}; costMode=${costMode}`,
+      },
+    ];
+  }
+
+  if (workMode === "Research") {
+    tutorResponse.decisionLogEvents = [
+      ...(tutorResponse.decisionLogEvents ?? []),
+      {
+        type: "work_mode_policy",
+        title: "Research web policy eligibility",
+        detail:
+          next.retrieval_scope === "web"
+            ? "Web scope is policy-allowed in Research mode, but web execution is deferred to Phase 14."
+            : `Research scope=${next.retrieval_scope}.`,
+      },
+    ];
+  }
+
+  if (workMode === "Build") {
+    if (next.needs_retrieval && (next.retrieval_scope === "none" || next.retrieval_scope === "session")) {
+      next = { ...next, retrieval_scope: "workspace" };
+    }
+    tutorResponse.decisionLogEvents = [
+      ...(tutorResponse.decisionLogEvents ?? []),
+      {
+        type: "work_mode_policy",
+        title: "Build project-context policy applied",
+        detail: `scope=${next.retrieval_scope}; retrieval=${next.needs_retrieval ? "enabled" : "disabled"}`,
+      },
+    ];
+  }
+
+  tutorResponse.internalUpdate.retrieval_decision = next;
+  return next;
+}
+
+function clampScope(scope: RetrievalScope, allowed: RetrievalScope[]): RetrievalScope {
+  return allowed.includes(scope) ? scope : "topic";
+}
+
 function mapDecisionType(eventType: DecisionLogEvent["type"]): DecisionLogEntry["decisionType"] {
   switch (eventType) {
     case "memory_not_written":
@@ -354,6 +441,7 @@ function mapDecisionType(eventType: DecisionLogEvent["type"]): DecisionLogEntry[
     case "retrieval_executed":
     case "retrieval_skipped":
     case "retrieval_failed":
+    case "work_mode_policy":
       return "retrieval_scope";
     case "mock_provider":
     case "deepseek_provider":

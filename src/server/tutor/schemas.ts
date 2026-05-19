@@ -39,6 +39,7 @@ export interface DecisionLogEvent {
     | "retrieval_executed"
     | "retrieval_skipped"
     | "retrieval_failed"
+    | "work_mode_policy"
     | "request_validation"
     | "response_validation"
     | "memory_not_written";
