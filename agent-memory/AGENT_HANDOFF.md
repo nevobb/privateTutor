@@ -10,23 +10,28 @@
 7. `agent-memory/OPEN_QUESTIONS.md`
 
 ## Current status
-- Phase 17 chunking boundary is implemented on branch `codex/phase17-file-chunking-boundary`.
-- Build and focused test suites are passing.
+- Phase 18 retrieval over persisted file chunks is implemented and validated.
 
-## What Phase 17 added
-- Uploaded-file chunking lifecycle fields and safe legacy mapping.
-- Deterministic chunker (`fileChunker`) with stable chunk boundaries and overlap.
-- File chunk repository persisted under file-scoped Firestore path.
-- Chunking service lifecycle in uploaded-file service.
-- New API route: `POST /api/workspaces/[workspaceId]/files/[fileId]/chunks`.
-- Chunking decision-log events persisted under `decisionType: file_chunking`.
+## What Phase 18 added
+- `fileChunkRetrievalService.ts`: deterministic keyword/token ranking over persisted FileChunk records.
+  - Eligible: extractionStatus=completed, chunkingStatus=completed, chunkCount>0.
+  - Scores by query-token overlap, tie-breaks by chunkIndex, respects maxChunks + maxTokens.
+- `sessionMessageApiService.ts`: non-web retrieval path now prefers persisted chunks when available.
+  - Falls back to old indexed-file retrieval when no chunked files exist (backward compat).
+  - Citations include chunkId, fileId:chunkId composite sourceId, and reference text preview.
+  - Decision-log events updated with chunk ids and file ids.
+
+## Important boundary
+- Tutor response text is still not grounded on chunk content.
+- Provider prompt does NOT receive retrieved chunks as context.
+- Citations are metadata-only; the model does not see them.
 
 ## What is still out of scope
-- Embeddings/vector search/semantic retrieval.
-- Tutor grounding from chunk content.
+- Provider prompt-context injection from chunks.
+- Embeddings/vector search.
 - OCR.
 - Real PDF/DOCX parsing.
 - Gemini/Genkit.
 
 ## Next recommended step
-- Phase 18: retrieval integration over persisted chunks (policy-gated), keeping clear boundary from answer-grounding rollout.
+- Phase 19: wire retrieved chunk text into the provider prompt so tutor responses are actually grounded on file content. Requires prompt rewrite in the tutor provider + careful injection boundaries.

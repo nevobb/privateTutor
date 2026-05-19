@@ -20,6 +20,10 @@ import type { TutorBoundaryResponse } from "../tutor/schemas";
 import { decideRetrievalBoundary } from "../tutor/retrievalDecisionBoundary";
 import type { CostMode, RetrievalBoundaryDecision, RetrievalScope, WorkMode } from "../../types";
 import { webSearchProvider as defaultWebSearchProvider } from "../tutor/webSearchProvider";
+import {
+  retrieveRelevantFileChunks as defaultRetrieveFileChunks,
+} from "./fileChunkRetrievalService";
+import type { FileChunkRetrievalInput, FileChunkRetrievalResult } from "./fileChunkRetrievalService";
 
 // Maximum number of previous turns to include as context for the AI provider.
 // Each "turn" is one message (user or tutor). 20 = 10 exchanges.
@@ -48,6 +52,7 @@ interface Repositories {
   writeDecisionLogEntry: typeof defaultWriteDecisionLogEntry;
   processMemoryCandidate: typeof defaultLearnerMemoryApiService.processMemoryCandidate;
   webSearchProvider: typeof defaultWebSearchProvider;
+  retrieveFileChunks: (input: FileChunkRetrievalInput) => Promise<FileChunkRetrievalResult>;
   getMockTutorResponse: (
     message: string,
     workMode: Parameters<typeof defaultGetMockTutorResponse>[1],
@@ -83,6 +88,7 @@ function defaultRepositories(): Repositories {
     writeDecisionLogEntry: defaultWriteDecisionLogEntry,
     processMemoryCandidate: defaultLearnerMemoryApiService.processMemoryCandidate,
     webSearchProvider: defaultWebSearchProvider,
+    retrieveFileChunks: defaultRetrieveFileChunks,
     getMockTutorResponse: defaultGetTutorResponse,
   };
 }
@@ -278,56 +284,28 @@ async function executeRetrievalForTutorResponse(
     const modeBudget = getRetrievalBudgetForCostMode(costMode);
     const effectiveMaxChunks = Math.max(1, Math.min(decision.max_chunks, modeBudget.maxChunks));
     const effectiveMaxTokens = Math.min(decision.max_tokens, modeBudget.maxTokens);
-    const files = await repositories.listUploadedFiles(userId, workspaceId);
-    const indexed = files.filter((file) => file.indexingStatus === "indexed");
 
-    if (indexed.length === 0) {
-      tutorResponse.internalUpdate.retrieval = {
-        ...tutorResponse.internalUpdate.retrieval,
-        used: false,
-        scope: decision.retrieval_scope,
-        source_ids: [],
-        why: "retrieval_skipped_no_indexed_files",
-      };
-      tutorResponse.decisionLogEvents.push({
-        type: "retrieval_skipped",
-        title: "Retrieval skipped",
-        detail: "No indexed files are available in this workspace.",
-      });
-      return { citations: tutorResponse.message.citations };
+    const chunkResult = await repositories.retrieveFileChunks({
+      userId,
+      workspaceId,
+      query: userMessage,
+      maxChunks: effectiveMaxChunks,
+      maxTokens: effectiveMaxTokens,
+    });
+
+    if (chunkResult.eligibleFileCount > 0) {
+      return executeChunkRetrieval(tutorResponse, decision, chunkResult, effectiveMaxChunks, effectiveMaxTokens);
     }
 
-    const ranked = indexed.sort((a, b) => {
-      const scoreA = (a.summaryStatus === "ready" ? 2 : 0) + (a.confidence ?? 0);
-      const scoreB = (b.summaryStatus === "ready" ? 2 : 0) + (b.confidence ?? 0);
-      return scoreB - scoreA;
-    });
-    const selected = ranked.slice(0, effectiveMaxChunks);
-    const sourceIds = selected.map((file) => file.id);
-
-    tutorResponse.internalUpdate.retrieval = {
-      used: true,
-      scope: decision.retrieval_scope,
-      source_ids: sourceIds,
-      why: `retrieval_executed_selected_${sourceIds.length}_indexed_files`,
-    };
-
-    const citations = selected.map((file) => ({
-      id: `retrieval-${file.id}`,
-      sourceId: file.id,
-      referenceText:
-        file.summaryStatus === "ready" && file.summaryText
-          ? file.summaryText
-          : `Retrieved from indexed file: ${file.name}`,
-    }));
-
-    tutorResponse.decisionLogEvents.push({
-      type: "retrieval_executed",
-      title: "Retrieval executed",
-      detail: `selected_sources=${sourceIds.join(",")}; indexed_candidates=${indexed.length}; applied_max_chunks=${effectiveMaxChunks}; applied_max_tokens=${effectiveMaxTokens}`,
-    });
-
-    return { citations: citations.length > 0 ? citations : tutorResponse.message.citations };
+    return await executeLegacyIndexedFileRetrieval(
+      repositories,
+      userId,
+      workspaceId,
+      tutorResponse,
+      decision,
+      effectiveMaxChunks,
+      effectiveMaxTokens
+    );
   } catch (error) {
     tutorResponse.internalUpdate.retrieval = {
       ...tutorResponse.internalUpdate.retrieval,
@@ -448,6 +426,117 @@ async function executeWebSearchRetrieval(
     });
     return { citations: tutorResponse.message.citations };
   }
+}
+
+function executeChunkRetrieval(
+  tutorResponse: TutorBoundaryResponse,
+  decision: RetrievalBoundaryDecision,
+  chunkResult: FileChunkRetrievalResult,
+  effectiveMaxChunks: number,
+  effectiveMaxTokens: number
+): { citations: TutorBoundaryResponse["message"]["citations"] } {
+  const { chunks, eligibleFileCount } = chunkResult;
+
+  if (chunks.length === 0) {
+    tutorResponse.internalUpdate.retrieval = {
+      ...tutorResponse.internalUpdate.retrieval,
+      used: false,
+      scope: decision.retrieval_scope,
+      source_ids: [],
+      why: "no_matching_file_chunks",
+    };
+    tutorResponse.decisionLogEvents?.push({
+      type: "retrieval_skipped",
+      title: "Retrieval skipped",
+      detail: `No matching file chunks found; eligible_files=${eligibleFileCount}; applied_max_chunks=${effectiveMaxChunks}`,
+    });
+    return { citations: tutorResponse.message.citations };
+  }
+
+  const chunkIds = chunks.map((c) => c.chunkId);
+  const fileIds = [...new Set(chunks.map((c) => c.fileId))];
+
+  tutorResponse.internalUpdate.retrieval = {
+    used: true,
+    scope: decision.retrieval_scope,
+    source_ids: chunkIds,
+    why: `retrieval_executed_selected_${chunks.length}_file_chunks`,
+  };
+
+  const citations = chunks.map((chunk) => ({
+    id: chunk.chunkId,
+    sourceId: `${chunk.fileId}:${chunk.chunkId}`,
+    referenceText: chunk.text.length > 200 ? chunk.text.slice(0, 200) + "…" : chunk.text,
+  }));
+
+  tutorResponse.decisionLogEvents?.push({
+    type: "retrieval_executed",
+    title: "Retrieval executed",
+    detail: `selected_chunk_ids=${chunkIds.join(",")}; selected_file_ids=${fileIds.join(",")}; total_candidates=${eligibleFileCount}; applied_max_chunks=${effectiveMaxChunks}; applied_max_tokens=${effectiveMaxTokens}`,
+  });
+
+  return { citations };
+}
+
+async function executeLegacyIndexedFileRetrieval(
+  repositories: Repositories,
+  userId: string,
+  workspaceId: string,
+  tutorResponse: TutorBoundaryResponse,
+  decision: RetrievalBoundaryDecision,
+  effectiveMaxChunks: number,
+  effectiveMaxTokens: number
+): Promise<{ citations: TutorBoundaryResponse["message"]["citations"] }> {
+  const files = await repositories.listUploadedFiles(userId, workspaceId);
+  const indexed = files.filter((file) => file.indexingStatus === "indexed");
+
+  if (indexed.length === 0) {
+    tutorResponse.internalUpdate.retrieval = {
+      ...tutorResponse.internalUpdate.retrieval,
+      used: false,
+      scope: decision.retrieval_scope,
+      source_ids: [],
+      why: "retrieval_skipped_no_indexed_files",
+    };
+    tutorResponse.decisionLogEvents?.push({
+      type: "retrieval_skipped",
+      title: "Retrieval skipped",
+      detail: "No indexed files are available in this workspace.",
+    });
+    return { citations: tutorResponse.message.citations };
+  }
+
+  const ranked = indexed.sort((a, b) => {
+    const scoreA = (a.summaryStatus === "ready" ? 2 : 0) + (a.confidence ?? 0);
+    const scoreB = (b.summaryStatus === "ready" ? 2 : 0) + (b.confidence ?? 0);
+    return scoreB - scoreA;
+  });
+  const selected = ranked.slice(0, effectiveMaxChunks);
+  const sourceIds = selected.map((file) => file.id);
+
+  tutorResponse.internalUpdate.retrieval = {
+    used: true,
+    scope: decision.retrieval_scope,
+    source_ids: sourceIds,
+    why: `retrieval_executed_selected_${sourceIds.length}_indexed_files`,
+  };
+
+  const citations = selected.map((file) => ({
+    id: `retrieval-${file.id}`,
+    sourceId: file.id,
+    referenceText:
+      file.summaryStatus === "ready" && file.summaryText
+        ? file.summaryText
+        : `Retrieved from indexed file: ${file.name}`,
+  }));
+
+  tutorResponse.decisionLogEvents?.push({
+    type: "retrieval_executed",
+    title: "Retrieval executed",
+    detail: `selected_sources=${sourceIds.join(",")}; indexed_candidates=${indexed.length}; applied_max_chunks=${effectiveMaxChunks}; applied_max_tokens=${effectiveMaxTokens}`,
+  });
+
+  return { citations: citations.length > 0 ? citations : tutorResponse.message.citations };
 }
 
 function ensureRetrievalDecision(
