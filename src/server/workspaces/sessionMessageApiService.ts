@@ -17,6 +17,8 @@ import type { MessageRecord } from "./workspaceTypes";
 import type { DecisionLogEvent } from "../tutor/schemas";
 import type { DecisionLogEntry } from "../../types";
 import type { TutorBoundaryResponse } from "../tutor/schemas";
+import { decideRetrievalBoundary } from "../tutor/retrievalDecisionBoundary";
+import type { CostMode, RetrievalBoundaryDecision } from "../../types";
 
 // Maximum number of previous turns to include as context for the AI provider.
 // Each "turn" is one message (user or tutor). 20 = 10 exchanges.
@@ -126,11 +128,20 @@ export function createSessionMessageApiService(
         conversationHistory
       );
 
+      const retrievalDecision = ensureRetrievalDecision(
+        tutorResponse,
+        input.userMessage,
+        input.workMode,
+        input.costMode
+      );
+
       const retrievalExecution = await executeRetrievalForTutorResponse(
         repositories,
         userId,
         input.workspaceId,
-        tutorResponse
+        tutorResponse,
+        retrievalDecision,
+        input.costMode
       );
 
       await repositories.processMemoryCandidate({
@@ -197,10 +208,11 @@ async function executeRetrievalForTutorResponse(
   repositories: Repositories,
   userId: string,
   workspaceId: string,
-  tutorResponse: TutorBoundaryResponse
+  tutorResponse: TutorBoundaryResponse,
+  decision: RetrievalBoundaryDecision,
+  costMode: CostMode
 ): Promise<{ citations: TutorBoundaryResponse["message"]["citations"] }> {
-  const decision = tutorResponse.internalUpdate.retrieval_decision;
-  if (!decision?.needs_retrieval) {
+  if (!decision.needs_retrieval) {
     tutorResponse.internalUpdate.retrieval = {
       ...tutorResponse.internalUpdate.retrieval,
       used: false,
@@ -221,6 +233,9 @@ async function executeRetrievalForTutorResponse(
   ];
 
   try {
+    const modeBudget = getRetrievalBudgetForCostMode(costMode);
+    const effectiveMaxChunks = Math.max(1, Math.min(decision.max_chunks, modeBudget.maxChunks));
+    const effectiveMaxTokens = Math.min(decision.max_tokens, modeBudget.maxTokens);
     const files = await repositories.listUploadedFiles(userId, workspaceId);
     const indexed = files.filter((file) => file.indexingStatus === "indexed");
 
@@ -245,7 +260,7 @@ async function executeRetrievalForTutorResponse(
       const scoreB = (b.summaryStatus === "ready" ? 2 : 0) + (b.confidence ?? 0);
       return scoreB - scoreA;
     });
-    const selected = ranked.slice(0, Math.max(1, decision.max_chunks));
+    const selected = ranked.slice(0, effectiveMaxChunks);
     const sourceIds = selected.map((file) => file.id);
 
     tutorResponse.internalUpdate.retrieval = {
@@ -267,7 +282,7 @@ async function executeRetrievalForTutorResponse(
     tutorResponse.decisionLogEvents.push({
       type: "retrieval_executed",
       title: "Retrieval executed",
-      detail: `selected_sources=${sourceIds.join(",")}; indexed_candidates=${indexed.length}`,
+      detail: `selected_sources=${sourceIds.join(",")}; indexed_candidates=${indexed.length}; applied_max_chunks=${effectiveMaxChunks}; applied_max_tokens=${effectiveMaxTokens}`,
     });
 
     return { citations: citations.length > 0 ? citations : tutorResponse.message.citations };
@@ -285,6 +300,49 @@ async function executeRetrievalForTutorResponse(
     });
     return { citations: tutorResponse.message.citations };
   }
+}
+
+function ensureRetrievalDecision(
+  tutorResponse: TutorBoundaryResponse,
+  message: string,
+  workMode: Parameters<typeof decideRetrievalBoundary>[0]["workMode"],
+  costMode: CostMode
+): RetrievalBoundaryDecision {
+  const existing = tutorResponse.internalUpdate.retrieval_decision;
+  if (existing) {
+    return existing;
+  }
+
+  const fallback = decideRetrievalBoundary({
+    message,
+    workMode,
+    costMode,
+  });
+  tutorResponse.internalUpdate.retrieval_decision = fallback;
+  tutorResponse.decisionLogEvents = [
+    ...(tutorResponse.decisionLogEvents ?? []),
+    {
+      type: "retrieval_scope",
+      title: "Retrieval boundary decision (service fallback)",
+      detail: [
+        `needs_retrieval=${fallback.needs_retrieval ? "true" : "false"}`,
+        `retrieval_scope=${fallback.retrieval_scope}`,
+        `max_chunks=${fallback.max_chunks}`,
+        `max_tokens=${fallback.max_tokens}`,
+      ].join("; "),
+    },
+  ];
+  return fallback;
+}
+
+function getRetrievalBudgetForCostMode(costMode: CostMode): { maxChunks: number; maxTokens: number } {
+  if (costMode === "Cheap Practice") {
+    return { maxChunks: 2, maxTokens: 2000 };
+  }
+  if (costMode === "Deep Research") {
+    return { maxChunks: 10, maxTokens: 12000 };
+  }
+  return { maxChunks: 4, maxTokens: 5000 };
 }
 
 function mapDecisionType(eventType: DecisionLogEvent["type"]): DecisionLogEntry["decisionType"] {

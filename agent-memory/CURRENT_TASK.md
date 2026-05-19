@@ -1,6 +1,7 @@
 # Current Task
 
 ## Status
+Batch 5 / Phase 12 implemented and validated on branch — retrieval execution now enforces cost-mode budget caps (Cheap/Normal/Deep) with focused budget tests.
 Batch 5 / Phase 11 implemented and validated on branch — learner memory candidate detection/write policy and memory viewer CRUD/approve/reject are now wired end-to-end.
 Batch 4 / Phase 10 implemented and validated on branch — retrieval execution now runs in session message flow when `retrieval_decision.needs_retrieval=true`, with execution/skipped/failed decision-log coverage and passing focused retrieval/session tests.
 Batch 4 / Phase 9 (Option A) implemented and validated on branch — metadata-only summary lifecycle contract (`POST /api/workspaces/[workspaceId]/files/[fileId]/summary`) plus summary metadata fields on file create/list responses, with decision-log coverage and passing focused tests.
@@ -49,10 +50,24 @@ Step 40C complete — conversation history passed to DeepSeek on every message.
 - Added report: `DEEPSEEK_SMOKE_TEST_REPORT.md`
 
 ## Next proposed task
-Phase 12 — Cost modes budget verification in execution path:
-- assert Cheap Practice / Normal Learning / Deep Research budgets are honored at retrieval execution step
-- add focused tests for budget and mode-policy behavior
-- keep scope away from upload/extraction/web search in this slice
+Phase 13 — Work modes policy verification hardening:
+- verify Temporary Chat avoids permanent memory writes end-to-end
+- verify Practice retrieval minimization stays enforced
+- verify Research remains broader scope and web-eligible policy boundary without adding web provider execution
+
+## What was done in Batch 5 / Phase 12
+- Added retrieval-decision fallback generation in session message service when provider output is missing `retrieval_decision`.
+- Enforced execution-time effective retrieval budget as:
+  - `effectiveMaxChunks = min(decision.max_chunks, cost_mode_cap.maxChunks)`
+  - `effectiveMaxTokens = min(decision.max_tokens, cost_mode_cap.maxTokens)`
+- Added mode caps:
+  - Cheap Practice: `2 chunks`, `2000 tokens`
+  - Normal Learning: `4 chunks`, `5000 tokens`
+  - Deep Research: `10 chunks`, `12000 tokens`
+- Added budget observability in retrieval execution decision event detail (applied caps recorded).
+- Added focused service tests to verify budget caps are applied per cost mode.
+- Added report:
+  - `agent-memory/BATCH5_PHASE12_COST_MODES_REPORT.md`
 
 ## What was done in Batch 5 / Phase 11
 - Added learner-memory persistence boundary:

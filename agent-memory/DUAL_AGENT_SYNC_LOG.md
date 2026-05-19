@@ -509,3 +509,33 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: Phase 12 cost-mode budget verification hardening with focused execution-policy tests.
   - Blockers/Risks: none in this slice.
+
+## 2026-05-19 21:44 (Asia/Jerusalem) — Codex
+- Step/Task ID: Batch 5 / Phase 12
+- Task summary: Enforce and verify cost-mode retrieval budgets in execution path.
+- What I changed:
+  - Added retrieval decision fallback creation in session message service when provider response omits retrieval decision.
+  - Enforced execution-time cost-mode caps for retrieval budgets (Cheap/Normal/Deep) by applying min(decision budget, mode cap).
+  - Added execution detail logging with applied chunk/token caps for observability.
+  - Added focused budget tests for each cost mode in session message service tests.
+- Files touched:
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `agent-memory/BATCH5_PHASE12_COST_MODES_REPORT.md`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/workspaces/sessionMessageApiService.test.ts tests/server/workspaces/learnerMemoryApiService.test.ts tests/server/workspaces/learnerMemoryApiRoute.test.ts tests/server/tutor/retrievalDecisionBoundary.test.ts`
+  - Result: passed (24/24)
+  - `npm run build`
+  - Result: passed
+  - `git diff --check`
+  - Result: passed
+- Git status:
+  - Branch: `codex/batch5-next-phase`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: Phase 13 work-mode policy hardening and focused verification.
+  - Blockers/Risks: none.
