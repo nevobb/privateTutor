@@ -742,3 +742,48 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: commit, push, open PR Phase 18; then Phase 19 should wire retrieved chunks into provider prompt for actual grounding.
   - Blockers/Risks: tutor answer is still not grounded on chunk content — this is explicit boundary of Phase 18.
+
+## 2026-05-19 23:42 (Asia/Jerusalem) — Claude
+- Step/Task ID: Phase 19 — Provider prompt-context injection / grounded tutor answer
+- Task summary: Wire retrieved file chunks into tutor provider prompt as grounding context so answers use uploaded learning material.
+- What I changed:
+  - Added `GroundingChunkContext` and `TutorGroundingContext` types to `schemas.ts`.
+  - Added `groundingContext?: TutorGroundingContext` to `TutorRequest`.
+  - Added `src/server/tutor/deepseekGroundingPrompt.ts`: `buildGroundingSection()` — formats chunks as bounded `[SOURCE id chunkIndex=N]...[/SOURCE]` blocks.
+  - Updated `deepseekTutorProvider.ts`: injects grounding section into system prompt when `request.groundingContext` provided.
+  - Updated `mockTutorProvider.ts`: surfaces grounding metadata in mock_provider decision log event detail.
+  - Updated `sessionMessageApiService.ts`:
+    - `executeChunkRetrieval` now returns `{ citations, retrievedChunks: RetrievedFileChunk[] }`.
+    - All other retrieval paths return `retrievedChunks: []`.
+    - After retrieval, if `retrievedChunks.length > 0`: `buildGroundingContextFromChunks` builds context; second provider call with grounding; `tutorResponse.message.content` replaced with grounded answer.
+    - Grounding decision log event: `retrieval_executed` / "Grounded provider call executed" / `grounding_context_injected=true`.
+    - `getMockTutorResponse` signature updated to accept optional `groundingContext`.
+  - Added `tests/server/tutor/deepseekProviderGrounding.test.ts` (5 unit tests for prompt builder).
+  - Updated `tests/server/workspaces/sessionMessageApiService.test.ts` (6 new grounding integration tests).
+  - Updated memory files: CURRENT_TASK.md, AGENT_HANDOFF.md, TASK_LOG.md, PROJECT_STATE.md.
+- Files touched:
+  - `src/server/tutor/schemas.ts`
+  - `src/server/tutor/deepseekGroundingPrompt.ts` (new)
+  - `src/server/tutor/deepseekTutorProvider.ts`
+  - `src/server/tutor/mockTutorProvider.ts`
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `tests/server/tutor/deepseekProviderGrounding.test.ts` (new)
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/AGENT_HANDOFF.md`
+  - `agent-memory/TASK_LOG.md`
+  - `agent-memory/PROJECT_STATE.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git diff --check` — passed
+  - `npm run build` — passed
+  - `npx vitest run tests/server/tutor/deepseekProviderGrounding.test.ts tests/server/workspaces/sessionMessageApiService.test.ts tests/server/workspaces/fileChunkRetrievalService.test.ts` — 43 passed
+  - `npx vitest run tests/server/workspaces/fileChunker.test.ts fileChunkRepository.test.ts workspaceFileChunksApiRoute.test.ts` — 8 passed, 2 skipped
+- Git status:
+  - Branch: `codex/phase19-grounded-tutor-answer-wt` (worktree; PR target: codex/phase19-grounded-tutor-answer)
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: commit, push, open PR Phase 19; then Phase 20 should be end-to-end validation or real extraction pipeline.
+  - Blockers/Risks: full quality requires real PDF parsing (placeholder active) and real provider with API key.

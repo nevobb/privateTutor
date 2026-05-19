@@ -10,28 +10,34 @@
 7. `agent-memory/OPEN_QUESTIONS.md`
 
 ## Current status
-- Phase 18 retrieval over persisted file chunks is implemented and validated.
+- Phase 19 provider prompt-context injection implemented and validated.
+- MVP upload → extract → chunk → retrieve → ground → answer pipeline is complete (with placeholder extraction).
 
-## What Phase 18 added
-- `fileChunkRetrievalService.ts`: deterministic keyword/token ranking over persisted FileChunk records.
-  - Eligible: extractionStatus=completed, chunkingStatus=completed, chunkCount>0.
-  - Scores by query-token overlap, tie-breaks by chunkIndex, respects maxChunks + maxTokens.
-- `sessionMessageApiService.ts`: non-web retrieval path now prefers persisted chunks when available.
-  - Falls back to old indexed-file retrieval when no chunked files exist (backward compat).
-  - Citations include chunkId, fileId:chunkId composite sourceId, and reference text preview.
-  - Decision-log events updated with chunk ids and file ids.
+## What Phase 19 added
+- `GroundingChunkContext` / `TutorGroundingContext` types in `schemas.ts`.
+- `groundingContext?: TutorGroundingContext` on `TutorRequest`.
+- `deepseekGroundingPrompt.ts`: bounded SOURCE block formatter.
+- DeepSeek provider injects SOURCE blocks into system prompt when grounding context provided.
+- Mock provider records grounding metadata in decision log.
+- Session service: after chunk retrieval, makes a second grounded provider call; replaces message content with grounded answer.
 
-## Important boundary
-- Tutor response text is still not grounded on chunk content.
-- Provider prompt does NOT receive retrieved chunks as context.
-- Citations are metadata-only; the model does not see them.
+## Flow summary (Phase 19)
+```
+User message
+  → provider call 1 (no grounding, classification + retrieval decision)
+  → executeRetrievalForTutorResponse → chunk retrieval (Phase 18)
+  → if chunks found: provider call 2 with groundingContext
+  → message.content = grounded answer from call 2
+  → citations, retrieval.used = true (Phase 18 metadata)
+  → decision log: grounded provider call executed
+```
 
-## What is still out of scope
-- Provider prompt-context injection from chunks.
-- Embeddings/vector search.
-- OCR.
-- Real PDF/DOCX parsing.
-- Gemini/Genkit.
+## Important boundaries
+- Retrieval is deterministic keyword-based. NOT semantic/vector.
+- Real PDF/DOCX parsing not yet implemented (placeholder active).
+- No embeddings, no Gemini/Genkit.
 
 ## Next recommended step
-- Phase 19: wire retrieved chunk text into the provider prompt so tutor responses are actually grounded on file content. Requires prompt rewrite in the tutor provider + careful injection boundaries.
+- Phase 20: end-to-end MVP validation / behavior regression testing with real uploaded files.
+- OR: replace deterministic extraction placeholder with real PDF parser.
+- OR: connect Gemini/real model provider for quality grounded answers.

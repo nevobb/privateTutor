@@ -5,6 +5,7 @@ import { DEEPSEEK_API_URL, getDeepSeekApiKey, getDeepSeekModel } from "./deepsee
 import { buildSystemPrompt } from "./deepseekSystemPrompt";
 import type { TutorInternalUpdate } from "../../types";
 import { buildHarnessJsonContract } from "./deepseekHarnessPrompt";
+import { buildGroundingSection } from "./deepseekGroundingPrompt";
 import { defaultClassification, parseHarnessJson } from "./harnessTypes";
 import { decideRetrievalBoundary } from "./retrievalDecisionBoundary";
 
@@ -98,7 +99,8 @@ export class DeepSeekTutorProvider implements TutorProvider {
     }
 
     const model = getDeepSeekModel(request.costMode);
-    const systemPrompt = `${buildSystemPrompt(request.workMode, request.costMode)}\n\n${buildHarnessJsonContract()}`;
+    const groundingSection = buildGroundingSection(request.groundingContext);
+    const systemPrompt = `${buildSystemPrompt(request.workMode, request.costMode)}\n\n${buildHarnessJsonContract()}${groundingSection}`;
     const isTemporary = request.temporary === true || request.workMode === "Temporary Chat";
 
     // Build messages array: system prompt + conversation history + current user message
