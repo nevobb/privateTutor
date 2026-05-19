@@ -5,11 +5,19 @@ export type FileExtractionInput = {
   fileName: string;
   sourceType: "pdf" | "docx";
   storagePath: string;
+  fileBuffer?: Buffer | null;
 };
 
 export type FileExtractionResult = {
   text: string;
-  source: "deterministic_test_parser" | "manual_placeholder" | "future_real_parser";
+  source:
+    | "deterministic_test_parser"
+    | "manual_placeholder"
+    | "future_real_parser"
+    | "mammoth_docx_parser"
+    | "pdf_parse_pdf_parser";
+  parserName?: string;
+  warnings?: string[];
 };
 
 export interface FileExtractionProvider {

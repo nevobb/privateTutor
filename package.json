@@ -16,7 +16,9 @@
   },
   "dependencies": {
     "firebase": "^12.13.0",
+    "mammoth": "^1.12.0",
     "next": "16.2.6",
+    "pdf-parse": "^2.4.5",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "uuid": "^14.0.0"
@@ -25,6 +27,7 @@
     "@firebase/rules-unit-testing": "^5.0.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",

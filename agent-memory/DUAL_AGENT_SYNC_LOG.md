@@ -853,3 +853,41 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: open PR for Step 23 and then start Step 24 embedding lifecycle boundary.
   - Blockers/Risks: none.
+
+## 2026-05-20 00:27 (Asia/Jerusalem) — Claude
+- Step/Task ID: Phase 21 — Real PDF/DOCX parser foundation
+- Task summary: Replace deterministic extraction placeholder with real PDF/DOCX parser path.
+- What I changed:
+  - Added `mammoth` + `pdf-parse` to `package.json` dependencies.
+  - Added `@types/pdf-parse` to devDependencies.
+  - Updated `src/types/index.ts`: added `mammoth_docx_parser` and `pdf_parse_pdf_parser` to extractionSource union.
+  - Updated `src/server/workspaces/fileExtractionProvider.ts`: added `fileBuffer?`, `parserName?`, `warnings?` to types; updated source union; DeterministicProvider unchanged.
+  - Created `src/server/workspaces/realDocumentExtractionProvider.ts`: injectable pdf/docx parsers, text normalization, warning generation, createRealDocumentExtractionProvider factory for testing.
+  - Updated `src/server/workspaces/uploadedFileApiService.ts`: `runExtractionLifecycleForFile` accepts optional `fileBuffer?`; auto-selects real provider when buffer provided.
+  - Updated extract route: reads multipart/form-data `file` field; passes buffer to service; backward-compatible when no body.
+  - Created `tests/server/workspaces/realDocumentExtractionProvider.test.ts`: 12 unit tests with injectable parsers.
+  - Updated agent-memory files.
+- Files touched:
+  - `package.json` / `package-lock.json`
+  - `src/types/index.ts`
+  - `src/server/workspaces/fileExtractionProvider.ts`
+  - `src/server/workspaces/realDocumentExtractionProvider.ts` (new)
+  - `src/server/workspaces/uploadedFileApiService.ts`
+  - `src/app/api/workspaces/[workspaceId]/files/[fileId]/extract/route.ts`
+  - `tests/server/workspaces/realDocumentExtractionProvider.test.ts` (new)
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/PROJECT_STATE.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git diff --check` — passed
+  - `npm run build` — passed (after removing Codex's Phase 24 untracked files from build scope)
+  - `npx vitest run fileExtractionProvider realDocumentExtractionProvider uploadedFileApiService workspaceFileExtractionApiRoute` — 28 passed
+  - `npx vitest run fileChunker fileChunkRetrievalService sessionMessageApiService deepseekProviderGrounding` — 47 passed
+- Git status:
+  - Branch: `claude/phase21-real-parser-foundation`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: commit, push, open PR; then parser quality validation or semantic retrieval planning.
+  - Blockers/Risks: Codex's Phase 24 untracked files (embedding lifecycle) cause local build noise. Clean branch builds fine. Stash remains at stash@{0} for Codex to pop.

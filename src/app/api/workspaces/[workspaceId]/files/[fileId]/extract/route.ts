@@ -11,6 +11,22 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+async function readFileBufferFromRequest(request: Request): Promise<Buffer | undefined> {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.includes("multipart/form-data")) {
+    return undefined;
+  }
+
+  try {
+    const formData = await request.formData();
+    const file = formData.get("file") as File | null;
+    if (!file) return undefined;
+    return Buffer.from(await file.arrayBuffer());
+  } catch {
+    return undefined;
+  }
+}
+
 export function createWorkspaceFileExtractPostHandler(authResolver: AuthResolver = resolveAuthenticatedUser) {
   return async function POST(request: Request, context: WorkspaceFileExtractContext): Promise<Response> {
     const authResult = await authResolver(request);
@@ -24,11 +40,20 @@ export function createWorkspaceFileExtractPostHandler(authResolver: AuthResolver
     }
 
     try {
-      const result = await uploadedFileApiService.runExtractionLifecycleForFile(
-        authResult.user,
-        workspaceId,
-        fileId
-      );
+      const fileBuffer = await readFileBufferFromRequest(request);
+
+      const result = fileBuffer
+        ? await uploadedFileApiService.runExtractionLifecycleForFile(
+            authResult.user,
+            workspaceId,
+            fileId,
+            fileBuffer
+          )
+        : await uploadedFileApiService.runExtractionLifecycleForFile(
+            authResult.user,
+            workspaceId,
+            fileId
+          );
 
       if (!result.ok) {
         if (result.code === "workspace_not_found" || result.code === "file_not_found") {
