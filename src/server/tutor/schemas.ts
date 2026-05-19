@@ -40,6 +40,10 @@ export interface DecisionLogEvent {
     | "retrieval_skipped"
     | "retrieval_failed"
     | "work_mode_policy"
+    | "web_search_requested"
+    | "web_search_executed"
+    | "web_search_skipped"
+    | "web_search_conflict"
     | "request_validation"
     | "response_validation"
     | "memory_not_written";

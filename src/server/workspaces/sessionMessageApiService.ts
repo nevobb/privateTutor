@@ -19,6 +19,7 @@ import type { DecisionLogEntry } from "../../types";
 import type { TutorBoundaryResponse } from "../tutor/schemas";
 import { decideRetrievalBoundary } from "../tutor/retrievalDecisionBoundary";
 import type { CostMode, RetrievalBoundaryDecision, RetrievalScope, WorkMode } from "../../types";
+import { webSearchProvider as defaultWebSearchProvider } from "../tutor/webSearchProvider";
 
 // Maximum number of previous turns to include as context for the AI provider.
 // Each "turn" is one message (user or tutor). 20 = 10 exchanges.
@@ -46,6 +47,7 @@ interface Repositories {
   listUploadedFiles: typeof defaultListUploadedFiles;
   writeDecisionLogEntry: typeof defaultWriteDecisionLogEntry;
   processMemoryCandidate: typeof defaultLearnerMemoryApiService.processMemoryCandidate;
+  webSearchProvider: typeof defaultWebSearchProvider;
   getMockTutorResponse: (
     message: string,
     workMode: Parameters<typeof defaultGetMockTutorResponse>[1],
@@ -80,6 +82,7 @@ function defaultRepositories(): Repositories {
     listUploadedFiles: defaultListUploadedFiles,
     writeDecisionLogEntry: defaultWriteDecisionLogEntry,
     processMemoryCandidate: defaultLearnerMemoryApiService.processMemoryCandidate,
+    webSearchProvider: defaultWebSearchProvider,
     getMockTutorResponse: defaultGetTutorResponse,
   };
 }
@@ -146,6 +149,8 @@ export function createSessionMessageApiService(
         repositories,
         userId,
         input.workspaceId,
+        input.userMessage,
+        input.workMode,
         tutorResponse,
         guardedDecision,
         input.costMode
@@ -233,6 +238,8 @@ async function executeRetrievalForTutorResponse(
   repositories: Repositories,
   userId: string,
   workspaceId: string,
+  userMessage: string,
+  workMode: WorkMode,
   tutorResponse: TutorBoundaryResponse,
   decision: RetrievalBoundaryDecision,
   costMode: CostMode
@@ -256,6 +263,16 @@ async function executeRetrievalForTutorResponse(
       detail: `scope=${decision.retrieval_scope}; max_chunks=${decision.max_chunks}; max_tokens=${decision.max_tokens}`,
     },
   ];
+
+  if (decision.retrieval_scope === "web") {
+    return executeWebSearchRetrieval(
+      repositories,
+      userMessage,
+      workMode,
+      decision.max_chunks,
+      tutorResponse
+    );
+  }
 
   try {
     const modeBudget = getRetrievalBudgetForCostMode(costMode);
@@ -322,6 +339,112 @@ async function executeRetrievalForTutorResponse(
       type: "retrieval_failed",
       title: "Retrieval failed",
       detail: error instanceof Error ? error.message : "Unknown retrieval error",
+    });
+    return { citations: tutorResponse.message.citations };
+  }
+}
+
+async function executeWebSearchRetrieval(
+  repositories: Repositories,
+  userMessage: string,
+  workMode: WorkMode,
+  maxChunks: number,
+  tutorResponse: TutorBoundaryResponse
+): Promise<{ citations: TutorBoundaryResponse["message"]["citations"] }> {
+  const isResearchMode = workMode === "Research";
+  const hasFreshnessCue = /(latest|recent|today|current|news|update|up-to-date|היום|עדכני|אחרון)/i.test(
+    userMessage
+  );
+
+  if (!isResearchMode || !hasFreshnessCue) {
+    tutorResponse.internalUpdate.retrieval = {
+      ...tutorResponse.internalUpdate.retrieval,
+      used: false,
+      scope: "web",
+      source_ids: [],
+      why: !isResearchMode
+        ? "web_search_skipped_policy_requires_research_mode"
+        : "web_search_skipped_no_freshness_signal",
+    };
+    tutorResponse.decisionLogEvents?.push({
+      type: "web_search_skipped",
+      title: "Web search skipped",
+      detail: !isResearchMode
+        ? "Policy guardrail: web retrieval only eligible in Research mode."
+        : "Web retrieval requested but no freshness/recentness cue was detected.",
+    });
+    return { citations: tutorResponse.message.citations };
+  }
+
+  tutorResponse.decisionLogEvents?.push({
+    type: "web_search_requested",
+    title: "Web search requested",
+    detail: "Research mode + freshness cue detected; executing deterministic web provider.",
+  });
+
+  try {
+    const result = await repositories.webSearchProvider.search(userMessage);
+    const selected = result.hits.slice(0, Math.max(1, maxChunks));
+    const sourceIds = selected.map((hit) => hit.sourceId);
+
+    if (selected.length === 0) {
+      tutorResponse.internalUpdate.retrieval = {
+        ...tutorResponse.internalUpdate.retrieval,
+        used: false,
+        scope: "web",
+        source_ids: [],
+        why: "web_search_skipped_no_results",
+      };
+      tutorResponse.decisionLogEvents?.push({
+        type: "web_search_skipped",
+        title: "Web search skipped",
+        detail: "Web provider returned no results.",
+      });
+      return { citations: tutorResponse.message.citations };
+    }
+
+    tutorResponse.internalUpdate.retrieval = {
+      used: true,
+      scope: "web",
+      source_ids: sourceIds,
+      why: `web_search_executed_selected_${sourceIds.length}_sources`,
+    };
+
+    const citations = selected.map((hit) => ({
+      id: `web-${hit.sourceId}`,
+      sourceId: hit.sourceId,
+      referenceText: `${hit.title}: ${hit.snippet} (${hit.url})`,
+    }));
+
+    tutorResponse.decisionLogEvents?.push({
+      type: "web_search_executed",
+      title: "Web search executed",
+      detail: `selected_sources=${sourceIds.join(",")}; total_hits=${result.hits.length}`,
+    });
+
+    const hasSupport = selected.some((hit) => hit.stance === "supports");
+    const hasConflict = selected.some((hit) => hit.stance === "conflicts");
+    if (hasSupport && hasConflict) {
+      tutorResponse.decisionLogEvents?.push({
+        type: "web_search_conflict",
+        title: "Web source conflict detected",
+        detail: "Retrieved web sources include conflicting stances.",
+      });
+    }
+
+    return { citations };
+  } catch (error) {
+    tutorResponse.internalUpdate.retrieval = {
+      ...tutorResponse.internalUpdate.retrieval,
+      used: false,
+      scope: "web",
+      source_ids: [],
+      why: "web_search_failed_internal_error",
+    };
+    tutorResponse.decisionLogEvents?.push({
+      type: "web_search_skipped",
+      title: "Web search failed",
+      detail: error instanceof Error ? error.message : "Unknown web search error",
     });
     return { citations: tutorResponse.message.citations };
   }
@@ -404,7 +527,7 @@ function applyWorkModeGuardrails(
         title: "Research web policy eligibility",
         detail:
           next.retrieval_scope === "web"
-            ? "Web scope is policy-allowed in Research mode, but web execution is deferred to Phase 14."
+            ? "Web scope is policy-allowed in Research mode and may execute when freshness cues are present."
             : `Research scope=${next.retrieval_scope}.`,
       },
     ];
@@ -443,6 +566,11 @@ function mapDecisionType(eventType: DecisionLogEvent["type"]): DecisionLogEntry[
     case "retrieval_failed":
     case "work_mode_policy":
       return "retrieval_scope";
+    case "web_search_requested":
+    case "web_search_executed":
+    case "web_search_skipped":
+    case "web_search_conflict":
+      return "web_search";
     case "mock_provider":
     case "deepseek_provider":
     case "harness_classification":

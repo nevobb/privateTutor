@@ -25,6 +25,18 @@ type ServiceModule = {
       }
     ) => Promise<Record<string, unknown>>;
     processMemoryCandidate: (input: Record<string, unknown>) => Promise<void>;
+    webSearchProvider: {
+      search: (query: string) => Promise<{
+        query: string;
+        hits: Array<{
+          sourceId: string;
+          title: string;
+          snippet: string;
+          url: string;
+          stance: "supports" | "conflicts" | "neutral";
+        }>;
+      }>;
+    };
     getMockTutorResponse: (
       msg: string,
       wm: string,
@@ -118,6 +130,20 @@ function makeRepos(
     ]),
     writeDecisionLogEntry: vi.fn(async () => ({ id: "d1" })),
     processMemoryCandidate: vi.fn(async () => {}),
+    webSearchProvider: {
+      search: vi.fn(async (query: string) => ({
+        query,
+        hits: [
+          {
+            sourceId: "web-1",
+            title: "Fresh source",
+            snippet: "Latest update from public source",
+            url: "https://example.com/latest",
+            stance: "supports",
+          },
+        ],
+      })),
+    },
     getMockTutorResponse: vi.fn(async () => tutorResponse),
     ...overrides,
   };
@@ -420,9 +446,8 @@ describeService("sessionMessageApiService", () => {
       expect(internal.retrieval.source_ids).toHaveLength(10);
     });
 
-    it("keeps Research web scope as policy-allowed without web execution", async () => {
+    it("executes web retrieval in Research mode when freshness cues are present", async () => {
       const repos = makeRepos({
-        listUploadedFiles: vi.fn(async () => makeIndexedFiles(5)),
         getMockTutorResponse: vi.fn(async () => ({
           ...tutorResponse,
           internalUpdate: {
@@ -446,6 +471,7 @@ describeService("sessionMessageApiService", () => {
         costMode: "Normal Learning",
       });
 
+      expect(repos.webSearchProvider.search).toHaveBeenCalledWith("latest updates");
       expect(result).toMatchObject({
         internalUpdate: {
           retrieval: {
@@ -457,8 +483,52 @@ describeService("sessionMessageApiService", () => {
       expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
         "alice",
         expect.objectContaining({
-          decisionType: "retrieval_scope",
-          title: "Research web policy eligibility",
+          decisionType: "web_search",
+          title: "Web search executed",
+        })
+      );
+    });
+
+    it("skips web retrieval when freshness cue is missing", async () => {
+      const repos = makeRepos({
+        getMockTutorResponse: vi.fn(async () => ({
+          ...tutorResponse,
+          internalUpdate: {
+            ...tutorResponse.internalUpdate,
+            retrieval_decision: {
+              needs_retrieval: true,
+              retrieval_scope: "web",
+              max_chunks: 6,
+              max_tokens: 7000,
+              should_ask_clarification_first: false,
+            },
+          },
+        })),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "summarize the concept",
+        workMode: "Research",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.webSearchProvider.search).not.toHaveBeenCalled();
+      expect(result).toMatchObject({
+        internalUpdate: {
+          retrieval: {
+            scope: "web",
+            used: false,
+            why: "web_search_skipped_no_freshness_signal",
+          },
+        },
+      });
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+        "alice",
+        expect.objectContaining({
+          decisionType: "web_search",
+          title: "Web search skipped",
         })
       );
     });
