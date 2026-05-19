@@ -1,6 +1,7 @@
 # Current Task
 
 ## Status
+Batch 5 / Phase 14 implemented and validated on branch — policy-gated web retrieval execution now runs in session message flow for `retrieval_scope=web` with requested/executed/skipped/conflict decision-log coverage and passing focused tests.
 Batch 4 / Phase 10 implemented and validated on branch — retrieval execution now runs in session message flow when `retrieval_decision.needs_retrieval=true`, with execution/skipped/failed decision-log coverage and passing focused retrieval/session tests.
 Batch 4 / Phase 9 (Option A) implemented and validated on branch — metadata-only summary lifecycle contract (`POST /api/workspaces/[workspaceId]/files/[fileId]/summary`) plus summary metadata fields on file create/list responses, with decision-log coverage and passing focused tests.
 Batch 4 / Phase 8 implemented and validated on branch, pending merge via PR #43 — metadata-first file intake/classify/index lifecycle server-side (`/api/workspaces/[workspaceId]/files` GET/POST), with decision-log coverage and passing focused tests.
@@ -12,6 +13,28 @@ Step 41C complete — decision trace diagnostics API added (`GET /api/decision-l
 Step 41B complete — harness decision events now persist through session message API decision-log path.
 Step 40B complete — DeepSeek smoke test passed (real provider + persistence + isolation).
 Step 40C complete — conversation history passed to DeepSeek on every message.
+
+## What was done in Batch 5 / Phase 14
+- Added `webSearchProvider` boundary (`src/server/tutor/webSearchProvider.ts`) with deterministic mock results for execution scaffolding.
+- Extended tutor decision event union with:
+  - `web_search_requested`
+  - `web_search_executed`
+  - `web_search_skipped`
+  - `web_search_conflict`
+- Extended `sessionMessageApiService` retrieval execution:
+  - when `retrieval_scope=web`, run dedicated web-search execution path
+  - allow execution only when:
+    - `workMode=Research`
+    - user message contains freshness/recentness cue
+  - otherwise skip with explicit `internalUpdate.retrieval.why`
+  - attach web citations from selected web hits and write web decision-log events
+  - emit conflict event when results include both support/conflict stances
+- Mapped all `web_search_*` events to persisted `DecisionLogEntry.decisionType = "web_search"`.
+- Added service tests covering:
+  - executed path (including conflict event)
+  - policy-skip path (no provider execution)
+- Added report:
+  - `agent-memory/BATCH5_PHASE14_WEB_SEARCH_REPORT.md`
 
 ## What was done in Step 40A
 - Created `TutorProvider` interface (`src/server/tutor/tutorProviderInterface.ts`)

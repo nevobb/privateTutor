@@ -467,3 +467,38 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: stage only Phase 9/10 + memory/report files, then commit and open PR.
   - Blockers/Risks: repository still has pre-existing tracked modification in `src/app/api/sessions/[sessionId]/messages/route.ts` outside this implementation scope.
+
+## 2026-05-19 22:04 (Asia/Jerusalem) — Codex
+- Step/Task ID: Batch 5 / Phase 14
+- Task summary: Implement policy-gated web search retrieval execution inside session message flow without adding real external provider integrations.
+- What I changed:
+  - Added `webSearchProvider` boundary with deterministic mock search results.
+  - Added web-search lifecycle decision events (`requested/executed/skipped/conflict`) to tutor schemas.
+  - Wired `sessionMessageApiService` to execute web retrieval only for justified cases (Research mode + freshness cue), otherwise skip with explicit rationale.
+  - Mapped `web_search_*` events to persisted decision-log type `web_search`.
+  - Added service tests for executed path (including conflict) and policy-skip path.
+- Files touched:
+  - `src/server/tutor/webSearchProvider.ts`
+  - `src/server/tutor/schemas.ts`
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `agent-memory/BATCH5_PHASE14_WEB_SEARCH_REPORT.md`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/workspaces/sessionMessageApiService.test.ts`
+  - Result: passed (12/12)
+  - `npx vitest run tests/server/workspaces/sessionMessageApiService.test.ts tests/server/tutor/retrievalDecisionBoundary.test.ts tests/server/tutor/deepseekHarnessIntegration.test.ts`
+  - Result: passed (19/19)
+  - `npm run build`
+  - Result: passed
+  - `git diff --check`
+  - Result: passed
+- Git status:
+  - Branch: `codex/batch5-phase14-web-search`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: run final PR-scope hygiene check (`git diff --name-status origin/main...HEAD` + `git status --short`) then commit/push and open PR.
+  - Blockers/Risks: none.

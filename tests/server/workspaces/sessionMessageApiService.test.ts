@@ -24,6 +24,18 @@ type ServiceModule = {
         sessionId?: string;
       }
     ) => Promise<Record<string, unknown>>;
+    webSearchProvider: {
+      search: (query: string) => Promise<{
+        query: string;
+        hits: Array<{
+          sourceId: string;
+          title: string;
+          snippet: string;
+          url: string;
+          stance: "supports" | "conflicts" | "neutral";
+        }>;
+      }>;
+    };
     getMockTutorResponse: (
       msg: string,
       wm: string,
@@ -105,6 +117,20 @@ function makeRepos(
       },
     ]),
     writeDecisionLogEntry: vi.fn(async () => ({ id: "d1" })),
+    webSearchProvider: {
+      search: vi.fn(async (query: string) => ({
+        query,
+        hits: [
+          {
+            sourceId: "web-1",
+            title: "Fresh source",
+            snippet: "Latest update from public source",
+            url: "https://example.com/latest",
+            stance: "supports",
+          },
+        ],
+      })),
+    },
     getMockTutorResponse: vi.fn(async () => tutorResponse),
     ...overrides,
   };
@@ -303,6 +329,115 @@ describeService("sessionMessageApiService", () => {
       expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
         "alice",
         expect.objectContaining({ decision: expect.stringContaining("db_down"), decisionType: "retrieval_scope" })
+      );
+    });
+
+    it("executes web retrieval when decision scope is web and request is justified", async () => {
+      const repos = makeRepos({
+        getMockTutorResponse: vi.fn(async () => ({
+          ...tutorResponse,
+          internalUpdate: {
+            ...tutorResponse.internalUpdate,
+            retrieval_decision: {
+              needs_retrieval: true,
+              retrieval_scope: "web",
+              max_chunks: 2,
+              max_tokens: 1200,
+              should_ask_clarification_first: false,
+            },
+          },
+        })),
+        webSearchProvider: {
+          search: vi.fn(async (query: string) => ({
+            query,
+            hits: [
+              {
+                sourceId: "web-a",
+                title: "Latest physics update",
+                snippet: "Recent findings summary",
+                url: "https://example.com/a",
+                stance: "supports",
+              },
+              {
+                sourceId: "web-b",
+                title: "Alternative interpretation",
+                snippet: "Conflicting claim on same topic",
+                url: "https://example.com/b",
+                stance: "conflicts",
+              },
+            ],
+          })),
+        },
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "latest update on quantum tunneling",
+        workMode: "Research",
+        costMode: "Deep Research",
+      });
+
+      expect(repos.webSearchProvider.search).toHaveBeenCalledWith("latest update on quantum tunneling");
+      expect(result).toMatchObject({
+        internalUpdate: {
+          retrieval: {
+            used: true,
+            scope: "web",
+            source_ids: ["web-a", "web-b"],
+          },
+        },
+      });
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+        "alice",
+        expect.objectContaining({ decisionType: "web_search", title: "Web search requested" })
+      );
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+        "alice",
+        expect.objectContaining({ decisionType: "web_search", title: "Web search executed" })
+      );
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+        "alice",
+        expect.objectContaining({ decisionType: "web_search", title: "Web source conflict detected" })
+      );
+    });
+
+    it("skips web retrieval when policy justification is missing", async () => {
+      const repos = makeRepos({
+        getMockTutorResponse: vi.fn(async () => ({
+          ...tutorResponse,
+          internalUpdate: {
+            ...tutorResponse.internalUpdate,
+            retrieval_decision: {
+              needs_retrieval: true,
+              retrieval_scope: "web",
+              max_chunks: 2,
+              max_tokens: 1200,
+              should_ask_clarification_first: false,
+            },
+          },
+        })),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "summarize this concept",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.webSearchProvider.search).not.toHaveBeenCalled();
+      expect(result).toMatchObject({
+        internalUpdate: {
+          retrieval: {
+            used: false,
+            scope: "web",
+            why: "web_search_skipped_policy_requires_research_mode",
+          },
+        },
+      });
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+        "alice",
+        expect.objectContaining({ decisionType: "web_search", title: "Web search skipped" })
       );
     });
   });
