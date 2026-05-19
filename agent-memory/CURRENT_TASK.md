@@ -1,45 +1,50 @@
 # Current Task
 
 ## Active task
-Phase 15 — Real file upload foundation.
+Phase 16 — Text extraction/parsing boundary for uploaded files.
 
 ## Status
-Implemented on branch `codex/phase15-real-file-upload-foundation`.
+Implemented on branch `codex/phase16-text-extraction-boundary`.
 
 ## What was implemented
-- Added client Storage upload helper:
-  - `src/lib/firebase/storageUploadClient.ts`
-  - validates PDF/DOCX, max size 20MB, empty-file rejection, filename sanitization.
-- Extended client Firebase module with Storage accessor:
-  - `src/lib/firebase/firebaseClientApp.ts` (`getClientStorage`).
-- Added workspace files API client/types:
-  - `src/lib/workspaces/workspaceFilesApiClient.ts`
-  - `src/lib/workspaces/workspaceFilesApiTypes.ts`
-- Added minimal UI upload path in existing sidebar File panel:
-  - `src/components/files/FilePanel.tsx`
-  - `src/app/page.tsx` integration
-  - statuses: idle/validating/uploading/saving_metadata/done/error.
-- Hardened server-side metadata validation:
-  - `src/server/workspaces/uploadedFileApiSchemas.ts` (sourceType-extension + filename validation)
-  - `src/server/workspaces/uploadedFileApiService.ts` (storagePath ownership/path validation)
-  - `src/app/api/workspaces/[workspaceId]/files/route.ts` (returns 400 on validation errors)
-- Added focused tests:
-  - `tests/lib/firebase/storageUploadClient.test.ts`
-  - updated uploaded-file schema/service/route tests.
+- Added extraction lifecycle fields to uploaded-file domain model and API responses.
+- Added server extraction provider boundary:
+  - `src/server/workspaces/fileExtractionProvider.ts`
+  - deterministic placeholder extraction only (`deterministic_test_parser`).
+- Extended uploaded file lifecycle service with synchronous extraction flow:
+  - `runExtractionLifecycleForFile(user, workspaceId, fileId)`
+  - transitions: `not_started|failed -> pending -> completed|failed`
+  - validates ownership, storagePath presence, source type and state transitions.
+- Added endpoint:
+  - `POST /api/workspaces/[workspaceId]/files/[fileId]/extract`
+- Added decision-log coverage for extraction lifecycle:
+  - `extraction_requested`
+  - `extraction_completed`
+  - `extraction_failed`
+  - mapped to `decisionType: file_extraction`.
+- Backward compatibility:
+  - legacy records without `extractionStatus` map to `not_started`.
 
 ## Explicit boundaries preserved
-- No PDF/DOCX parsing.
-- No OCR or text extraction.
-- No vector/chunk indexing over real content.
-- No real retrieval over uploaded file content.
+- No real PDF parsing.
+- No real DOCX parsing.
+- No OCR.
+- No summaries from extracted text.
+- No vector/chunk indexing.
+- No retrieval over extracted text.
+- No tutor answer grounding from uploaded files.
 - No Gemini/Genkit.
-- No dependency changes.
+- No package/dependency changes.
 - No Firebase rules changes.
 
 ## Validation executed
-- `npx vitest run tests/server/workspaces/uploadedFileApiSchemas.test.ts tests/server/workspaces/uploadedFileApiService.test.ts tests/server/workspaces/workspaceFilesApiRoute.test.ts tests/lib/firebase/storageUploadClient.test.ts` ✅
 - `git diff --check` ✅
 - `npm run build` ✅
+- `npx vitest run tests/server/workspaces/fileExtractionProvider.test.ts tests/server/workspaces/uploadedFileApiService.test.ts tests/server/workspaces/workspaceFileExtractionApiRoute.test.ts tests/server/workspaces/uploadedFileApiSchemas.test.ts tests/server/workspaces/workspaceFilesApiRoute.test.ts tests/server/workspaces/uploadedFileRepository.test.ts` ✅
 
 ## Recommended next phase
-Text extraction/parsing boundary for uploaded PDF/DOCX files.
+Either:
+1. real parser implementation behind provider boundary, or
+2. chunking/indexing boundary over extracted text.
+
+Tutor retrieval over extracted text is still not implemented.

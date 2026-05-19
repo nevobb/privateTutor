@@ -114,6 +114,13 @@ export interface CreateUploadedFileInput {
   summarySource: UploadedFileRecord["summarySource"];
   summaryErrorCode?: UploadedFileRecord["summaryErrorCode"];
   summaryUpdatedAt?: UploadedFileRecord["summaryUpdatedAt"];
+  extractionStatus: UploadedFileRecord["extractionStatus"];
+  extractedText?: UploadedFileRecord["extractedText"];
+  extractedTextPreview?: UploadedFileRecord["extractedTextPreview"];
+  extractedTextCharCount?: UploadedFileRecord["extractedTextCharCount"];
+  extractionSource?: UploadedFileRecord["extractionSource"];
+  extractionErrorCode?: UploadedFileRecord["extractionErrorCode"];
+  extractionUpdatedAt?: UploadedFileRecord["extractionUpdatedAt"];
 }
 
 export function toDate(value: unknown): Date {

@@ -35,6 +35,13 @@ export async function createUploadedFile(
       summarySource: input.summarySource,
       summaryErrorCode: input.summaryErrorCode,
       summaryUpdatedAt: input.summaryUpdatedAt,
+      extractionStatus: input.extractionStatus,
+      extractedText: input.extractedText,
+      extractedTextPreview: input.extractedTextPreview,
+      extractedTextCharCount: input.extractedTextCharCount,
+      extractionSource: input.extractionSource,
+      extractionErrorCode: input.extractionErrorCode,
+      extractionUpdatedAt: input.extractionUpdatedAt,
       createdAt: now,
       updatedAt: now,
     };
@@ -90,6 +97,13 @@ export async function updateUploadedFile(
       | "summarySource"
       | "summaryErrorCode"
       | "summaryUpdatedAt"
+      | "extractionStatus"
+      | "extractedText"
+      | "extractedTextPreview"
+      | "extractedTextCharCount"
+      | "extractionSource"
+      | "extractionErrorCode"
+      | "extractionUpdatedAt"
     >
   >
 ): Promise<UploadedFileRecord | null> {
@@ -118,6 +132,13 @@ export async function updateUploadedFile(
       summarySource: updates.summarySource ?? current.summarySource,
       summaryErrorCode: updates.summaryErrorCode ?? current.summaryErrorCode,
       summaryUpdatedAt: updates.summaryUpdatedAt ?? current.summaryUpdatedAt,
+      extractionStatus: updates.extractionStatus ?? current.extractionStatus,
+      extractedText: updates.extractedText ?? current.extractedText,
+      extractedTextPreview: updates.extractedTextPreview ?? current.extractedTextPreview,
+      extractedTextCharCount: updates.extractedTextCharCount ?? current.extractedTextCharCount,
+      extractionSource: updates.extractionSource ?? current.extractionSource,
+      extractionErrorCode: updates.extractionErrorCode ?? current.extractionErrorCode,
+      extractionUpdatedAt: updates.extractionUpdatedAt ?? current.extractionUpdatedAt,
       updatedAt: new Date(),
     };
 
@@ -151,6 +172,14 @@ function mapUploadedFileRecord(id: string, data: Record<string, unknown>): Uploa
     summarySource: mapSummarySource(data.summarySource),
     summaryErrorCode: typeof data.summaryErrorCode === "string" ? data.summaryErrorCode : null,
     summaryUpdatedAt: data.summaryUpdatedAt ? toDate(data.summaryUpdatedAt) : null,
+    extractionStatus: mapExtractionStatus(data.extractionStatus),
+    extractedText: typeof data.extractedText === "string" ? data.extractedText : undefined,
+    extractedTextPreview: typeof data.extractedTextPreview === "string" ? data.extractedTextPreview : undefined,
+    extractedTextCharCount:
+      typeof data.extractedTextCharCount === "number" ? data.extractedTextCharCount : undefined,
+    extractionSource: mapExtractionSource(data.extractionSource),
+    extractionErrorCode: typeof data.extractionErrorCode === "string" ? data.extractionErrorCode : null,
+    extractionUpdatedAt: data.extractionUpdatedAt ? toDate(data.extractionUpdatedAt) : null,
     createdAt: toDate(data.createdAt),
     updatedAt: toDate(data.updatedAt),
   };
@@ -207,6 +236,20 @@ function mapSummarySource(value: unknown): UploadedFileRecord["summarySource"] {
     return value;
   }
   return "none";
+}
+
+function mapExtractionStatus(value: unknown): UploadedFileRecord["extractionStatus"] {
+  if (value === "not_started" || value === "pending" || value === "completed" || value === "failed") {
+    return value;
+  }
+  return "not_started";
+}
+
+function mapExtractionSource(value: unknown): UploadedFileRecord["extractionSource"] {
+  if (value === "deterministic_test_parser" || value === "manual_placeholder" || value === "future_real_parser") {
+    return value;
+  }
+  return undefined;
 }
 
 function compactRecord(record: object): Record<string, unknown> {

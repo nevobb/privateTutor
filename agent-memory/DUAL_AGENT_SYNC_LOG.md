@@ -616,3 +616,42 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: open PR for Phase 15 and continue to text extraction/parsing boundary phase.
   - Blockers/Risks: none.
+
+## 2026-05-19 22:46 (Asia/Jerusalem) — Codex
+- Step/Task ID: Phase 16
+- Task summary: Implement text extraction lifecycle boundary for uploaded files without enabling tutor retrieval over extracted content.
+- What I changed:
+  - Added extraction metadata fields to uploaded file model, repository mapping, and API serializer with legacy-safe default mapping.
+  - Added deterministic server extraction provider boundary (`fileExtractionProvider`).
+  - Added extraction lifecycle flow in uploaded file service and new endpoint `POST /api/workspaces/[workspaceId]/files/[fileId]/extract`.
+  - Added extraction decision-log lifecycle events under `decisionType: file_extraction`.
+  - Added focused tests for provider, service, route, and legacy repository mapping.
+- Files touched:
+  - `src/types/index.ts`
+  - `src/server/workspaces/workspaceTypes.ts`
+  - `src/server/workspaces/uploadedFileRepository.ts`
+  - `src/server/workspaces/uploadedFileApiService.ts`
+  - `src/server/workspaces/uploadedFileApiSchemas.ts`
+  - `src/server/workspaces/fileExtractionProvider.ts`
+  - `src/app/api/workspaces/[workspaceId]/files/[fileId]/extract/route.ts`
+  - `tests/server/workspaces/fileExtractionProvider.test.ts`
+  - `tests/server/workspaces/workspaceFileExtractionApiRoute.test.ts`
+  - `tests/server/workspaces/uploadedFileApiService.test.ts`
+  - `tests/server/workspaces/uploadedFileRepository.test.ts`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/AGENT_HANDOFF.md`
+  - `agent-memory/TASK_LOG.md`
+  - `agent-memory/PROJECT_STATE.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git diff --check` — passed
+  - `npm run build` — passed
+  - `npx vitest run tests/server/workspaces/fileExtractionProvider.test.ts tests/server/workspaces/uploadedFileApiService.test.ts tests/server/workspaces/workspaceFileExtractionApiRoute.test.ts tests/server/workspaces/uploadedFileApiSchemas.test.ts tests/server/workspaces/workspaceFilesApiRoute.test.ts tests/server/workspaces/uploadedFileRepository.test.ts` — passed (43 passed, 5 skipped)
+- Git status:
+  - Branch: `codex/phase16-text-extraction-boundary`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: open PR for Phase 16 and keep retrieval wiring explicitly out of scope.
+  - Blockers/Risks: none.

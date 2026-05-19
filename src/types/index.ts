@@ -13,6 +13,7 @@ export type FileIndexingStatus =
   | "failed";
 
 export type FileSummaryStatus = "not_requested" | "pending" | "ready" | "failed";
+export type FileExtractionStatus = "not_started" | "pending" | "completed" | "failed";
 
 // Extended to include spec lifecycle values alongside legacy "candidate"
 export type MemoryObservationState =
@@ -119,6 +120,13 @@ export interface UploadedFile {
   summarySource?: "none" | "placeholder";
   summaryErrorCode?: string | null;
   summaryUpdatedAt?: Date | null;
+  extractionStatus?: FileExtractionStatus;
+  extractedText?: string;
+  extractedTextPreview?: string;
+  extractedTextCharCount?: number;
+  extractionSource?: "deterministic_test_parser" | "manual_placeholder" | "future_real_parser";
+  extractionErrorCode?: string | null;
+  extractionUpdatedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -262,6 +270,7 @@ export interface DecisionLogEntry {
     | "topic_classification"
     | "file_indexing"
     | "file_summary"
+    | "file_extraction"
     | "model_provider"
     | "cost_mode"
     | "mock_alignment";

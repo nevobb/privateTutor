@@ -10,25 +10,23 @@
 7. `agent-memory/OPEN_QUESTIONS.md`
 
 ## Current status
-- `origin/main` includes Batch 5 / Phase 14.
-- Current branch implements Phase 15 real file upload foundation.
-- Build is passing and focused upload/file tests are passing on this branch.
+- Phase 16 extraction boundary is implemented on branch `codex/phase16-text-extraction-boundary`.
+- Build and focused test suites are passing.
 
-## What Phase 15 added
-- Client helper for PDF/DOCX validation + Storage upload.
-- Workspace-owned storage path convention:
-  - `users/{userId}/workspaces/{workspaceId}/files/{fileId}/{safeFileName}`
-- Metadata creation continues through existing API:
-  - `POST /api/workspaces/[workspaceId]/files`
-- Server-side validation hardened for `storagePath` ownership/path format.
-- Minimal upload UI in sidebar File panel with explicit status states.
+## What Phase 16 added
+- Uploaded-file extraction lifecycle fields and safe legacy mapping.
+- Deterministic extraction provider boundary (`fileExtractionProvider`).
+- Extraction service flow in uploaded-file service.
+- New API route: `POST /api/workspaces/[workspaceId]/files/[fileId]/extract`.
+- Extraction decision-log events persisted under `decisionType: file_extraction`.
 
 ## What is still out of scope
-- File parsing/extraction/OCR.
-- Real retrieval over extracted content.
-- Real summary generation from file contents.
+- Real PDF/DOCX parsing implementation.
+- OCR.
+- Retrieval over extracted text.
+- Summary generation from extracted text.
+- Tutor grounding on uploaded file content.
 - Gemini/Genkit.
-- Production Firebase deployment.
 
 ## Next recommended step
-- Implement text extraction/parsing boundary for uploaded PDF/DOCX files.
+- Implement real parser adapter behind current extraction provider boundary or start chunking boundary, while still keeping tutor retrieval disabled until explicitly scoped.
