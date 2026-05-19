@@ -1,11 +1,13 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, connectAuthEmulator, type Auth } from "firebase/auth";
+import { getStorage, connectStorageEmulator, type FirebaseStorage } from "firebase/storage";
 
 const CLIENT_APP_NAME = "demo-private-tutor-client";
 const AUTH_EMULATOR_URL = "http://127.0.0.1:9099";
 
 let _clientApp: FirebaseApp | null = null;
 let _clientAuth: Auth | null = null;
+let _clientStorage: FirebaseStorage | null = null;
 
 export function getClientFirebaseApp(): FirebaseApp {
   if (_clientApp) return _clientApp;
@@ -31,4 +33,12 @@ export function getClientAuth(): Auth {
   _clientAuth = getAuth(app);
   connectAuthEmulator(_clientAuth, AUTH_EMULATOR_URL, { disableWarnings: true });
   return _clientAuth;
+}
+
+export function getClientStorage(): FirebaseStorage {
+  if (_clientStorage) return _clientStorage;
+  const app = getClientFirebaseApp();
+  _clientStorage = getStorage(app);
+  connectStorageEmulator(_clientStorage, "127.0.0.1", 9199);
+  return _clientStorage;
 }

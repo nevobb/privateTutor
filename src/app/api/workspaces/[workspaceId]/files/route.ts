@@ -1,6 +1,9 @@
 import { resolveAuthenticatedUser } from "../../../../../server/auth/resolveAuthenticatedUser";
 import { isFirestoreEmulatorUnavailableError } from "../../../../../server/firebase/firestoreEmulatorClient";
-import { uploadedFileApiService } from "../../../../../server/workspaces/uploadedFileApiService";
+import {
+  uploadedFileApiService,
+  UploadedFileValidationError,
+} from "../../../../../server/workspaces/uploadedFileApiService";
 import {
   parseCreateUploadedFileRequest,
   toUploadedFileApiResponse,
@@ -30,6 +33,9 @@ export function createWorkspaceFilesGetHandler(authResolver: AuthResolver = reso
 
       return Response.json({ files: files.map(toUploadedFileApiResponse) });
     } catch (error: unknown) {
+      if (error instanceof UploadedFileValidationError) {
+        return Response.json({ error: error.message }, { status: 400 });
+      }
       if (isFirestoreEmulatorUnavailableError(error)) {
         return Response.json({ error: "Firestore emulator is unavailable." }, { status: 503 });
       }
@@ -76,6 +82,12 @@ export function createWorkspaceFilesPostHandler(authResolver: AuthResolver = res
 
       return Response.json(toUploadedFileApiResponse(created), { status: 201 });
     } catch (error: unknown) {
+      if (
+        error instanceof UploadedFileValidationError ||
+        (error instanceof Error && error.name === "UploadedFileValidationError")
+      ) {
+        return Response.json({ error: error.message }, { status: 400 });
+      }
       if (isFirestoreEmulatorUnavailableError(error)) {
         return Response.json({ error: "Firestore emulator is unavailable." }, { status: 503 });
       }

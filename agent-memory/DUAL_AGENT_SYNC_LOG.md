@@ -573,3 +573,46 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: Phase 14 web-search execution boundary with explicit justification/disclosure and conflict visibility in logs.
   - Blockers/Risks: none.
+
+## 2026-05-19 22:29 (Asia/Jerusalem) — Codex
+- Step/Task ID: Phase 15
+- Task summary: Implement real file upload foundation (Storage upload + metadata linkage) without parsing/retrieval expansion.
+- What I changed:
+  - Added client-side upload helper for PDF/DOCX validation, filename sanitization, and Firebase Storage upload.
+  - Added workspace files API client and wired minimal sidebar upload UI/state flow.
+  - Hardened server-side uploaded-file validation for extension match, filename safety, and workspace/user-bound storagePath ownership.
+  - Added focused tests for upload helper and uploaded-file schema/service/route validation.
+- Files touched:
+  - `src/lib/firebase/storageUploadClient.ts`
+  - `src/lib/firebase/firebaseClientApp.ts`
+  - `src/lib/workspaces/workspaceFilesApiClient.ts`
+  - `src/lib/workspaces/workspaceFilesApiTypes.ts`
+  - `src/components/files/FilePanel.tsx`
+  - `src/app/page.tsx`
+  - `src/server/workspaces/uploadedFileApiSchemas.ts`
+  - `src/server/workspaces/uploadedFileApiService.ts`
+  - `src/app/api/workspaces/[workspaceId]/files/route.ts`
+  - `tests/lib/firebase/storageUploadClient.test.ts`
+  - `tests/server/workspaces/uploadedFileApiSchemas.test.ts`
+  - `tests/server/workspaces/uploadedFileApiService.test.ts`
+  - `tests/server/workspaces/workspaceFilesApiRoute.test.ts`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/AGENT_HANDOFF.md`
+  - `agent-memory/TASK_LOG.md`
+  - `agent-memory/PROJECT_STATE.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/workspaces/uploadedFileApiSchemas.test.ts tests/server/workspaces/uploadedFileApiService.test.ts tests/server/workspaces/workspaceFilesApiRoute.test.ts tests/lib/firebase/storageUploadClient.test.ts`
+  - Result: passed (36/36)
+  - `git diff --check`
+  - Result: passed
+  - `npm run build`
+  - Result: passed
+- Git status:
+  - Branch: `codex/phase15-real-file-upload-foundation`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: open PR for Phase 15 and continue to text extraction/parsing boundary phase.
+  - Blockers/Risks: none.

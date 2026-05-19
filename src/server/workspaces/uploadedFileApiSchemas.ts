@@ -49,9 +49,16 @@ export function parseCreateUploadedFileRequest(body: unknown): CreateUploadedFil
   if (!fileName) {
     return { ok: false, error: "fileName is required and must be a non-empty string." };
   }
+  if (fileName.includes("/") || fileName.includes("\\") || fileName.includes("..")) {
+    return { ok: false, error: "fileName must not contain path separators or traversal segments." };
+  }
 
   if (!isSourceType(raw.sourceType)) {
     return { ok: false, error: "sourceType must be one of: pdf, docx." };
+  }
+  const extension = getFileExtension(fileName);
+  if (!extension || extension !== raw.sourceType) {
+    return { ok: false, error: "sourceType must match fileName extension (.pdf or .docx)." };
   }
 
   if (raw.storagePath !== undefined && typeof raw.storagePath !== "string") {
@@ -104,4 +111,10 @@ function asTrimmedString(value: unknown): string | undefined {
 
 function isSourceType(value: unknown): value is (typeof VALID_SOURCE_TYPES)[number] {
   return typeof value === "string" && VALID_SOURCE_TYPES.includes(value as (typeof VALID_SOURCE_TYPES)[number]);
+}
+
+function getFileExtension(fileName: string): string | null {
+  const parts = fileName.toLowerCase().split(".");
+  if (parts.length < 2) return null;
+  return parts.at(-1) ?? null;
 }

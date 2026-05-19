@@ -34,6 +34,13 @@ export interface UploadedFileApiService {
   ): Promise<SummaryRunResult>;
 }
 
+export class UploadedFileValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UploadedFileValidationError";
+  }
+}
+
 interface Repositories {
   getWorkspace: typeof getWorkspace;
   createUploadedFile: typeof createUploadedFile;
@@ -62,6 +69,10 @@ export function createUploadedFileApiService(
       const workspace = await repositories.getWorkspace(user.userId, workspaceId);
       if (!workspace) {
         return null;
+      }
+
+      if (input.storagePath) {
+        validateStoragePathOwnership(input.storagePath, user.userId, workspaceId, input.fileName);
       }
 
       const topic = inferTopic(input.fileName, input.topicHint);
@@ -249,6 +260,38 @@ export function createUploadedFileApiService(
 }
 
 export const uploadedFileApiService: UploadedFileApiService = createUploadedFileApiService();
+
+function validateStoragePathOwnership(
+  storagePath: string,
+  userId: string,
+  workspaceId: string,
+  fileName: string
+): void {
+  if (storagePath.includes("..")) {
+    throw new UploadedFileValidationError("storagePath must not contain traversal segments.");
+  }
+
+  const match = /^users\/([^/]+)\/workspaces\/([^/]+)\/files\/([^/]+)\/([^/]+)$/.exec(storagePath);
+  if (!match) {
+    throw new UploadedFileValidationError(
+      "storagePath must match users/{userId}/workspaces/{workspaceId}/files/{fileId}/{fileName}."
+    );
+  }
+
+  const [, pathUserId, pathWorkspaceId, pathFileId, pathFileName] = match;
+  if (!pathFileId || pathFileId.trim().length === 0) {
+    throw new UploadedFileValidationError("storagePath fileId segment is required.");
+  }
+  if (pathUserId !== userId) {
+    throw new UploadedFileValidationError("storagePath userId does not match authenticated user.");
+  }
+  if (pathWorkspaceId !== workspaceId) {
+    throw new UploadedFileValidationError("storagePath workspaceId does not match route workspace.");
+  }
+  if (pathFileName !== fileName) {
+    throw new UploadedFileValidationError("storagePath fileName must match fileName payload.");
+  }
+}
 
 function inferTopic(fileName: string, topicHint?: string): string {
   if (topicHint && topicHint.trim().length > 0) {
