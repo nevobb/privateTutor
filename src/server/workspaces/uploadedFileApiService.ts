@@ -7,18 +7,32 @@ import {
   listUploadedFiles,
   updateUploadedFile,
 } from "./uploadedFileRepository";
+import { fileExtractionProvider as defaultFileExtractionProvider } from "./fileExtractionProvider";
 import type { CreateUploadedFileApiRequest } from "./uploadedFileApiSchemas";
 import type { UploadedFileRecord } from "./workspaceTypes";
 
 const LOW_CONFIDENCE_THRESHOLD = 0.7;
 const SUMMARY_PLACEHOLDER_TEXT = "Summary placeholder; content extraction not enabled yet.";
 const SUMMARY_FAILURE_CODE = "summary_lifecycle_failed";
+const EXTRACTION_FAILURE_CODE = "extraction_lifecycle_failed";
+const EXTRACTION_PREVIEW_MAX_CHARS = 280;
 
 type SummaryRunFailureCode = "workspace_not_found" | "file_not_found" | "invalid_transition";
 
 type SummaryRunResult =
   | { ok: true; file: UploadedFileRecord }
   | { ok: false; code: SummaryRunFailureCode };
+
+type ExtractionRunFailureCode =
+  | "workspace_not_found"
+  | "file_not_found"
+  | "missing_storage_path"
+  | "unsupported_source_type"
+  | "invalid_transition";
+
+type ExtractionRunResult =
+  | { ok: true; file: UploadedFileRecord }
+  | { ok: false; code: ExtractionRunFailureCode };
 
 export interface UploadedFileApiService {
   createFileForWorkspace(
@@ -32,6 +46,11 @@ export interface UploadedFileApiService {
     workspaceId: string,
     fileId: string
   ): Promise<SummaryRunResult>;
+  runExtractionLifecycleForFile(
+    user: AuthenticatedUser,
+    workspaceId: string,
+    fileId: string
+  ): Promise<ExtractionRunResult>;
 }
 
 export class UploadedFileValidationError extends Error {
@@ -48,6 +67,7 @@ interface Repositories {
   updateUploadedFile: typeof updateUploadedFile;
   listUploadedFiles: typeof listUploadedFiles;
   writeDecisionLogEntry: typeof writeDecisionLogEntry;
+  fileExtractionProvider: typeof defaultFileExtractionProvider;
 }
 
 function defaultRepositories(): Repositories {
@@ -58,6 +78,7 @@ function defaultRepositories(): Repositories {
     updateUploadedFile,
     listUploadedFiles,
     writeDecisionLogEntry,
+    fileExtractionProvider: defaultFileExtractionProvider,
   };
 }
 
@@ -95,6 +116,13 @@ export function createUploadedFileApiService(
         summarySource: "none",
         summaryErrorCode: null,
         summaryUpdatedAt: null,
+        extractionStatus: "not_started",
+        extractedText: undefined,
+        extractedTextPreview: undefined,
+        extractedTextCharCount: undefined,
+        extractionSource: undefined,
+        extractionErrorCode: null,
+        extractionUpdatedAt: null,
       });
 
       await Promise.all([
@@ -253,6 +281,102 @@ export function createUploadedFileApiService(
           return { ok: false, code: "file_not_found" };
         }
 
+        return { ok: true, file: failed };
+      }
+    },
+
+    async runExtractionLifecycleForFile(user, workspaceId, fileId) {
+      const workspace = await repositories.getWorkspace(user.userId, workspaceId);
+      if (!workspace) {
+        return { ok: false, code: "workspace_not_found" };
+      }
+
+      const current = await repositories.getUploadedFile(user.userId, fileId);
+      if (!current || current.workspaceId !== workspaceId) {
+        return { ok: false, code: "file_not_found" };
+      }
+
+      if (!current.storagePath) {
+        return { ok: false, code: "missing_storage_path" };
+      }
+
+      if (current.sourceType !== "pdf" && current.sourceType !== "docx") {
+        return { ok: false, code: "unsupported_source_type" };
+      }
+
+      if (current.extractionStatus === "pending" || current.extractionStatus === "completed") {
+        return { ok: false, code: "invalid_transition" };
+      }
+
+      await repositories.writeDecisionLogEntry(user.userId, {
+        decisionType: "file_extraction",
+        title: "Extraction lifecycle",
+        decision: "extraction_requested",
+        rationale: "Extraction lifecycle trigger started with deterministic provider boundary.",
+        workspaceId,
+      });
+
+      try {
+        const pending = await repositories.updateUploadedFile(user.userId, fileId, {
+          extractionStatus: "pending",
+          extractionErrorCode: null,
+          extractionUpdatedAt: new Date(),
+        });
+        if (!pending) {
+          return { ok: false, code: "file_not_found" };
+        }
+
+        const extraction = await repositories.fileExtractionProvider.extractText({
+          userId: user.userId,
+          workspaceId,
+          fileId,
+          fileName: current.name,
+          sourceType: current.sourceType,
+          storagePath: current.storagePath,
+        });
+
+        const text = extraction.text.trim();
+        const completed = await repositories.updateUploadedFile(user.userId, fileId, {
+          extractionStatus: "completed",
+          extractedText: text,
+          extractedTextPreview: text.slice(0, EXTRACTION_PREVIEW_MAX_CHARS),
+          extractedTextCharCount: text.length,
+          extractionSource: extraction.source,
+          extractionErrorCode: null,
+          extractionUpdatedAt: new Date(),
+        });
+
+        if (!completed) {
+          return { ok: false, code: "file_not_found" };
+        }
+
+        await repositories.writeDecisionLogEntry(user.userId, {
+          decisionType: "file_extraction",
+          title: "Extraction lifecycle",
+          decision: "extraction_completed",
+          rationale: "Extraction completed with deterministic placeholder provider boundary.",
+          workspaceId,
+        });
+
+        return { ok: true, file: completed };
+      } catch {
+        const failed = await repositories.updateUploadedFile(user.userId, fileId, {
+          extractionStatus: "failed",
+          extractionErrorCode: EXTRACTION_FAILURE_CODE,
+          extractionUpdatedAt: new Date(),
+        });
+
+        await repositories.writeDecisionLogEntry(user.userId, {
+          decisionType: "file_extraction",
+          title: "Extraction lifecycle",
+          decision: "extraction_failed",
+          rationale: "Extraction lifecycle failed and status marked failed.",
+          workspaceId,
+        });
+
+        if (!failed) {
+          return { ok: false, code: "file_not_found" };
+        }
         return { ok: true, file: failed };
       }
     },

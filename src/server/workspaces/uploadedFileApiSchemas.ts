@@ -25,6 +25,13 @@ export interface UploadedFileApiResponse {
   summarySource: UploadedFileRecord["summarySource"];
   summaryErrorCode: string | null;
   summaryUpdatedAt: string | null;
+  extractionStatus: UploadedFileRecord["extractionStatus"];
+  extractedText?: string;
+  extractedTextPreview?: string;
+  extractedTextCharCount?: number;
+  extractionSource?: UploadedFileRecord["extractionSource"];
+  extractionErrorCode: string | null;
+  extractionUpdatedAt: string | null;
   uploadedAt: string;
   createdAt: string;
   updatedAt: string;
@@ -97,6 +104,13 @@ export function toUploadedFileApiResponse(record: UploadedFileRecord): UploadedF
     summarySource: record.summarySource ?? "none",
     summaryErrorCode: record.summaryErrorCode ?? null,
     summaryUpdatedAt: record.summaryUpdatedAt ? record.summaryUpdatedAt.toISOString() : null,
+    extractionStatus: record.extractionStatus ?? "not_started",
+    extractedText: record.extractedText,
+    extractedTextPreview: record.extractedTextPreview,
+    extractedTextCharCount: record.extractedTextCharCount,
+    extractionSource: record.extractionSource,
+    extractionErrorCode: record.extractionErrorCode ?? null,
+    extractionUpdatedAt: record.extractionUpdatedAt ? record.extractionUpdatedAt.toISOString() : null,
     uploadedAt: record.uploadedAt.toISOString(),
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),

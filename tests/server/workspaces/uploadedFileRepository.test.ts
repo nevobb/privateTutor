@@ -1,13 +1,16 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import { doc, setDoc } from "firebase/firestore/lite";
 import {
   assertFirestoreEmulatorRunning,
   describeFirebaseWorkspaceEmulator,
 } from "../../firebase/firestoreTestUtils";
+import { withFirestoreEmulatorClient } from "../../../src/server/firebase/firestoreEmulatorClient";
 import { createWorkspace } from "../../../src/server/workspaces/workspaceRepository";
 import {
   createUploadedFile,
   getUploadedFile,
   listUploadedFiles,
+  uploadedFilePath,
   updateUploadedFile,
 } from "../../../src/server/workspaces/uploadedFileRepository";
 
@@ -54,6 +57,7 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       confidence: 0.88,
       summaryStatus: "not_requested",
       summarySource: "none",
+      extractionStatus: "not_started",
     });
   });
 
@@ -137,6 +141,35 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
     await expect(getUploadedFile(bob, created.id)).resolves.toBeNull();
     await expect(updateUploadedFile(bob, created.id, { indexingStatus: "failed" })).resolves.toBeNull();
     await expect(listUploadedFiles(bob, workspace.id)).resolves.toEqual([]);
+  });
+
+  it("maps legacy records without extractionStatus to not_started", async () => {
+    const alice = nextUser("alice");
+    const workspace = await createWorkspace(alice, { name: "Physics" });
+    const fileId = "legacy-file-1";
+    const now = new Date();
+
+    await withFirestoreEmulatorClient(alice, async ({ db }) => {
+      await setDoc(doc(db, ...uploadedFilePath(alice, fileId)), {
+        id: fileId,
+        userId: alice,
+        workspaceId: workspace.id,
+        name: "Legacy.pdf",
+        url: "",
+        uploadedAt: now,
+        assignmentStatus: "assigned",
+        indexingStatus: "indexed",
+        sourceType: "pdf",
+        summaryStatus: "ready",
+        summaryText: "legacy summary",
+        summarySource: "placeholder",
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    const loaded = await getUploadedFile(alice, fileId);
+    expect(loaded?.extractionStatus).toBe("not_started");
   });
 });
 

@@ -34,6 +34,9 @@ function createRecord(overrides: Partial<UploadedFileRecord> = {}): UploadedFile
     summarySource: "none",
     summaryErrorCode: null,
     summaryUpdatedAt: null,
+    extractionStatus: "not_started",
+    extractionErrorCode: null,
+    extractionUpdatedAt: null,
     createdAt: baseDate,
     updatedAt: baseDate,
     ...overrides,
@@ -72,6 +75,27 @@ function makeRepositories() {
           summaryUpdatedAt: baseDate,
         });
       }
+      if (updates.extractionStatus === "pending") {
+        return createRecord({ extractionStatus: "pending", extractionUpdatedAt: baseDate });
+      }
+      if (updates.extractionStatus === "completed") {
+        return createRecord({
+          extractionStatus: "completed",
+          extractedText: updates.extractedText,
+          extractedTextPreview: updates.extractedTextPreview,
+          extractedTextCharCount: updates.extractedTextCharCount,
+          extractionSource: updates.extractionSource,
+          extractionErrorCode: null,
+          extractionUpdatedAt: baseDate,
+        });
+      }
+      if (updates.extractionStatus === "failed") {
+        return createRecord({
+          extractionStatus: "failed",
+          extractionErrorCode: "extraction_lifecycle_failed",
+          extractionUpdatedAt: baseDate,
+        });
+      }
       return createRecord();
   });
 
@@ -91,6 +115,12 @@ function makeRepositories() {
     createUploadedFile,
     getUploadedFile: vi.fn(async () => createRecord()),
     updateUploadedFile,
+    fileExtractionProvider: {
+      extractText: vi.fn(async ({ fileName }: { fileName: string }) => ({
+        text: `Extraction boundary placeholder for ${fileName}. Real PDF/DOCX parsing is not implemented yet.`,
+        source: "deterministic_test_parser" as const,
+      })),
+    },
     listUploadedFiles: vi.fn(async () => [createRecord({ indexingStatus: "indexed" })]),
     writeDecisionLogEntry,
   };
@@ -121,6 +151,9 @@ describe("uploadedFileApiService.createFileForWorkspace", () => {
         summaryText: null,
         summaryErrorCode: null,
         summaryUpdatedAt: null,
+        extractionStatus: "not_started",
+        extractionErrorCode: null,
+        extractionUpdatedAt: null,
       })
     );
 
@@ -261,6 +294,86 @@ describe("uploadedFileApiService.createFileForWorkspace", () => {
         storagePath: "users/alice/workspaces/ws-1/files/file-1/Other.pdf",
       })
     ).rejects.toThrow("storagePath fileName must match fileName payload.");
+  });
+});
+
+describe("uploadedFileApiService.runExtractionLifecycleForFile", () => {
+  it("runs extraction lifecycle from not_started to completed", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        sourceType: "pdf",
+        storagePath: "users/alice/workspaces/ws-1/files/file-1/Mechanics Intro.pdf",
+        extractionStatus: "not_started",
+      })
+    );
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.file.extractionStatus).toBe("completed");
+      expect(result.file.extractedText).toContain("Extraction boundary placeholder");
+      expect(result.file.extractedTextPreview).toBeDefined();
+      expect(result.file.extractedTextCharCount).toBeGreaterThan(0);
+      expect(result.file.extractionSource).toBe("deterministic_test_parser");
+    }
+    expect(repos.updateUploadedFile).toHaveBeenCalledWith(
+      "alice",
+      "file-1",
+      expect.objectContaining({ extractionStatus: "pending" })
+    );
+    expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+      "alice",
+      expect.objectContaining({ decisionType: "file_extraction", decision: "extraction_completed" })
+    );
+  });
+
+  it("rejects extraction when storagePath is missing", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () => createRecord({ storagePath: undefined }));
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
+    expect(result).toEqual({ ok: false, code: "missing_storage_path" });
+  });
+
+  it("rejects extraction on invalid transition", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        sourceType: "pdf",
+        storagePath: "users/alice/workspaces/ws-1/files/file-1/Mechanics Intro.pdf",
+        extractionStatus: "completed",
+      })
+    );
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
+    expect(result).toEqual({ ok: false, code: "invalid_transition" });
+  });
+
+  it("marks extraction failed when provider throws", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        sourceType: "pdf",
+        storagePath: "users/alice/workspaces/ws-1/files/file-1/Mechanics Intro.pdf",
+      })
+    );
+    repos.fileExtractionProvider = {
+      extractText: vi.fn(async () => {
+        throw new Error("parse_failed");
+      }),
+    };
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.file.extractionStatus).toBe("failed");
+      expect(result.file.extractionErrorCode).toBe("extraction_lifecycle_failed");
+    }
   });
 });
 
