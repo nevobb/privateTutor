@@ -787,3 +787,41 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: commit, push, open PR Phase 19; then Phase 20 should be end-to-end validation or real extraction pipeline.
   - Blockers/Risks: full quality requires real PDF parsing (placeholder active) and real provider with API key.
+
+## 2026-05-19 23:52 (Asia/Jerusalem) — Claude
+- Step/Task ID: Phase 20 — MVP validation and behavior regression
+- Task summary: Validate full MVP learning-material pipeline with end-to-end behavior tests.
+- What I changed:
+  - Created `tests/behavior/` directory.
+  - Added `tests/behavior/mvpFileLearningPipeline.test.ts` with 15 behavior tests:
+    - Happy path: eligible chunks found → retrieval.used=true, citations with chunk sourceIds, second grounded provider call, one user + one tutor message, decision log events.
+    - grounded content from second provider call replaces initial message content.
+    - Negative: no eligible chunks → no grounding, no second provider call.
+    - Negative: query doesn't match chunks → no_matching_file_chunks, no fake citations.
+    - Negative: needs_retrieval=false → single provider call.
+    - Negative: web scope → retrieveFileChunks not called.
+    - Boundary: retrieval.why doesn't contain "semantic"/"vector"/"embedding".
+    - Boundary: citation sourceId follows fileId:chunkId format.
+  - Added `agent-memory/MVP_VALIDATION_REPORT.md`.
+  - Updated memory: CURRENT_TASK.md, AGENT_HANDOFF.md, TASK_LOG.md, PROJECT_STATE.md.
+- Files touched:
+  - `tests/behavior/mvpFileLearningPipeline.test.ts` (new)
+  - `agent-memory/MVP_VALIDATION_REPORT.md` (new)
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/AGENT_HANDOFF.md`
+  - `agent-memory/TASK_LOG.md`
+  - `agent-memory/PROJECT_STATE.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git diff --check` — passed
+  - `npm run build` — passed
+  - `npx vitest run tests/behavior/mvpFileLearningPipeline.test.ts` — 15 passed
+  - `npx vitest run tests/server/workspaces/sessionMessageApiService.test.ts tests/server/workspaces/fileChunkRetrievalService.test.ts tests/server/tutor/deepseekProviderGrounding.test.ts` — 43 passed
+- Git status:
+  - Branch: `codex/phase20-mvp-validation-wt` (worktree; PR target: codex/phase20-mvp-validation)
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: commit, push, open PR Phase 20; then Phase 21 should be real PDF parser or source transparency UI.
+  - Blockers/Risks: extraction placeholder still active — real grounding quality requires real PDF parser.

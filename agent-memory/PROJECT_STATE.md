@@ -9,7 +9,8 @@
 - Phase 16 merged: extraction lifecycle/provider boundary for uploaded files.
 - Phase 17 merged (#50): deterministic file chunking boundary.
 - Phase 18 merged (#51): deterministic retrieval over persisted file chunks.
-- Phase 19 implemented on branch: provider prompt-context injection / grounded tutor answer.
+- Phase 19 merged (#52): provider prompt-context injection / grounded tutor answer.
+- Phase 20 implemented on branch: MVP validation and behavior regression.
 
 ## Current capabilities
 - Auth emulator flow works.
@@ -21,12 +22,13 @@
 - Retrieval execution uses persisted chunks when available (keyword/deterministic).
 - Retrieved chunks are injected into provider prompt as grounding context (SOURCE blocks).
 - Second grounded provider call made when chunks found — answer grounded on file content.
+- Full pipeline validated: upload → extraction → chunking → retrieval → grounded answer.
 - API routes exist:
   - `POST /api/workspaces/[workspaceId]/files/[fileId]/extract`
   - `POST /api/workspaces/[workspaceId]/files/[fileId]/chunks`
 
 ## Still not implemented
-- Real PDF parser (deterministic placeholder active).
+- Real PDF parser (deterministic placeholder active — `extractedText` is stub).
 - Real DOCX parser.
 - OCR.
 - Summaries based on extracted file content.
@@ -36,9 +38,11 @@
 - Production Firebase deployment.
 
 ## Boundary note
-- Phase 19 grounds provider prompts on retrieved chunks via second provider call.
-- Retrieval is still deterministic keyword-based, NOT semantic/vector.
-- Real extraction placeholder still active — full quality grounding requires real PDF parser.
+- MVP is usable for controlled personal testing.
+- Extraction placeholder means actual file content is not read. Real grounding quality requires real parser.
+- Retrieval is deterministic keyword-based, NOT semantic/vector.
 
 ## Recommended next phase
-- Phase 20: end-to-end MVP validation / behavior regression testing with real uploaded files; OR replace extraction placeholder with real PDF parser; OR connect real model provider (Gemini/DeepSeek) for quality grounded answers.
+1. Real PDF/DOCX extraction parser — replace deterministic placeholder.
+2. Source transparency UI — display chunk citations in chat.
+3. Semantic/vector retrieval — if keyword retrieval proves insufficient.
