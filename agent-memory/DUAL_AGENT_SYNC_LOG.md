@@ -825,3 +825,31 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: commit, push, open PR Phase 20; then Phase 21 should be real PDF parser or source transparency UI.
   - Blockers/Risks: extraction placeholder still active — real grounding quality requires real PDF parser.
+
+## 2026-05-20 00:12 (Asia/Jerusalem) — Codex
+- Step/Task ID: Step 23
+- Task summary: Produce semantic/vector retrieval architecture decision and next-phase plan without runtime implementation.
+- What I changed:
+  - Inspected current retrieval/chunking/grounding architecture and cost/work-mode constraints.
+  - Wrote `docs/SEMANTIC_RETRIEVAL_DECISION.md` with recommended staged hybrid approach, embedding lifecycle, storage strategy, hybrid retrieval design, fallback policy, and next phases.
+  - Updated core memory files to reflect planning-only completion and Step 24 recommendation.
+- Files touched:
+  - `docs/SEMANTIC_RETRIEVAL_DECISION.md`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/AGENT_HANDOFF.md`
+  - `agent-memory/TASK_LOG.md`
+  - `agent-memory/PROJECT_STATE.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git diff --check`
+  - Result: passed
+  - `npm run build`
+  - Result: passed
+- Git status:
+  - Branch: `codex/phase23-semantic-retrieval-decision`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: open PR for Step 23 and then start Step 24 embedding lifecycle boundary.
+  - Blockers/Risks: none.

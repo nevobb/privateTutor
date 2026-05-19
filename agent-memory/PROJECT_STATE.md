@@ -5,44 +5,31 @@
 - Core principle: Understanding before progress.
 
 ## Current completed milestones
-- Phase 15 merged: real file upload foundation (Storage upload + metadata linkage).
-- Phase 16 merged: extraction lifecycle/provider boundary for uploaded files.
-- Phase 17 merged (#50): deterministic file chunking boundary.
-- Phase 18 merged (#51): deterministic retrieval over persisted file chunks.
-- Phase 19 merged (#52): provider prompt-context injection / grounded tutor answer.
-- Phase 20 implemented on branch: MVP validation and behavior regression.
+- Phase 15 merged: real file upload foundation.
+- Phase 16 merged: extraction lifecycle boundary.
+- Phase 17 merged: file chunking boundary.
+- Phase 18 merged: deterministic retrieval over persisted chunks.
+- Phase 19 merged: grounded provider answer from retrieved chunks.
+- Phase 20 merged: MVP validation for pipeline behavior.
+- Step 23 completed on branch: semantic/vector retrieval architecture decision.
 
 ## Current capabilities
-- Auth emulator flow works.
-- Workspace and session APIs/UI work.
-- Uploaded file metadata lifecycle exists.
-- Summary metadata lifecycle exists.
-- Extraction lifecycle exists with deterministic provider boundary.
-- Chunking lifecycle exists with deterministic persisted chunks.
-- Retrieval execution uses persisted chunks when available (keyword/deterministic).
-- Retrieved chunks are injected into provider prompt as grounding context (SOURCE blocks).
-- Second grounded provider call made when chunks found — answer grounded on file content.
-- Full pipeline validated: upload → extraction → chunking → retrieval → grounded answer.
-- API routes exist:
-  - `POST /api/workspaces/[workspaceId]/files/[fileId]/extract`
-  - `POST /api/workspaces/[workspaceId]/files/[fileId]/chunks`
+- Upload → extraction boundary → chunking → keyword retrieval → grounded provider call.
+- Retrieval is deterministic keyword/token overlap over persisted chunks.
+- Cost/work-mode guardrails are active.
 
 ## Still not implemented
-- Real PDF parser (deterministic placeholder active — `extractedText` is stub).
-- Real DOCX parser.
-- OCR.
-- Summaries based on extracted file content.
-- Embeddings/vector indexing over chunks.
-- Semantic/vector retrieval.
+- Real parser wiring may be evolving separately.
+- Embeddings over chunks.
+- Vector storage/index service.
+- Semantic retrieval execution.
+- Hybrid semantic+keyword runtime ranking.
 - Gemini/Genkit.
 - Production Firebase deployment.
 
 ## Boundary note
-- MVP is usable for controlled personal testing.
-- Extraction placeholder means actual file content is not read. Real grounding quality requires real parser.
-- Retrieval is deterministic keyword-based, NOT semantic/vector.
+- Step 23 is planning-only and does not change runtime behavior.
+- Semantic/vector plan is documented in `docs/SEMANTIC_RETRIEVAL_DECISION.md`.
 
 ## Recommended next phase
-1. Real PDF/DOCX extraction parser — replace deterministic placeholder.
-2. Source transparency UI — display chunk citations in chat.
-3. Semantic/vector retrieval — if keyword retrieval proves insufficient.
+- Step 24: Embedding Lifecycle Boundary (provider interface + lifecycle fields + deterministic/mock embedding flow, without semantic retrieval execution).
