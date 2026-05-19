@@ -6,6 +6,20 @@ const SERVICE_FILE = resolve(process.cwd(), "src/server/workspaces/sessionMessag
 const hasFile = existsSync(SERVICE_FILE);
 const describeService = hasFile ? describe : describe.skip;
 
+type ChunkRetrievalResult = {
+  chunks: Array<{
+    chunkId: string;
+    fileId: string;
+    workspaceId: string;
+    text: string;
+    chunkIndex: number;
+    tokenEstimate: number;
+    score: number;
+    sourceLabel: string;
+  }>;
+  eligibleFileCount: number;
+};
+
 type ServiceModule = {
   createSessionMessageApiService: (repos?: {
     getWorkspace: (userId: string, workspaceId: string) => Promise<Record<string, unknown> | null>;
@@ -37,6 +51,13 @@ type ServiceModule = {
         }>;
       }>;
     };
+    retrieveFileChunks: (input: {
+      userId: string;
+      workspaceId: string;
+      query: string;
+      maxChunks: number;
+      maxTokens: number;
+    }) => Promise<ChunkRetrievalResult>;
     getMockTutorResponse: (
       msg: string,
       wm: string,
@@ -144,6 +165,7 @@ function makeRepos(
         ],
       })),
     },
+    retrieveFileChunks: vi.fn(async () => ({ chunks: [], eligibleFileCount: 0 })),
     getMockTutorResponse: vi.fn(async () => tutorResponse),
     ...overrides,
   };
@@ -576,6 +598,310 @@ describeService("sessionMessageApiService", () => {
           title: "Build project-context policy applied",
         })
       );
+    });
+  });
+
+  describe("chunk retrieval integration", () => {
+    it("uses persisted chunks when eligible files exist and chunks match", async () => {
+      const matchingChunks = [
+        {
+          chunkId: "ck-1",
+          fileId: "file-A",
+          workspaceId: "ws-1",
+          text: "Newton laws motion force",
+          chunkIndex: 0,
+          tokenEstimate: 80,
+          score: 3,
+          sourceLabel: "Physics.pdf",
+        },
+        {
+          chunkId: "ck-2",
+          fileId: "file-A",
+          workspaceId: "ws-1",
+          text: "acceleration second law force",
+          chunkIndex: 1,
+          tokenEstimate: 60,
+          score: 2,
+          sourceLabel: "Physics.pdf",
+        },
+      ];
+
+      const repos = makeRepos({
+        appendMessage: vi.fn(
+          async (_uid: string, _wsId: string, _sessId: string, input: Record<string, unknown>) =>
+            input.role === "user"
+              ? baseMessage
+              : { ...tutorMessage, citations: input.citations }
+        ),
+        retrieveFileChunks: vi.fn(async () => ({
+          chunks: matchingChunks,
+          eligibleFileCount: 1,
+        })),
+        getMockTutorResponse: vi.fn(async () => ({
+          ...tutorResponse,
+          internalUpdate: {
+            ...tutorResponse.internalUpdate,
+            retrieval_decision: {
+              needs_retrieval: true,
+              retrieval_scope: "workspace",
+              max_chunks: 4,
+              max_tokens: 5000,
+              should_ask_clarification_first: false,
+            },
+          },
+        })),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "explain Newton laws force",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.retrieveFileChunks).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "alice",
+          workspaceId: "ws-1",
+          query: "explain Newton laws force",
+        })
+      );
+      expect(result).toMatchObject({
+        internalUpdate: {
+          retrieval: {
+            used: true,
+            source_ids: ["ck-1", "ck-2"],
+            why: expect.stringContaining("file_chunks"),
+          },
+        },
+      });
+
+      const assistantMsg = result.assistantMessage as { citations?: Array<{ id: string; sourceId: string; referenceText: string }> };
+      expect(assistantMsg.citations).toBeDefined();
+      expect(assistantMsg.citations![0]).toMatchObject({
+        id: "ck-1",
+        sourceId: "file-A:ck-1",
+        referenceText: expect.stringContaining("Newton"),
+      });
+    });
+
+    it("skips retrieval with no_matching_file_chunks when eligible files exist but no chunks match", async () => {
+      const repos = makeRepos({
+        retrieveFileChunks: vi.fn(async () => ({
+          chunks: [],
+          eligibleFileCount: 2,
+        })),
+        getMockTutorResponse: vi.fn(async () => ({
+          ...tutorResponse,
+          internalUpdate: {
+            ...tutorResponse.internalUpdate,
+            retrieval_decision: {
+              needs_retrieval: true,
+              retrieval_scope: "workspace",
+              max_chunks: 4,
+              max_tokens: 5000,
+              should_ask_clarification_first: false,
+            },
+          },
+        })),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "hi",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(result).toMatchObject({
+        internalUpdate: {
+          retrieval: {
+            used: false,
+            why: "no_matching_file_chunks",
+          },
+        },
+      });
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+        "alice",
+        expect.objectContaining({
+          decisionType: "retrieval_scope",
+          title: "Retrieval skipped",
+        })
+      );
+    });
+
+    it("falls back to indexed-file retrieval when no chunked files exist", async () => {
+      const repos = makeRepos({
+        retrieveFileChunks: vi.fn(async () => ({ chunks: [], eligibleFileCount: 0 })),
+        listUploadedFiles: vi.fn(async () => [
+          {
+            id: "file-1",
+            name: "Mechanics.pdf",
+            indexingStatus: "indexed",
+            summaryStatus: "ready",
+            summaryText: "Summary text here",
+            confidence: 0.9,
+          },
+        ]),
+        getMockTutorResponse: vi.fn(async () => ({
+          ...tutorResponse,
+          internalUpdate: {
+            ...tutorResponse.internalUpdate,
+            retrieval_decision: {
+              needs_retrieval: true,
+              retrieval_scope: "workspace",
+              max_chunks: 4,
+              max_tokens: 5000,
+              should_ask_clarification_first: false,
+            },
+          },
+        })),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "hi",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(result).toMatchObject({
+        internalUpdate: {
+          retrieval: {
+            used: true,
+            source_ids: ["file-1"],
+          },
+        },
+      });
+    });
+
+    it("marks retrieval_failed when retrieveFileChunks throws", async () => {
+      const repos = makeRepos({
+        retrieveFileChunks: vi.fn(async () => {
+          throw new Error("chunk_db_down");
+        }),
+        getMockTutorResponse: vi.fn(async () => ({
+          ...tutorResponse,
+          internalUpdate: {
+            ...tutorResponse.internalUpdate,
+            retrieval_decision: {
+              needs_retrieval: true,
+              retrieval_scope: "workspace",
+              max_chunks: 4,
+              max_tokens: 5000,
+              should_ask_clarification_first: false,
+            },
+          },
+        })),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "hi",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(result).toMatchObject({
+        internalUpdate: {
+          retrieval: {
+            used: false,
+            why: "retrieval_failed_internal_error",
+          },
+        },
+      });
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+        "alice",
+        expect.objectContaining({
+          decisionType: "retrieval_scope",
+          title: "Retrieval failed",
+          decision: expect.stringContaining("chunk_db_down"),
+        })
+      );
+    });
+
+    it("decision log includes retrieval_executed event with chunk ids", async () => {
+      const repos = makeRepos({
+        retrieveFileChunks: vi.fn(async () => ({
+          chunks: [
+            {
+              chunkId: "ck-X",
+              fileId: "file-B",
+              workspaceId: "ws-1",
+              text: "some content",
+              chunkIndex: 0,
+              tokenEstimate: 50,
+              score: 1,
+              sourceLabel: "doc.pdf",
+            },
+          ],
+          eligibleFileCount: 1,
+        })),
+        getMockTutorResponse: vi.fn(async () => ({
+          ...tutorResponse,
+          internalUpdate: {
+            ...tutorResponse.internalUpdate,
+            retrieval_decision: {
+              needs_retrieval: true,
+              retrieval_scope: "topic",
+              max_chunks: 4,
+              max_tokens: 5000,
+              should_ask_clarification_first: false,
+            },
+          },
+        })),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "some content query",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
+        "alice",
+        expect.objectContaining({
+          decisionType: "retrieval_scope",
+          title: "Retrieval executed",
+          decision: expect.stringContaining("ck-X"),
+        })
+      );
+    });
+
+    it("web retrieval path is unaffected when scope is web", async () => {
+      const repos = makeRepos({
+        retrieveFileChunks: vi.fn(async () => ({ chunks: [], eligibleFileCount: 0 })),
+        getMockTutorResponse: vi.fn(async () => ({
+          ...tutorResponse,
+          internalUpdate: {
+            ...tutorResponse.internalUpdate,
+            retrieval_decision: {
+              needs_retrieval: true,
+              retrieval_scope: "web",
+              max_chunks: 4,
+              max_tokens: 5000,
+              should_ask_clarification_first: false,
+            },
+          },
+        })),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "latest news today",
+        workMode: "Research",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.retrieveFileChunks).not.toHaveBeenCalled();
+      expect(repos.webSearchProvider.search).toHaveBeenCalledWith("latest news today");
     });
   });
 });

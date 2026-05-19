@@ -699,3 +699,46 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: commit, push, and open PR `Phase 17: File chunking boundary` for review/merge decision.
   - Blockers/Risks: none observed in current scope.
+
+## 2026-05-19 23:27 (Asia/Jerusalem) — Claude
+- Step/Task ID: Phase 18 — Retrieval over persisted file chunks
+- Task summary: Implement deterministic retrieval execution over persisted file chunks; wire into session message service with citation enrichment.
+- What I changed:
+  - Added `fileChunkRetrievalService.ts`:
+    - `retrieveRelevantFileChunks(input, deps)` with keyword/token scoring over FileChunk records.
+    - Eligible files: extractionStatus=completed, chunkingStatus=completed, chunkCount>0.
+    - Tokenize on whitespace/punctuation; min 2-char tokens; score by query-token intersection.
+    - Sort: score desc, chunkIndex asc. Apply maxChunks and maxTokens budget (stop when chunk exceeds remaining).
+    - Returns `{ chunks, eligibleFileCount }` for caller to distinguish no-eligible vs. no-matching.
+  - Updated `sessionMessageApiService.ts`:
+    - Added `retrieveFileChunks` to `Repositories` interface and `defaultRepositories()`.
+    - Extracted `executeChunkRetrieval` (chunk path) and `executeLegacyIndexedFileRetrieval` (backward-compat path).
+    - Non-web retrieval now: try chunk retrieval first; if eligibleFileCount=0 fall back to legacy indexed-file path.
+    - Citations: `id=chunkId`, `sourceId=fileId:chunkId`, `referenceText=first 200 chars of chunk text`.
+    - Decision-log: `retrieval_executed` with selected_chunk_ids, selected_file_ids, total_candidates.
+  - Added tests: `tests/server/workspaces/fileChunkRetrievalService.test.ts` (9 unit tests).
+  - Updated tests: `tests/server/workspaces/sessionMessageApiService.test.ts` (added ChunkRetrievalResult type, retrieveFileChunks mock to makeRepos, 6 integration tests).
+  - Updated memory files: CURRENT_TASK.md, AGENT_HANDOFF.md, TASK_LOG.md, PROJECT_STATE.md.
+- Files touched:
+  - `src/server/workspaces/fileChunkRetrievalService.ts` (new)
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `tests/server/workspaces/fileChunkRetrievalService.test.ts` (new)
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/AGENT_HANDOFF.md`
+  - `agent-memory/TASK_LOG.md`
+  - `agent-memory/PROJECT_STATE.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git diff --check` — passed
+  - `npm run build` — passed
+  - `npx vitest run tests/server/workspaces/fileChunkRetrievalService.test.ts tests/server/workspaces/sessionMessageApiService.test.ts` — 31 passed
+  - `npx vitest run tests/server/workspaces/fileChunker.test.ts tests/server/workspaces/fileChunkRepository.test.ts tests/server/workspaces/workspaceFileChunksApiRoute.test.ts` — 8 passed, 2 skipped
+- Git status:
+  - Branch: `codex/phase18-retrieval-over-file-chunks-wt` (worktree; PR target: codex/phase18-retrieval-over-file-chunks)
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: commit, push, open PR Phase 18; then Phase 19 should wire retrieved chunks into provider prompt for actual grounding.
+  - Blockers/Risks: tutor answer is still not grounded on chunk content — this is explicit boundary of Phase 18.
