@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthResult } from "../../../src/server/auth/authTypes";
 
 vi.mock("../../../src/server/workspaces/uploadedFileApiService", () => ({
+  UploadedFileValidationError: class UploadedFileValidationError extends Error {},
   uploadedFileApiService: {
     createFileForWorkspace: vi.fn(),
     listFilesForWorkspace: vi.fn(),
@@ -27,6 +28,7 @@ import {
   toUploadedFileApiResponse,
 } from "../../../src/server/workspaces/uploadedFileApiSchemas";
 import { isFirestoreEmulatorUnavailableError } from "../../../src/server/firebase/firestoreEmulatorClient";
+import { UploadedFileValidationError } from "../../../src/server/workspaces/uploadedFileApiService";
 
 const mockCreate = vi.mocked(uploadedFileApiService.createFileForWorkspace);
 const mockList = vi.mocked(uploadedFileApiService.listFilesForWorkspace);
@@ -139,6 +141,23 @@ describe("POST /api/workspaces/[workspaceId]/files", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ fileName: "a.txt", sourceType: "txt" }),
+      }),
+      context("ws-1")
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it("returns 400 for invalid storagePath validation from service", async () => {
+    mockParse.mockReturnValueOnce({ ok: true, input: { fileName: "a.pdf", sourceType: "pdf" } });
+    mockCreate.mockRejectedValueOnce(new UploadedFileValidationError("bad path"));
+
+    const handler = createWorkspaceFilesPostHandler(okAuth());
+    const response = await handler(
+      new Request("http://localhost/api/workspaces/ws-1/files", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ fileName: "a.pdf", sourceType: "pdf" }),
       }),
       context("ws-1")
     );

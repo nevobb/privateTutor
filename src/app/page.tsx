@@ -9,6 +9,7 @@ import WorkspaceSelector, {
   type WorkspaceLoadState,
 } from "../components/workspaces/WorkspaceSelector";
 import FilePanel from "../components/files/FilePanel";
+import type { FileUploadStatus } from "../components/files/FilePanel";
 import MemoryPanel from "../components/memory/MemoryPanel";
 import TutorConversation from "../components/tutor/TutorConversation";
 import { AuthShell } from "../components/auth/AuthShell";
@@ -32,7 +33,13 @@ import {
 } from "../lib/memory/learnerMemoryApiClient";
 import type { LearnerMemoryObservationItem } from "../lib/memory/learnerMemoryApiTypes";
 import type { CostMode, WorkMode } from "../types";
-import { mockFiles } from "../mock/data";
+import type { UploadedFile } from "../types";
+import {
+  createWorkspaceFileMetadata,
+  fetchWorkspaceFiles,
+  WorkspaceFilesApiError,
+} from "../lib/workspaces/workspaceFilesApiClient";
+import { uploadLearningFileToStorage, validateLearningFile } from "../lib/firebase/storageUploadClient";
 
 export const DEV_DIAGNOSTICS_STORAGE_KEY = "privateTutor.devDiagnostics.enabled";
 
@@ -93,6 +100,8 @@ export default function Home() {
   const [developerDiagnosticsEnabled, setDeveloperDiagnosticsEnabled] = useState(false);
   const [memoryObservations, setMemoryObservations] = useState<LearnerMemoryObservationItem[]>([]);
   const [memoryLoading, setMemoryLoading] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [fileUploadStatus, setFileUploadStatus] = useState<FileUploadStatus>({ state: "idle" });
 
   useEffect(() => {
     try {
@@ -204,6 +213,107 @@ export default function Home() {
       cancelled = true;
     };
   }, [activeWorkspaceId, authState.status, getToken]);
+
+  const reloadWorkspaceFiles = useCallback(async (): Promise<void> => {
+    if (authState.status !== "signed-in" || !activeWorkspaceId) {
+      setUploadedFiles([]);
+      return;
+    }
+
+    try {
+      const token = await getToken();
+      if (!token) {
+        setUploadedFiles([]);
+        return;
+      }
+      const files = await fetchWorkspaceFiles(token, activeWorkspaceId);
+      setUploadedFiles(
+        files.map((item) => ({
+          id: item.id,
+          name: item.fileName,
+          url: "",
+          uploadedAt: new Date(item.uploadedAt),
+          workspaceId: item.workspaceId,
+          assignmentStatus: item.assignmentStatus as UploadedFile["assignmentStatus"],
+          indexingStatus: item.indexingStatus as UploadedFile["indexingStatus"],
+          sourceType: item.sourceType,
+          topic: item.topic,
+          confidence: item.confidence,
+          storagePath: item.storagePath,
+          summaryStatus: item.summaryStatus as UploadedFile["summaryStatus"],
+          summaryText: item.summaryText,
+          summarySource: item.summarySource,
+          summaryErrorCode: item.summaryErrorCode,
+          summaryUpdatedAt: item.summaryUpdatedAt ? new Date(item.summaryUpdatedAt) : null,
+          createdAt: new Date(item.createdAt),
+          updatedAt: new Date(item.updatedAt),
+        }))
+      );
+    } catch {
+      setUploadedFiles([]);
+    }
+  }, [activeWorkspaceId, authState.status, getToken]);
+
+  useEffect(() => {
+    void reloadWorkspaceFiles();
+  }, [reloadWorkspaceFiles]);
+
+  const handleFileSelected = useCallback(
+    async (file: File): Promise<void> => {
+      if (authState.status !== "signed-in" || !activeWorkspaceId || !authState.user?.userId) {
+        setFileUploadStatus({ state: "error", message: "נדרש משתמש מחובר ומרחב פעיל להעלאה." });
+        return;
+      }
+
+      setFileUploadStatus({ state: "validating" });
+      const validation = validateLearningFile(file);
+      if (!validation.ok) {
+        setFileUploadStatus({ state: "error", message: validation.reason });
+        return;
+      }
+
+      try {
+        setFileUploadStatus({ state: "uploading" });
+        const fileId = crypto.randomUUID();
+        const uploaded = await uploadLearningFileToStorage({
+          file,
+          userId: authState.user.userId,
+          workspaceId: activeWorkspaceId,
+          fileId,
+        });
+
+        const token = await getToken();
+        if (!token) {
+          setFileUploadStatus({ state: "error", message: "לא ניתן לאמת את המשתמש לשמירת המטא-דאטה." });
+          return;
+        }
+
+        setFileUploadStatus({ state: "saving_metadata" });
+        await createWorkspaceFileMetadata({
+          workspaceId: activeWorkspaceId,
+          idToken: token,
+          fileName: uploaded.fileName,
+          sourceType: uploaded.sourceType,
+          storagePath: uploaded.storagePath,
+        });
+
+        await reloadWorkspaceFiles();
+        setFileUploadStatus({
+          state: "done",
+          message: "File uploaded. Content extraction is not implemented yet.",
+        });
+      } catch (error: unknown) {
+        const message =
+          error instanceof WorkspaceFilesApiError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : "ההעלאה נכשלה.";
+        setFileUploadStatus({ state: "error", message });
+      }
+    },
+    [activeWorkspaceId, authState, getToken, reloadWorkspaceFiles]
+  );
 
   const handleCreateWorkspace = useCallback(
     async (name: string): Promise<void> => {
@@ -345,10 +455,15 @@ export default function Home() {
       <div className="flex-shrink-0">
         <CollapsiblePanel
           title="Study materials"
-          itemCount={mockFiles.length}
+          itemCount={uploadedFiles.length}
           defaultOpen={false}
         >
-          <FilePanel files={mockFiles} />
+          <FilePanel
+            files={uploadedFiles}
+            disabled={!activeWorkspaceId || authState.status !== "signed-in"}
+            onFileSelected={handleFileSelected}
+            uploadStatus={fileUploadStatus}
+          />
         </CollapsiblePanel>
         <CollapsiblePanel
           title="Tutor memory"

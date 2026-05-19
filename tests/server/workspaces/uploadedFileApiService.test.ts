@@ -210,6 +210,58 @@ describe("uploadedFileApiService.createFileForWorkspace", () => {
     expect(result).toBeNull();
     expect(repos.createUploadedFile).not.toHaveBeenCalled();
   });
+
+  it("rejects cross-user storagePath", async () => {
+    const repos = makeRepositories();
+    const service = createUploadedFileApiService(repos);
+
+    await expect(
+      service.createFileForWorkspace(user, "ws-1", {
+        fileName: "Mechanics Intro.pdf",
+        sourceType: "pdf",
+        storagePath: "users/bob/workspaces/ws-1/files/file-1/Mechanics Intro.pdf",
+      })
+    ).rejects.toThrow("storagePath userId does not match authenticated user.");
+  });
+
+  it("rejects cross-workspace storagePath", async () => {
+    const repos = makeRepositories();
+    const service = createUploadedFileApiService(repos);
+
+    await expect(
+      service.createFileForWorkspace(user, "ws-1", {
+        fileName: "Mechanics Intro.pdf",
+        sourceType: "pdf",
+        storagePath: "users/alice/workspaces/ws-2/files/file-1/Mechanics Intro.pdf",
+      })
+    ).rejects.toThrow("storagePath workspaceId does not match route workspace.");
+  });
+
+  it("rejects traversal storagePath", async () => {
+    const repos = makeRepositories();
+    const service = createUploadedFileApiService(repos);
+
+    await expect(
+      service.createFileForWorkspace(user, "ws-1", {
+        fileName: "Mechanics Intro.pdf",
+        sourceType: "pdf",
+        storagePath: "users/alice/workspaces/ws-1/files/../file-1/Mechanics Intro.pdf",
+      })
+    ).rejects.toThrow("storagePath must not contain traversal segments.");
+  });
+
+  it("rejects storagePath fileName mismatch", async () => {
+    const repos = makeRepositories();
+    const service = createUploadedFileApiService(repos);
+
+    await expect(
+      service.createFileForWorkspace(user, "ws-1", {
+        fileName: "Mechanics Intro.pdf",
+        sourceType: "pdf",
+        storagePath: "users/alice/workspaces/ws-1/files/file-1/Other.pdf",
+      })
+    ).rejects.toThrow("storagePath fileName must match fileName payload.");
+  });
 });
 
 describe("uploadedFileApiService.runSummaryLifecycleForFile", () => {

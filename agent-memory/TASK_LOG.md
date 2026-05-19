@@ -1,62 +1,32 @@
 # Task Log
 
-This file records concise completed task history.
-Full details live in PRs and task reports.
-
 ## Recent tasks
 
-### Batch 4 / Phase 8 — File metadata intake/classify/index lifecycle (metadata-first)
-- Branch: `codex/batch4-phase8-files`
-- PR: #43
-- Status: pending review/merge
-- Result: adds `POST/GET /api/workspaces/[workspaceId]/files`, deterministic classification, assignment status, lifecycle-only `indexingStatus` transitions, and decision-log events.
-- Notes: metadata-only. No binary upload, no Firebase Storage ingestion, no text extraction, no real vector/chunk indexing, no retrieval execution, no summary generation.
+### Phase 15 — Real file upload foundation
+- Branch: `codex/phase15-real-file-upload-foundation`
+- Status: implemented on branch
+- Result:
+  - Added client-side PDF/DOCX validation and upload helper to Firebase Storage.
+  - Added workspace files API client for metadata create/list.
+  - Added minimal sidebar upload flow with statuses (validating/uploading/saving/done/error).
+  - Added strict server validation for `storagePath` ownership and path format.
+  - Kept metadata lifecycle compatibility (Phase 8/9/10 behavior intact).
+- Notes:
+  - No parsing/OCR/extraction.
+  - No real retrieval over file contents.
+  - No Gemini/Genkit.
 
-### Batch 3 — Retrieval decision boundary (read-only)
-- Branch: merged branch (see git history)
-- PR: merged (see git history)
-- Status: complete
-- Result: contract and fallback decision matrix for retrieval boundary; logs persisted.
-- Notes: no retrieval execution.
-
-### Step 38C/38D — Research-based UX corrections
-- Branch: `design/research-based-ux-corrections-final`
-- PR: #30
+### Batch 5 / Phase 14 — Web search execution boundary
+- Branch: `codex/batch5-phase14-web-search`
+- PR: #47
 - Status: merged
-- Result: added collapsible sidebar, visible collapse/expand controls, and Context strip.
-- Notes: UI/design only; no backend/package changes.
+- Result: policy-gated web retrieval path with deterministic provider behavior and decision-log coverage.
 
-### Step 39 — Session transcript/message API boundary
-- Branch: `feat/session-transcript-api-boundary`
-- PR: #31
+### Batch 5 / Phase 13 — Work mode policy hardening
 - Status: merged
-- Result: added GET/POST session messages API, persisted messages by session, and moved mock tutor response generation to server.
-- Notes: Firestore rules final state remains strict owner-only; no Gemini/Genkit/retrieval/memory added.
 
-### Step 39.5 — Agent Task Protocol
-- Branch: `docs/agent-task-protocol-clean`
-- PR: #33
+### Batch 5 / Phase 12 — Cost mode retrieval caps
 - Status: merged
-- Result: added `AGENT_TASK_PROTOCOL.md`.
-- Notes: documentation/process only.
 
-### Step 39.6A — Agent memory entry point and current state
-- Branch: `docs/agent-memory-part-1`
-- PR: #34
+### Batch 5 / Phase 11 — Learner memory boundary
 - Status: merged
-- Result: added root `AGENTS.md` entry point plus `PROJECT_STATE` and `CURRENT_TASK`.
-- Notes: documentation/state only.
-
-### Step 39.6B — Agent decisions and task history
-- Branch: `docs/agent-memory-part-2`
-- PR: #35
-- Status: merged
-- Result: adds `DECISIONS` and `TASK_LOG`.
-- Notes: documentation/state only.
-
-### Step 39.6C — Agent handoff and open questions
-- Branch: `docs/agent-memory-part-3`
-- PR: pending
-- Status: in progress
-- Result: adds `AGENT_HANDOFF` and `OPEN_QUESTIONS`.
-- Notes: completes initial repo-native memory layer.

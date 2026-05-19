@@ -42,6 +42,28 @@ describe("uploadedFileApiSchemas", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("rejects sourceType/extension mismatch", () => {
+    const result = parseCreateUploadedFileRequest({
+      fileName: "lesson.docx",
+      sourceType: "pdf",
+    });
+    expect(result).toEqual({
+      ok: false,
+      error: "sourceType must match fileName extension (.pdf or .docx).",
+    });
+  });
+
+  it("rejects fileName path traversal or separators", () => {
+    const result = parseCreateUploadedFileRequest({
+      fileName: "../lesson.pdf",
+      sourceType: "pdf",
+    });
+    expect(result).toEqual({
+      ok: false,
+      error: "fileName must not contain path separators or traversal segments.",
+    });
+  });
+
   it("serializes response shape", () => {
     const now = new Date("2026-05-19T08:00:00.000Z");
     const record: UploadedFileRecord = {
