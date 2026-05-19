@@ -10,23 +10,23 @@
 7. `agent-memory/OPEN_QUESTIONS.md`
 
 ## Current status
-- Phase 16 extraction boundary is implemented on branch `codex/phase16-text-extraction-boundary`.
+- Phase 17 chunking boundary is implemented on branch `codex/phase17-file-chunking-boundary`.
 - Build and focused test suites are passing.
 
-## What Phase 16 added
-- Uploaded-file extraction lifecycle fields and safe legacy mapping.
-- Deterministic extraction provider boundary (`fileExtractionProvider`).
-- Extraction service flow in uploaded-file service.
-- New API route: `POST /api/workspaces/[workspaceId]/files/[fileId]/extract`.
-- Extraction decision-log events persisted under `decisionType: file_extraction`.
+## What Phase 17 added
+- Uploaded-file chunking lifecycle fields and safe legacy mapping.
+- Deterministic chunker (`fileChunker`) with stable chunk boundaries and overlap.
+- File chunk repository persisted under file-scoped Firestore path.
+- Chunking service lifecycle in uploaded-file service.
+- New API route: `POST /api/workspaces/[workspaceId]/files/[fileId]/chunks`.
+- Chunking decision-log events persisted under `decisionType: file_chunking`.
 
 ## What is still out of scope
-- Real PDF/DOCX parsing implementation.
+- Embeddings/vector search/semantic retrieval.
+- Tutor grounding from chunk content.
 - OCR.
-- Retrieval over extracted text.
-- Summary generation from extracted text.
-- Tutor grounding on uploaded file content.
+- Real PDF/DOCX parsing.
 - Gemini/Genkit.
 
 ## Next recommended step
-- Implement real parser adapter behind current extraction provider boundary or start chunking boundary, while still keeping tutor retrieval disabled until explicitly scoped.
+- Phase 18: retrieval integration over persisted chunks (policy-gated), keeping clear boundary from answer-grounding rollout.

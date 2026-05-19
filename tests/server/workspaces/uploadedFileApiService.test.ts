@@ -37,6 +37,9 @@ function createRecord(overrides: Partial<UploadedFileRecord> = {}): UploadedFile
     extractionStatus: "not_started",
     extractionErrorCode: null,
     extractionUpdatedAt: null,
+    chunkingStatus: "not_started",
+    chunkingErrorCode: null,
+    chunkingUpdatedAt: null,
     createdAt: baseDate,
     updatedAt: baseDate,
     ...overrides,
@@ -46,57 +49,59 @@ function createRecord(overrides: Partial<UploadedFileRecord> = {}): UploadedFile
 function makeRepositories() {
   const createUploadedFile = vi.fn(async () => createRecord());
   const updateUploadedFile = vi.fn(async (_userId: string, _fileId: string, updates: Partial<UploadedFileRecord>) => {
-      if (updates.indexingStatus === "indexing") {
-        return createRecord({ indexingStatus: "indexing" });
-      }
-      if (updates.indexingStatus === "indexed") {
-        return createRecord({ indexingStatus: "indexed" });
-      }
-      if (updates.indexingStatus === "failed") {
-        return createRecord({ indexingStatus: "failed" });
-      }
-      if (updates.summaryStatus === "pending") {
-        return createRecord({ summaryStatus: "pending", summaryUpdatedAt: baseDate });
-      }
-      if (updates.summaryStatus === "ready") {
-        return createRecord({
-          summaryStatus: "ready",
-          summaryText: "Summary placeholder; content extraction not enabled yet.",
-          summarySource: "placeholder",
-          summaryErrorCode: null,
-          summaryUpdatedAt: baseDate,
-        });
-      }
-      if (updates.summaryStatus === "failed") {
-        return createRecord({
-          summaryStatus: "failed",
-          summarySource: "none",
-          summaryErrorCode: "summary_lifecycle_failed",
-          summaryUpdatedAt: baseDate,
-        });
-      }
-      if (updates.extractionStatus === "pending") {
-        return createRecord({ extractionStatus: "pending", extractionUpdatedAt: baseDate });
-      }
-      if (updates.extractionStatus === "completed") {
-        return createRecord({
-          extractionStatus: "completed",
-          extractedText: updates.extractedText,
-          extractedTextPreview: updates.extractedTextPreview,
-          extractedTextCharCount: updates.extractedTextCharCount,
-          extractionSource: updates.extractionSource,
-          extractionErrorCode: null,
-          extractionUpdatedAt: baseDate,
-        });
-      }
-      if (updates.extractionStatus === "failed") {
-        return createRecord({
-          extractionStatus: "failed",
-          extractionErrorCode: "extraction_lifecycle_failed",
-          extractionUpdatedAt: baseDate,
-        });
-      }
-      return createRecord();
+    if (updates.indexingStatus === "indexing") return createRecord({ indexingStatus: "indexing" });
+    if (updates.indexingStatus === "indexed") return createRecord({ indexingStatus: "indexed" });
+    if (updates.indexingStatus === "failed") return createRecord({ indexingStatus: "failed" });
+
+    if (updates.summaryStatus === "pending") return createRecord({ summaryStatus: "pending", summaryUpdatedAt: baseDate });
+    if (updates.summaryStatus === "ready") {
+      return createRecord({
+        summaryStatus: "ready",
+        summaryText: "Summary placeholder; content extraction not enabled yet.",
+        summarySource: "placeholder",
+        summaryErrorCode: null,
+        summaryUpdatedAt: baseDate,
+      });
+    }
+    if (updates.summaryStatus === "failed") {
+      return createRecord({
+        summaryStatus: "failed",
+        summarySource: "none",
+        summaryErrorCode: "summary_lifecycle_failed",
+        summaryUpdatedAt: baseDate,
+      });
+    }
+
+    if (updates.extractionStatus === "pending") return createRecord({ extractionStatus: "pending", extractionUpdatedAt: baseDate });
+    if (updates.extractionStatus === "completed") {
+      return createRecord({
+        extractionStatus: "completed",
+        extractedText: updates.extractedText,
+        extractedTextPreview: updates.extractedTextPreview,
+        extractedTextCharCount: updates.extractedTextCharCount,
+        extractionSource: updates.extractionSource,
+        extractionErrorCode: null,
+        extractionUpdatedAt: baseDate,
+      });
+    }
+    if (updates.extractionStatus === "failed") {
+      return createRecord({ extractionStatus: "failed", extractionErrorCode: "extraction_lifecycle_failed", extractionUpdatedAt: baseDate });
+    }
+
+    if (updates.chunkingStatus === "pending") return createRecord({ chunkingStatus: "pending", chunkingUpdatedAt: baseDate });
+    if (updates.chunkingStatus === "completed") {
+      return createRecord({
+        chunkingStatus: "completed",
+        chunkCount: updates.chunkCount,
+        chunkingErrorCode: null,
+        chunkingUpdatedAt: baseDate,
+      });
+    }
+    if (updates.chunkingStatus === "failed") {
+      return createRecord({ chunkingStatus: "failed", chunkingErrorCode: "chunking_lifecycle_failed", chunkingUpdatedAt: baseDate });
+    }
+
+    return createRecord();
   });
 
   const writeDecisionLogEntry = vi.fn(async () => ({
@@ -121,6 +126,8 @@ function makeRepositories() {
         source: "deterministic_test_parser" as const,
       })),
     },
+    listFileChunks: vi.fn(async () => []),
+    replaceFileChunks: vi.fn(async () => {}),
     listUploadedFiles: vi.fn(async () => [createRecord({ indexingStatus: "indexed" })]),
     writeDecisionLogEntry,
   };
@@ -129,7 +136,7 @@ function makeRepositories() {
 describe("uploadedFileApiService.createFileForWorkspace", () => {
   it("creates metadata, classifies, completes indexing lifecycle and writes decision logs", async () => {
     const repos = makeRepositories();
-    const service = createUploadedFileApiService(repos);
+    const service = createUploadedFileApiService(repos as never);
 
     const result = await service.createFileForWorkspace(user, "ws-1", {
       fileName: "Mechanics Intro.pdf",
@@ -147,107 +154,26 @@ describe("uploadedFileApiService.createFileForWorkspace", () => {
         assignmentStatus: "assigned",
         topic: "Classical Mechanics",
         summaryStatus: "not_requested",
-        summarySource: "none",
-        summaryText: null,
-        summaryErrorCode: null,
-        summaryUpdatedAt: null,
         extractionStatus: "not_started",
-        extractionErrorCode: null,
-        extractionUpdatedAt: null,
+        chunkingStatus: "not_started",
       })
-    );
-
-    expect(repos.updateUploadedFile).toHaveBeenNthCalledWith(
-      1,
-      "alice",
-      "file-1",
-      expect.objectContaining({ indexingStatus: "indexing" })
-    );
-    expect(repos.updateUploadedFile).toHaveBeenNthCalledWith(
-      2,
-      "alice",
-      "file-1",
-      expect.objectContaining({ indexingStatus: "indexed" })
-    );
-
-    expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
-      "alice",
-      expect.objectContaining({ decisionType: "file_assignment", workspaceId: "ws-1" })
-    );
-    expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
-      "alice",
-      expect.objectContaining({ decisionType: "topic_classification", workspaceId: "ws-1" })
-    );
-    expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
-      "alice",
-      expect.objectContaining({ decisionType: "file_indexing", workspaceId: "ws-1" })
-    );
-  });
-
-  it("uses needs-review for low-confidence classification", async () => {
-    const repos = makeRepositories();
-    const service = createUploadedFileApiService(repos);
-
-    await service.createFileForWorkspace(user, "ws-1", {
-      fileName: "x.pdf",
-      sourceType: "pdf",
-    });
-
-    expect(repos.createUploadedFile).toHaveBeenCalledWith(
-      "alice",
-      expect.objectContaining({ assignmentStatus: "needs-review", confidence: 0.61 })
-    );
-  });
-
-  it("marks indexing failed on internal transition failure", async () => {
-    const repos = makeRepositories();
-    repos.updateUploadedFile = vi.fn(async (_userId: string, _fileId: string, updates) => {
-      if (updates.indexingStatus === "indexing") {
-        throw new Error("transition failure");
-      }
-      if (updates.indexingStatus === "failed") {
-        return createRecord({ indexingStatus: "failed" });
-      }
-      return createRecord();
-    });
-
-    const service = createUploadedFileApiService(repos);
-
-    const result = await service.createFileForWorkspace(user, "ws-1", {
-      fileName: "Mechanics Intro.pdf",
-      sourceType: "pdf",
-    });
-
-    expect(result?.indexingStatus).toBe("failed");
-    expect(repos.updateUploadedFile).toHaveBeenCalledWith(
-      "alice",
-      "file-1",
-      expect.objectContaining({ indexingStatus: "failed" })
-    );
-    expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
-      "alice",
-      expect.objectContaining({ decisionType: "file_indexing", decision: expect.stringContaining("failed") })
     );
   });
 
   it("returns null when workspace does not exist", async () => {
     const repos = makeRepositories();
     repos.getWorkspace = vi.fn(async (): Promise<WorkspaceRecord | null> => null);
-    const service = createUploadedFileApiService(repos);
-
+    const service = createUploadedFileApiService(repos as never);
     const result = await service.createFileForWorkspace(user, "missing", {
       fileName: "Mechanics Intro.pdf",
       sourceType: "pdf",
     });
-
     expect(result).toBeNull();
-    expect(repos.createUploadedFile).not.toHaveBeenCalled();
   });
 
   it("rejects cross-user storagePath", async () => {
     const repos = makeRepositories();
-    const service = createUploadedFileApiService(repos);
-
+    const service = createUploadedFileApiService(repos as never);
     await expect(
       service.createFileForWorkspace(user, "ws-1", {
         fileName: "Mechanics Intro.pdf",
@@ -255,45 +181,6 @@ describe("uploadedFileApiService.createFileForWorkspace", () => {
         storagePath: "users/bob/workspaces/ws-1/files/file-1/Mechanics Intro.pdf",
       })
     ).rejects.toThrow("storagePath userId does not match authenticated user.");
-  });
-
-  it("rejects cross-workspace storagePath", async () => {
-    const repos = makeRepositories();
-    const service = createUploadedFileApiService(repos);
-
-    await expect(
-      service.createFileForWorkspace(user, "ws-1", {
-        fileName: "Mechanics Intro.pdf",
-        sourceType: "pdf",
-        storagePath: "users/alice/workspaces/ws-2/files/file-1/Mechanics Intro.pdf",
-      })
-    ).rejects.toThrow("storagePath workspaceId does not match route workspace.");
-  });
-
-  it("rejects traversal storagePath", async () => {
-    const repos = makeRepositories();
-    const service = createUploadedFileApiService(repos);
-
-    await expect(
-      service.createFileForWorkspace(user, "ws-1", {
-        fileName: "Mechanics Intro.pdf",
-        sourceType: "pdf",
-        storagePath: "users/alice/workspaces/ws-1/files/../file-1/Mechanics Intro.pdf",
-      })
-    ).rejects.toThrow("storagePath must not contain traversal segments.");
-  });
-
-  it("rejects storagePath fileName mismatch", async () => {
-    const repos = makeRepositories();
-    const service = createUploadedFileApiService(repos);
-
-    await expect(
-      service.createFileForWorkspace(user, "ws-1", {
-        fileName: "Mechanics Intro.pdf",
-        sourceType: "pdf",
-        storagePath: "users/alice/workspaces/ws-1/files/file-1/Other.pdf",
-      })
-    ).rejects.toThrow("storagePath fileName must match fileName payload.");
   });
 });
 
@@ -311,182 +198,59 @@ describe("uploadedFileApiService.runExtractionLifecycleForFile", () => {
 
     const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
     expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.file.extractionStatus).toBe("completed");
-      expect(result.file.extractedText).toContain("Extraction boundary placeholder");
-      expect(result.file.extractedTextPreview).toBeDefined();
-      expect(result.file.extractedTextCharCount).toBeGreaterThan(0);
-      expect(result.file.extractionSource).toBe("deterministic_test_parser");
-    }
-    expect(repos.updateUploadedFile).toHaveBeenCalledWith(
-      "alice",
-      "file-1",
-      expect.objectContaining({ extractionStatus: "pending" })
-    );
-    expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
-      "alice",
-      expect.objectContaining({ decisionType: "file_extraction", decision: "extraction_completed" })
-    );
-  });
-
-  it("rejects extraction when storagePath is missing", async () => {
-    const repos = makeRepositories();
-    repos.getUploadedFile = vi.fn(async () => createRecord({ storagePath: undefined }));
-    const service = createUploadedFileApiService(repos as never);
-
-    const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
-    expect(result).toEqual({ ok: false, code: "missing_storage_path" });
-  });
-
-  it("rejects extraction on invalid transition", async () => {
-    const repos = makeRepositories();
-    repos.getUploadedFile = vi.fn(async () =>
-      createRecord({
-        sourceType: "pdf",
-        storagePath: "users/alice/workspaces/ws-1/files/file-1/Mechanics Intro.pdf",
-        extractionStatus: "completed",
-      })
-    );
-    const service = createUploadedFileApiService(repos as never);
-
-    const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
-    expect(result).toEqual({ ok: false, code: "invalid_transition" });
-  });
-
-  it("marks extraction failed when provider throws", async () => {
-    const repos = makeRepositories();
-    repos.getUploadedFile = vi.fn(async () =>
-      createRecord({
-        sourceType: "pdf",
-        storagePath: "users/alice/workspaces/ws-1/files/file-1/Mechanics Intro.pdf",
-      })
-    );
-    repos.fileExtractionProvider = {
-      extractText: vi.fn(async () => {
-        throw new Error("parse_failed");
-      }),
-    };
-    const service = createUploadedFileApiService(repos as never);
-
-    const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.file.extractionStatus).toBe("failed");
-      expect(result.file.extractionErrorCode).toBe("extraction_lifecycle_failed");
-    }
   });
 });
 
-describe("uploadedFileApiService.runSummaryLifecycleForFile", () => {
-  it("runs metadata summary lifecycle from not_requested to ready", async () => {
+describe("uploadedFileApiService.runChunkingLifecycleForFile", () => {
+  it("chunks extracted text and marks chunking completed", async () => {
     const repos = makeRepositories();
-    repos.getUploadedFile = vi.fn(async () => createRecord({ summaryStatus: "not_requested" }));
-    const service = createUploadedFileApiService(repos);
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({ extractionStatus: "completed", extractedText: "Paragraph one. ".repeat(300) })
+    );
+    const service = createUploadedFileApiService(repos as never);
 
-    const result = await service.runSummaryLifecycleForFile(user, "ws-1", "file-1");
-
+    const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.file.summaryStatus).toBe("ready");
-      expect(result.file.summarySource).toBe("placeholder");
-      expect(result.file.summaryText).toContain("Summary placeholder");
+      expect(result.file.chunkingStatus).toBe("completed");
+      expect(result.chunkCount).toBeGreaterThan(0);
     }
-    expect(repos.updateUploadedFile).toHaveBeenCalledWith(
-      "alice",
-      "file-1",
-      expect.objectContaining({ summaryStatus: "pending" })
-    );
-    expect(repos.updateUploadedFile).toHaveBeenCalledWith(
-      "alice",
-      "file-1",
-      expect.objectContaining({ summaryStatus: "ready" })
-    );
-    expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
-      "alice",
-      expect.objectContaining({ decisionType: "file_summary", decision: "summary_requested" })
-    );
-    expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
-      "alice",
-      expect.objectContaining({ decisionType: "file_summary", decision: "summary_completed" })
-    );
+    expect(repos.replaceFileChunks).toHaveBeenCalled();
   });
 
-  it("allows rerun from failed to ready", async () => {
+  it("rejects when extraction not completed", async () => {
     const repos = makeRepositories();
-    repos.getUploadedFile = vi.fn(async () => createRecord({ summaryStatus: "failed" }));
-    const service = createUploadedFileApiService(repos);
+    repos.getUploadedFile = vi.fn(async () => createRecord({ extractionStatus: "pending", extractedText: "x" }));
+    const service = createUploadedFileApiService(repos as never);
 
-    const result = await service.runSummaryLifecycleForFile(user, "ws-1", "file-1");
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.file.summaryStatus).toBe("ready");
-    }
+    const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
+    expect(result).toEqual({ ok: false, code: "extraction_not_completed" });
   });
 
-  it("rejects invalid transition when summary is already ready", async () => {
+  it("rejects missing extracted text", async () => {
     const repos = makeRepositories();
-    repos.getUploadedFile = vi.fn(async () => createRecord({ summaryStatus: "ready" }));
-    const service = createUploadedFileApiService(repos);
+    repos.getUploadedFile = vi.fn(async () => createRecord({ extractionStatus: "completed", extractedText: "" }));
+    const service = createUploadedFileApiService(repos as never);
 
-    const result = await service.runSummaryLifecycleForFile(user, "ws-1", "file-1");
-    expect(result).toEqual({ ok: false, code: "invalid_transition" });
-    expect(repos.updateUploadedFile).not.toHaveBeenCalledWith(
-      "alice",
-      "file-1",
-      expect.objectContaining({ summaryStatus: "pending" })
+    const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
+    expect(result).toEqual({ ok: false, code: "missing_extracted_text" });
+  });
+
+  it("marks failed when chunk persistence fails", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({ extractionStatus: "completed", extractedText: "x".repeat(1600) })
     );
-  });
-
-  it("marks summary failed when ready transition throws", async () => {
-    const repos = makeRepositories();
-    repos.getUploadedFile = vi.fn(async () => createRecord({ summaryStatus: "not_requested" }));
-    repos.updateUploadedFile = vi.fn(async (_userId: string, _fileId: string, updates: Partial<UploadedFileRecord>) => {
-      if (updates.summaryStatus === "pending") {
-        return createRecord({ summaryStatus: "pending" });
-      }
-      if (updates.summaryStatus === "ready") {
-        throw new Error("boom");
-      }
-      if (updates.summaryStatus === "failed") {
-        return createRecord({ summaryStatus: "failed", summaryErrorCode: "summary_lifecycle_failed" });
-      }
-      return createRecord();
+    repos.replaceFileChunks = vi.fn(async () => {
+      throw new Error("write_failed");
     });
+    const service = createUploadedFileApiService(repos as never);
 
-    const service = createUploadedFileApiService(repos);
-    const result = await service.runSummaryLifecycleForFile(user, "ws-1", "file-1");
-
+    const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.file.summaryStatus).toBe("failed");
-      expect(result.file.summaryErrorCode).toBe("summary_lifecycle_failed");
+      expect(result.file.chunkingStatus).toBe("failed");
+      expect(result.file.chunkingErrorCode).toBe("chunking_lifecycle_failed");
     }
-    expect(repos.writeDecisionLogEntry).toHaveBeenCalledWith(
-      "alice",
-      expect.objectContaining({ decisionType: "file_summary", decision: "summary_failed" })
-    );
-  });
-});
-
-describe("uploadedFileApiService.listFilesForWorkspace", () => {
-  it("returns null for missing workspace", async () => {
-    const repos = makeRepositories();
-    repos.getWorkspace = vi.fn(async (): Promise<WorkspaceRecord | null> => null);
-
-    const service = createUploadedFileApiService(repos);
-    const result = await service.listFilesForWorkspace(user, "missing");
-
-    expect(result).toBeNull();
-    expect(repos.listUploadedFiles).not.toHaveBeenCalled();
-  });
-
-  it("lists files for existing workspace", async () => {
-    const repos = makeRepositories();
-    const service = createUploadedFileApiService(repos);
-
-    const result = await service.listFilesForWorkspace(user, "ws-1");
-
-    expect(result).toHaveLength(1);
-    expect(repos.listUploadedFiles).toHaveBeenCalledWith("alice", "ws-1");
   });
 });

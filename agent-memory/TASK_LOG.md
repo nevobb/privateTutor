@@ -2,19 +2,25 @@
 
 ## Recent tasks
 
-### Phase 16 — Text extraction/parsing boundary
-- Branch: `codex/phase16-text-extraction-boundary`
+### Phase 17 — File chunking boundary
+- Branch: `codex/phase17-file-chunking-boundary`
 - Status: implemented on branch
 - Result:
-  - Added extraction lifecycle fields to uploaded file metadata.
-  - Added deterministic extraction provider boundary.
-  - Added extraction service lifecycle and API route:
-    - `POST /api/workspaces/[workspaceId]/files/[fileId]/extract`
-  - Added extraction decision-log lifecycle events.
-  - Added focused tests for provider/service/route/repository mapping.
+  - Added chunking lifecycle fields to uploaded-file metadata.
+  - Added deterministic chunker and file chunk repository.
+  - Added chunking service lifecycle and API route:
+    - `POST /api/workspaces/[workspaceId]/files/[fileId]/chunks`
+  - Added chunking decision-log lifecycle events.
+  - Added focused tests for chunker/repository/service/route and regressions.
 - Notes:
-  - Tutor still does not use extracted text for retrieval/answers.
-  - No real PDF/DOCX parser dependency was added.
+  - Tutor still does not use chunk content for retrieval/answers.
+  - No embeddings or vector retrieval was added.
+
+### Phase 16 — Text extraction/parsing boundary
+- Branch: `codex/phase16-text-extraction-boundary`
+- Status: merged
+- Result:
+  - Added extraction lifecycle fields + deterministic extraction provider boundary.
 
 ### Phase 15 — Real file upload foundation
 - Branch: `codex/phase15-real-file-upload-foundation`

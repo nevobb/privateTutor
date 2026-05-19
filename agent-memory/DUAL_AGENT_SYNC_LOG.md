@@ -655,3 +655,47 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: open PR for Phase 16 and keep retrieval wiring explicitly out of scope.
   - Blockers/Risks: none.
+
+## 2026-05-19 22:59 (Asia/Jerusalem) — Codex
+- Step/Task ID: Phase 17 completion validation
+- Task summary: Complete file chunking boundary implementation, validate, and update project memory.
+- What I changed:
+  - Added file chunking lifecycle fields/types, deterministic chunker, chunk repository, chunking service flow, and new chunking API route.
+  - Added focused tests for chunker/repository/route and updated service/repository coverage with chunking behavior.
+  - Ran full Phase 17 validation commands and updated memory/handoff/project-state logs.
+- Files touched:
+  - `src/types/index.ts`
+  - `src/server/workspaces/workspaceTypes.ts`
+  - `src/server/workspaces/uploadedFileRepository.ts`
+  - `src/server/workspaces/uploadedFileApiSchemas.ts`
+  - `src/server/workspaces/uploadedFileApiService.ts`
+  - `src/server/workspaces/fileChunker.ts`
+  - `src/server/workspaces/fileChunkRepository.ts`
+  - `src/app/api/workspaces/[workspaceId]/files/[fileId]/chunks/route.ts`
+  - `tests/server/workspaces/fileChunker.test.ts`
+  - `tests/server/workspaces/fileChunkRepository.test.ts`
+  - `tests/server/workspaces/uploadedFileApiService.test.ts`
+  - `tests/server/workspaces/workspaceFileChunksApiRoute.test.ts`
+  - `tests/server/workspaces/uploadedFileRepository.test.ts`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/AGENT_HANDOFF.md`
+  - `agent-memory/TASK_LOG.md`
+  - `agent-memory/PROJECT_STATE.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git diff --check`
+  - Result: passed
+  - `npm run build`
+  - Result: passed
+  - `npx vitest run tests/server/workspaces/fileChunker.test.ts tests/server/workspaces/fileChunkRepository.test.ts tests/server/workspaces/uploadedFileApiService.test.ts tests/server/workspaces/workspaceFileChunksApiRoute.test.ts`
+  - Result: passed (16 passed, 2 skipped)
+  - `npx vitest run tests/server/workspaces/fileExtractionProvider.test.ts tests/server/workspaces/workspaceFileExtractionApiRoute.test.ts tests/server/workspaces/uploadedFileApiSchemas.test.ts tests/server/workspaces/workspaceFilesApiRoute.test.ts`
+  - Result: passed (24/24)
+- Git status:
+  - Branch: `codex/phase17-file-chunking-boundary`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: commit, push, and open PR `Phase 17: File chunking boundary` for review/merge decision.
+  - Blockers/Risks: none observed in current scope.

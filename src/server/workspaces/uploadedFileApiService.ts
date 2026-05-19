@@ -8,6 +8,11 @@ import {
   updateUploadedFile,
 } from "./uploadedFileRepository";
 import { fileExtractionProvider as defaultFileExtractionProvider } from "./fileExtractionProvider";
+import { chunkExtractedText } from "./fileChunker";
+import {
+  listFileChunks as defaultListFileChunks,
+  replaceFileChunks as defaultReplaceFileChunks,
+} from "./fileChunkRepository";
 import type { CreateUploadedFileApiRequest } from "./uploadedFileApiSchemas";
 import type { UploadedFileRecord } from "./workspaceTypes";
 
@@ -16,6 +21,7 @@ const SUMMARY_PLACEHOLDER_TEXT = "Summary placeholder; content extraction not en
 const SUMMARY_FAILURE_CODE = "summary_lifecycle_failed";
 const EXTRACTION_FAILURE_CODE = "extraction_lifecycle_failed";
 const EXTRACTION_PREVIEW_MAX_CHARS = 280;
+const CHUNKING_FAILURE_CODE = "chunking_lifecycle_failed";
 
 type SummaryRunFailureCode = "workspace_not_found" | "file_not_found" | "invalid_transition";
 
@@ -34,6 +40,17 @@ type ExtractionRunResult =
   | { ok: true; file: UploadedFileRecord }
   | { ok: false; code: ExtractionRunFailureCode };
 
+type ChunkingRunFailureCode =
+  | "workspace_not_found"
+  | "file_not_found"
+  | "extraction_not_completed"
+  | "missing_extracted_text"
+  | "invalid_transition";
+
+type ChunkingRunResult =
+  | { ok: true; file: UploadedFileRecord; chunkCount: number }
+  | { ok: false; code: ChunkingRunFailureCode };
+
 export interface UploadedFileApiService {
   createFileForWorkspace(
     user: AuthenticatedUser,
@@ -51,6 +68,11 @@ export interface UploadedFileApiService {
     workspaceId: string,
     fileId: string
   ): Promise<ExtractionRunResult>;
+  runChunkingLifecycleForFile(
+    user: AuthenticatedUser,
+    workspaceId: string,
+    fileId: string
+  ): Promise<ChunkingRunResult>;
 }
 
 export class UploadedFileValidationError extends Error {
@@ -68,6 +90,8 @@ interface Repositories {
   listUploadedFiles: typeof listUploadedFiles;
   writeDecisionLogEntry: typeof writeDecisionLogEntry;
   fileExtractionProvider: typeof defaultFileExtractionProvider;
+  listFileChunks: typeof defaultListFileChunks;
+  replaceFileChunks: typeof defaultReplaceFileChunks;
 }
 
 function defaultRepositories(): Repositories {
@@ -79,6 +103,8 @@ function defaultRepositories(): Repositories {
     listUploadedFiles,
     writeDecisionLogEntry,
     fileExtractionProvider: defaultFileExtractionProvider,
+    listFileChunks: defaultListFileChunks,
+    replaceFileChunks: defaultReplaceFileChunks,
   };
 }
 
@@ -123,6 +149,10 @@ export function createUploadedFileApiService(
         extractionSource: undefined,
         extractionErrorCode: null,
         extractionUpdatedAt: null,
+        chunkingStatus: "not_started",
+        chunkCount: undefined,
+        chunkingErrorCode: null,
+        chunkingUpdatedAt: null,
       });
 
       await Promise.all([
@@ -378,6 +408,104 @@ export function createUploadedFileApiService(
           return { ok: false, code: "file_not_found" };
         }
         return { ok: true, file: failed };
+      }
+    },
+
+    async runChunkingLifecycleForFile(user, workspaceId, fileId) {
+      const workspace = await repositories.getWorkspace(user.userId, workspaceId);
+      if (!workspace) {
+        return { ok: false, code: "workspace_not_found" };
+      }
+
+      const current = await repositories.getUploadedFile(user.userId, fileId);
+      if (!current || current.workspaceId !== workspaceId) {
+        return { ok: false, code: "file_not_found" };
+      }
+
+      if (current.extractionStatus !== "completed") {
+        return { ok: false, code: "extraction_not_completed" };
+      }
+
+      if (!current.extractedText || current.extractedText.trim().length === 0) {
+        return { ok: false, code: "missing_extracted_text" };
+      }
+
+      if (current.chunkingStatus === "pending") {
+        return { ok: false, code: "invalid_transition" };
+      }
+
+      await repositories.writeDecisionLogEntry(user.userId, {
+        decisionType: "file_chunking",
+        title: "Chunking lifecycle",
+        decision: "chunking_requested",
+        rationale: "Chunking lifecycle started from extracted text boundary.",
+        workspaceId,
+      });
+
+      try {
+        const pending = await repositories.updateUploadedFile(user.userId, fileId, {
+          chunkingStatus: "pending",
+          chunkingErrorCode: null,
+          chunkingUpdatedAt: new Date(),
+        });
+        if (!pending) {
+          return { ok: false, code: "file_not_found" };
+        }
+
+        const chunks = chunkExtractedText({ text: current.extractedText });
+        const chunkRecords = chunks.map((chunk) => ({
+          chunkId: `chunk_${String(chunk.chunkIndex).padStart(4, "0")}`,
+          userId: user.userId,
+          workspaceId,
+          fileId,
+          text: chunk.text,
+          chunkIndex: chunk.chunkIndex,
+          charStart: chunk.charStart,
+          charEnd: chunk.charEnd,
+          tokenEstimate: chunk.tokenEstimate,
+          source: "extracted_text" as const,
+        }));
+
+        await repositories.replaceFileChunks(user.userId, workspaceId, fileId, chunkRecords);
+
+        const completed = await repositories.updateUploadedFile(user.userId, fileId, {
+          chunkingStatus: "completed",
+          chunkCount: chunkRecords.length,
+          chunkingErrorCode: null,
+          chunkingUpdatedAt: new Date(),
+        });
+        if (!completed) {
+          return { ok: false, code: "file_not_found" };
+        }
+
+        await repositories.writeDecisionLogEntry(user.userId, {
+          decisionType: "file_chunking",
+          title: "Chunking lifecycle",
+          decision: "chunking_completed",
+          rationale: `Chunking completed with ${chunkRecords.length} deterministic chunks.`,
+          workspaceId,
+        });
+
+        return { ok: true, file: completed, chunkCount: chunkRecords.length };
+      } catch {
+        const failed = await repositories.updateUploadedFile(user.userId, fileId, {
+          chunkingStatus: "failed",
+          chunkingErrorCode: CHUNKING_FAILURE_CODE,
+          chunkingUpdatedAt: new Date(),
+        });
+
+        await repositories.writeDecisionLogEntry(user.userId, {
+          decisionType: "file_chunking",
+          title: "Chunking lifecycle",
+          decision: "chunking_failed",
+          rationale: "Chunking lifecycle failed and status marked failed.",
+          workspaceId,
+        });
+
+        if (!failed) {
+          return { ok: false, code: "file_not_found" };
+        }
+        return { ok: true, file: failed, chunkCount: failed.chunkCount ?? 0 };
       }
     },
   };

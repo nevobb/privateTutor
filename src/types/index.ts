@@ -14,6 +14,7 @@ export type FileIndexingStatus =
 
 export type FileSummaryStatus = "not_requested" | "pending" | "ready" | "failed";
 export type FileExtractionStatus = "not_started" | "pending" | "completed" | "failed";
+export type FileChunkingStatus = "not_started" | "pending" | "completed" | "failed";
 
 // Extended to include spec lifecycle values alongside legacy "candidate"
 export type MemoryObservationState =
@@ -127,8 +128,26 @@ export interface UploadedFile {
   extractionSource?: "deterministic_test_parser" | "manual_placeholder" | "future_real_parser";
   extractionErrorCode?: string | null;
   extractionUpdatedAt?: Date | null;
+  chunkingStatus?: FileChunkingStatus;
+  chunkCount?: number;
+  chunkingErrorCode?: string | null;
+  chunkingUpdatedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+export interface FileChunk {
+  chunkId: string;
+  userId: string;
+  workspaceId: string;
+  fileId: string;
+  text: string;
+  chunkIndex: number;
+  charStart: number;
+  charEnd: number;
+  tokenEstimate: number;
+  source: "extracted_text";
+  createdAt: string;
 }
 
 // STRICT RULE: AcademicKnowledgeItem is separate from LearnerMemory
@@ -271,6 +290,7 @@ export interface DecisionLogEntry {
     | "file_indexing"
     | "file_summary"
     | "file_extraction"
+    | "file_chunking"
     | "model_provider"
     | "cost_mode"
     | "mock_alignment";
