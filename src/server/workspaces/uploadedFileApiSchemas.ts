@@ -32,6 +32,10 @@ export interface UploadedFileApiResponse {
   extractionSource?: UploadedFileRecord["extractionSource"];
   extractionErrorCode: string | null;
   extractionUpdatedAt: string | null;
+  chunkingStatus: UploadedFileRecord["chunkingStatus"];
+  chunkCount?: number;
+  chunkingErrorCode: string | null;
+  chunkingUpdatedAt: string | null;
   uploadedAt: string;
   createdAt: string;
   updatedAt: string;
@@ -111,6 +115,10 @@ export function toUploadedFileApiResponse(record: UploadedFileRecord): UploadedF
     extractionSource: record.extractionSource,
     extractionErrorCode: record.extractionErrorCode ?? null,
     extractionUpdatedAt: record.extractionUpdatedAt ? record.extractionUpdatedAt.toISOString() : null,
+    chunkingStatus: record.chunkingStatus ?? "not_started",
+    chunkCount: record.chunkCount,
+    chunkingErrorCode: record.chunkingErrorCode ?? null,
+    chunkingUpdatedAt: record.chunkingUpdatedAt ? record.chunkingUpdatedAt.toISOString() : null,
     uploadedAt: record.uploadedAt.toISOString(),
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),

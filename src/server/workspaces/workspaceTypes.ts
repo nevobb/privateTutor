@@ -1,6 +1,7 @@
 import type {
   CostMode,
   DecisionLogEntry,
+  FileChunk,
   SourceCitation,
   TutorMessage,
   UploadedFile,
@@ -63,6 +64,10 @@ export interface UploadedFileRecord extends UploadedFile {
   updatedAt: Date;
 }
 
+export interface FileChunkRecord extends Omit<FileChunk, "createdAt"> {
+  createdAt: Date;
+}
+
 export interface CreateWorkspaceInput {
   name: string;
   description?: string;
@@ -121,6 +126,10 @@ export interface CreateUploadedFileInput {
   extractionSource?: UploadedFileRecord["extractionSource"];
   extractionErrorCode?: UploadedFileRecord["extractionErrorCode"];
   extractionUpdatedAt?: UploadedFileRecord["extractionUpdatedAt"];
+  chunkingStatus: UploadedFileRecord["chunkingStatus"];
+  chunkCount?: UploadedFileRecord["chunkCount"];
+  chunkingErrorCode?: UploadedFileRecord["chunkingErrorCode"];
+  chunkingUpdatedAt?: UploadedFileRecord["chunkingUpdatedAt"];
 }
 
 export function toDate(value: unknown): Date {

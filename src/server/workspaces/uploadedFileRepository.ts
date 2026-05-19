@@ -42,6 +42,10 @@ export async function createUploadedFile(
       extractionSource: input.extractionSource,
       extractionErrorCode: input.extractionErrorCode,
       extractionUpdatedAt: input.extractionUpdatedAt,
+      chunkingStatus: input.chunkingStatus,
+      chunkCount: input.chunkCount,
+      chunkingErrorCode: input.chunkingErrorCode,
+      chunkingUpdatedAt: input.chunkingUpdatedAt,
       createdAt: now,
       updatedAt: now,
     };
@@ -104,6 +108,10 @@ export async function updateUploadedFile(
       | "extractionSource"
       | "extractionErrorCode"
       | "extractionUpdatedAt"
+      | "chunkingStatus"
+      | "chunkCount"
+      | "chunkingErrorCode"
+      | "chunkingUpdatedAt"
     >
   >
 ): Promise<UploadedFileRecord | null> {
@@ -139,6 +147,10 @@ export async function updateUploadedFile(
       extractionSource: updates.extractionSource ?? current.extractionSource,
       extractionErrorCode: updates.extractionErrorCode ?? current.extractionErrorCode,
       extractionUpdatedAt: updates.extractionUpdatedAt ?? current.extractionUpdatedAt,
+      chunkingStatus: updates.chunkingStatus ?? current.chunkingStatus,
+      chunkCount: updates.chunkCount ?? current.chunkCount,
+      chunkingErrorCode: updates.chunkingErrorCode ?? current.chunkingErrorCode,
+      chunkingUpdatedAt: updates.chunkingUpdatedAt ?? current.chunkingUpdatedAt,
       updatedAt: new Date(),
     };
 
@@ -180,6 +192,10 @@ function mapUploadedFileRecord(id: string, data: Record<string, unknown>): Uploa
     extractionSource: mapExtractionSource(data.extractionSource),
     extractionErrorCode: typeof data.extractionErrorCode === "string" ? data.extractionErrorCode : null,
     extractionUpdatedAt: data.extractionUpdatedAt ? toDate(data.extractionUpdatedAt) : null,
+    chunkingStatus: mapChunkingStatus(data.chunkingStatus),
+    chunkCount: typeof data.chunkCount === "number" ? data.chunkCount : undefined,
+    chunkingErrorCode: typeof data.chunkingErrorCode === "string" ? data.chunkingErrorCode : null,
+    chunkingUpdatedAt: data.chunkingUpdatedAt ? toDate(data.chunkingUpdatedAt) : null,
     createdAt: toDate(data.createdAt),
     updatedAt: toDate(data.updatedAt),
   };
@@ -250,6 +266,13 @@ function mapExtractionSource(value: unknown): UploadedFileRecord["extractionSour
     return value;
   }
   return undefined;
+}
+
+function mapChunkingStatus(value: unknown): UploadedFileRecord["chunkingStatus"] {
+  if (value === "not_started" || value === "pending" || value === "completed" || value === "failed") {
+    return value;
+  }
+  return "not_started";
 }
 
 function compactRecord(record: object): Record<string, unknown> {
