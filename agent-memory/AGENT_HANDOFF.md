@@ -5,39 +5,35 @@
 2. `AGENTS.md`
 3. `agent-memory/PROJECT_STATE.md`
 4. `agent-memory/CURRENT_TASK.md`
-5. `agent-memory/DECISIONS.md`
-6. `agent-memory/TASK_LOG.md`
-7. `agent-memory/OPEN_QUESTIONS.md`
+5. `agent-memory/MVP_VALIDATION_REPORT.md`
+6. `agent-memory/DECISIONS.md`
+7. `agent-memory/TASK_LOG.md`
+8. `agent-memory/OPEN_QUESTIONS.md`
 
 ## Current status
-- Phase 19 provider prompt-context injection implemented and validated.
-- MVP upload → extract → chunk → retrieve → ground → answer pipeline is complete (with placeholder extraction).
+- Phase 20 MVP validation complete.
+- Full pipeline validated: upload metadata → extraction boundary → chunking → keyword retrieval → grounded provider call → session transcript.
 
-## What Phase 19 added
-- `GroundingChunkContext` / `TutorGroundingContext` types in `schemas.ts`.
-- `groundingContext?: TutorGroundingContext` on `TutorRequest`.
-- `deepseekGroundingPrompt.ts`: bounded SOURCE block formatter.
-- DeepSeek provider injects SOURCE blocks into system prompt when grounding context provided.
-- Mock provider records grounding metadata in decision log.
-- Session service: after chunk retrieval, makes a second grounded provider call; replaces message content with grounded answer.
-
-## Flow summary (Phase 19)
+## MVP pipeline summary (Phases 15–19)
 ```
-User message
-  → provider call 1 (no grounding, classification + retrieval decision)
-  → executeRetrievalForTutorResponse → chunk retrieval (Phase 18)
-  → if chunks found: provider call 2 with groundingContext
-  → message.content = grounded answer from call 2
-  → citations, retrieval.used = true (Phase 18 metadata)
-  → decision log: grounded provider call executed
+Upload (Phase 15)
+  → Extraction boundary (Phase 16) — deterministic placeholder, no real PDF parser
+  → Chunking (Phase 17) — persisted FileChunk under files/{fileId}/chunks/{chunkId}
+  → Keyword retrieval (Phase 18) — token/keyword scoring, maxChunks + maxTokens budget
+  → Grounded provider call (Phase 19) — SOURCE blocks in system prompt, second provider call
+  → Session transcript — one user + one grounded tutor message
 ```
 
 ## Important boundaries
-- Retrieval is deterministic keyword-based. NOT semantic/vector.
-- Real PDF/DOCX parsing not yet implemented (placeholder active).
-- No embeddings, no Gemini/Genkit.
+- Extraction is a deterministic placeholder — `extractedText` is stub, not real file content.
+- Retrieval is keyword/token matching — NOT semantic, NOT vector, no embeddings.
+- No Gemini, no Genkit, no OCR.
+
+## Validated in Phase 20
+- 15 behavior tests covering happy path, negative paths, and boundary assertions.
+- Core regression tests: 43 passed.
 
 ## Next recommended step
-- Phase 20: end-to-end MVP validation / behavior regression testing with real uploaded files.
-- OR: replace deterministic extraction placeholder with real PDF parser.
-- OR: connect Gemini/real model provider for quality grounded answers.
+1. **Real extraction parser** — replace deterministic placeholder with actual PDF parser. This is the highest-impact next step.
+2. **Source transparency UI** — display chunk citations in chat.
+3. **Semantic retrieval** — if keyword retrieval proves insufficient.

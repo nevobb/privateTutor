@@ -2,6 +2,20 @@
 
 ## Recent tasks
 
+### Phase 20 — MVP validation and behavior regression
+- Branch: `codex/phase20-mvp-validation`
+- Status: implemented on branch
+- Result:
+  - Added `tests/behavior/mvpFileLearningPipeline.test.ts` — 15 behavior tests.
+  - Happy path: full pipeline retrieval+grounding+transcript shape.
+  - Negative paths: no eligible chunks, no matching chunks, needs_retrieval=false, web scope.
+  - Boundary assertions: no "semantic"/"vector" in why strings, citation sourceId format.
+  - Added `agent-memory/MVP_VALIDATION_REPORT.md`.
+- Notes:
+  - No new features. Pure validation phase.
+  - Extraction placeholder still active (no real PDF parser).
+  - MVP usable for controlled personal testing.
+
 ### Phase 19 — Provider prompt-context injection / grounded tutor answer
 - Branch: `codex/phase19-grounded-tutor-answer`
 - Status: implemented on branch
