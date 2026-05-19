@@ -1,7 +1,9 @@
 # Current Task
 
 ## Status
-Batch 5 / Phase 14 implemented and validated on branch — policy-gated web retrieval execution now runs in session message flow for `retrieval_scope=web` with requested/executed/skipped/conflict decision-log coverage and passing focused tests.
+Batch 5 / Phase 13 implemented and validated on branch — work-mode policy guardrails now enforce Temporary Chat memory suppression, Practice retrieval minimization, Research web-policy eligibility logging, and Build project-context scope behavior in session execution flow.
+Batch 5 / Phase 12 implemented and validated on branch — retrieval execution now enforces cost-mode budget caps (Cheap/Normal/Deep) with focused budget tests.
+Batch 5 / Phase 11 implemented and validated on branch — learner memory candidate detection/write policy and memory viewer CRUD/approve/reject are now wired end-to-end.
 Batch 4 / Phase 10 implemented and validated on branch — retrieval execution now runs in session message flow when `retrieval_decision.needs_retrieval=true`, with execution/skipped/failed decision-log coverage and passing focused retrieval/session tests.
 Batch 4 / Phase 9 (Option A) implemented and validated on branch — metadata-only summary lifecycle contract (`POST /api/workspaces/[workspaceId]/files/[fileId]/summary`) plus summary metadata fields on file create/list responses, with decision-log coverage and passing focused tests.
 Batch 4 / Phase 8 implemented and validated on branch, pending merge via PR #43 — metadata-first file intake/classify/index lifecycle server-side (`/api/workspaces/[workspaceId]/files` GET/POST), with decision-log coverage and passing focused tests.
@@ -13,28 +15,6 @@ Step 41C complete — decision trace diagnostics API added (`GET /api/decision-l
 Step 41B complete — harness decision events now persist through session message API decision-log path.
 Step 40B complete — DeepSeek smoke test passed (real provider + persistence + isolation).
 Step 40C complete — conversation history passed to DeepSeek on every message.
-
-## What was done in Batch 5 / Phase 14
-- Added `webSearchProvider` boundary (`src/server/tutor/webSearchProvider.ts`) with deterministic mock results for execution scaffolding.
-- Extended tutor decision event union with:
-  - `web_search_requested`
-  - `web_search_executed`
-  - `web_search_skipped`
-  - `web_search_conflict`
-- Extended `sessionMessageApiService` retrieval execution:
-  - when `retrieval_scope=web`, run dedicated web-search execution path
-  - allow execution only when:
-    - `workMode=Research`
-    - user message contains freshness/recentness cue
-  - otherwise skip with explicit `internalUpdate.retrieval.why`
-  - attach web citations from selected web hits and write web decision-log events
-  - emit conflict event when results include both support/conflict stances
-- Mapped all `web_search_*` events to persisted `DecisionLogEntry.decisionType = "web_search"`.
-- Added service tests covering:
-  - executed path (including conflict event)
-  - policy-skip path (no provider execution)
-- Added report:
-  - `agent-memory/BATCH5_PHASE14_WEB_SEARCH_REPORT.md`
 
 ## What was done in Step 40A
 - Created `TutorProvider` interface (`src/server/tutor/tutorProviderInterface.ts`)
@@ -71,10 +51,64 @@ Step 40C complete — conversation history passed to DeepSeek on every message.
 - Added report: `DEEPSEEK_SMOKE_TEST_REPORT.md`
 
 ## Next proposed task
-Repo hygiene + full validation pass before PR:
-- remove duplicate scratch test artifacts (`* 2.ts`) from working tree
-- run full build/lint/test matrix
-- then prepare Phase 9+10 combined PR scope review
+Phase 14 — Web search execution boundary:
+- introduce web execution provider boundary (Google Search Grounding MVP contract)
+- allow web execution only when justified and explicitly disclosed
+- record decision-log entries for web usage and source/conflict visibility
+
+## What was done in Batch 5 / Phase 13
+- Added work-mode policy guardrails at service layer before retrieval execution:
+  - `Temporary Chat`: force `learner_memory_update` to none, skip memory candidate persistence, emit `memory_not_written`
+  - `Practice`: clamp retrieval scope to `none|session|topic` and emit minimization policy event
+  - `Research`: keep broad scope and log web-policy eligibility without adding web execution provider
+  - `Build`: promote retrieval-enabled session scope to workspace project-context scope and log policy event
+- Added new decision event type:
+  - `work_mode_policy` (mapped to existing `decisionType: retrieval_scope`)
+- Kept `POST /api/sessions/[sessionId]/messages` response shape unchanged.
+- Added focused service tests covering all four mode-policy behaviors.
+- Added report:
+  - `agent-memory/BATCH5_PHASE13_WORK_MODES_REPORT.md`
+
+## What was done in Batch 5 / Phase 12
+- Added retrieval-decision fallback generation in session message service when provider output is missing `retrieval_decision`.
+- Enforced execution-time effective retrieval budget as:
+  - `effectiveMaxChunks = min(decision.max_chunks, cost_mode_cap.maxChunks)`
+  - `effectiveMaxTokens = min(decision.max_tokens, cost_mode_cap.maxTokens)`
+- Added mode caps:
+  - Cheap Practice: `2 chunks`, `2000 tokens`
+  - Normal Learning: `4 chunks`, `5000 tokens`
+  - Deep Research: `10 chunks`, `12000 tokens`
+- Added budget observability in retrieval execution decision event detail (applied caps recorded).
+- Added focused service tests to verify budget caps are applied per cost mode.
+- Added report:
+  - `agent-memory/BATCH5_PHASE12_COST_MODES_REPORT.md`
+
+## What was done in Batch 5 / Phase 11
+- Added learner-memory persistence boundary:
+  - repository under user-scoped path `users/{userId}/learnerMemory`
+  - create/list/get/update/delete operations
+- Added learner-memory API routes:
+  - `GET /api/learner-memory`
+  - `PATCH /api/learner-memory/[observationId]` (`edit|approve|reject`)
+  - `DELETE /api/learner-memory/[observationId]`
+- Added memory write policy integration in session message flow:
+  - high confidence + `small_auto` + no contradiction/deletion-like intent => auto-save (`state=active`)
+  - otherwise => proposed memory (`state=tentative`, requires approval)
+  - decision log policy event written as `memory_write` or `memory_not_written`
+- Added memory type detection fallback for:
+  - `preference`
+  - `difficulty`
+  - `correction`
+  - `explanation_pattern`
+  - `pacing`
+  - `behavior_rule`
+- Replaced mock memory viewer in sidebar with real API-backed viewer:
+  - view observations
+  - edit observation content
+  - delete observation
+  - approve/reject proposed memory
+- Added report:
+  - `agent-memory/BATCH5_PHASE11_MEMORY_REPORT.md`
 
 ## What was done in Batch 4 / Phase 10
 - Added retrieval execution in `sessionMessageApiService` based on provider retrieval boundary decisions.

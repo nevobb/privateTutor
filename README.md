@@ -1,36 +1,109 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# privateTutor
 
-## Getting Started
+`privateTutor` is a personal adaptive academic tutor web app.
 
-First, run the development server:
+Core product principle: **Understanding before progress**.
+
+The current codebase is a Next.js + Firebase-backed MVP foundation with strict boundaries around auth, ownership, and internal decision logging.
+
+## Current Status
+
+Implemented in repository:
+- Firebase Auth emulator flow
+- Workspace API/UI
+- Session API/UI
+- Session transcript persistence
+- Decision Log persistence + diagnostics API/UI
+- DeepSeek provider integration behind provider boundary
+- Retrieval decision boundary and execution scaffolding
+- Metadata-only file lifecycle (`/api/workspaces/[workspaceId]/files`)
+- Metadata-only file summary lifecycle (`/api/workspaces/[workspaceId]/files/[fileId]/summary`)
+- Cost-mode and work-mode guardrails in session service
+- Learner-memory API/service boundary
+
+Still mocked or intentionally not implemented:
+- Real Gemini provider integration
+- Genkit integration
+- Real file upload and storage ingestion
+- Real file content extraction/chunking/vector indexing
+- Production web search provider integration
+- Production Firebase deployment
+
+## Tech Stack
+
+- Next.js 16 (App Router)
+- React 19
+- TypeScript
+- Firebase client SDK
+- Vitest
+
+## Local Setup
+
+Requirements:
+- Node.js 20+
+- npm
+
+Install:
+
+```bash
+npm install
+```
+
+Run dev server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- [http://localhost:3000](http://localhost:3000)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment
 
-## Learn More
+Copy example file and edit local values as needed:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+cp .env.local.example .env.local
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Notes:
+- Keep secrets in `.env.local` only.
+- Do not commit `.env*` files with real credentials.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Testing
 
-## Deploy on Vercel
+Focused service tests:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npx vitest run tests/server/workspaces/sessionMessageApiService.test.ts
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Full Firebase rules suite:
+
+```bash
+npm run test:firebase:rules
+```
+
+Build verification:
+
+```bash
+npm run build
+```
+
+## Repository Protocol
+
+Before implementation work in this repo, read:
+
+1. `AGENT_TASK_PROTOCOL.md`
+2. `agent-memory/PROJECT_STATE.md`
+3. `agent-memory/CURRENT_TASK.md`
+4. `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+
+Agent continuity is maintained in `agent-memory/*`.
+
+## Safety Boundaries
+
+- Do not work directly on `main`.
+- Do not add cloud deployment steps in routine implementation tasks.
+- Do not introduce external provider integrations outside approved phase scope.

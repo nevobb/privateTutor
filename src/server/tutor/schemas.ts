@@ -39,6 +39,7 @@ export interface DecisionLogEvent {
     | "retrieval_executed"
     | "retrieval_skipped"
     | "retrieval_failed"
+    | "work_mode_policy"
     | "web_search_requested"
     | "web_search_executed"
     | "web_search_skipped"

@@ -12,10 +12,13 @@ import { serializeMessage } from "./sessionMessageApiSchemas";
 import { getSession as defaultGetSession } from "./sessionRepository";
 import { getWorkspace as defaultGetWorkspace } from "./workspaceRepository";
 import { writeDecisionLogEntry as defaultWriteDecisionLogEntry } from "./decisionLogRepository";
+import { learnerMemoryApiService as defaultLearnerMemoryApiService } from "./learnerMemoryApiService";
 import type { MessageRecord } from "./workspaceTypes";
 import type { DecisionLogEvent } from "../tutor/schemas";
 import type { DecisionLogEntry } from "../../types";
 import type { TutorBoundaryResponse } from "../tutor/schemas";
+import { decideRetrievalBoundary } from "../tutor/retrievalDecisionBoundary";
+import type { CostMode, RetrievalBoundaryDecision, RetrievalScope, WorkMode } from "../../types";
 import { webSearchProvider as defaultWebSearchProvider } from "../tutor/webSearchProvider";
 
 // Maximum number of previous turns to include as context for the AI provider.
@@ -43,6 +46,7 @@ interface Repositories {
   appendMessage: typeof defaultAppendMessage;
   listUploadedFiles: typeof defaultListUploadedFiles;
   writeDecisionLogEntry: typeof defaultWriteDecisionLogEntry;
+  processMemoryCandidate: typeof defaultLearnerMemoryApiService.processMemoryCandidate;
   webSearchProvider: typeof defaultWebSearchProvider;
   getMockTutorResponse: (
     message: string,
@@ -77,6 +81,7 @@ function defaultRepositories(): Repositories {
     appendMessage: defaultAppendMessage,
     listUploadedFiles: defaultListUploadedFiles,
     writeDecisionLogEntry: defaultWriteDecisionLogEntry,
+    processMemoryCandidate: defaultLearnerMemoryApiService.processMemoryCandidate,
     webSearchProvider: defaultWebSearchProvider,
     getMockTutorResponse: defaultGetTutorResponse,
   };
@@ -126,14 +131,56 @@ export function createSessionMessageApiService(
         conversationHistory
       );
 
+      const retrievalDecision = ensureRetrievalDecision(
+        tutorResponse,
+        input.userMessage,
+        input.workMode,
+        input.costMode
+      );
+
+      const guardedDecision = applyWorkModeGuardrails(
+        tutorResponse,
+        retrievalDecision,
+        input.workMode,
+        input.costMode
+      );
+
       const retrievalExecution = await executeRetrievalForTutorResponse(
         repositories,
         userId,
         input.workspaceId,
         input.userMessage,
         input.workMode,
-        tutorResponse
+        tutorResponse,
+        guardedDecision,
+        input.costMode
       );
+
+      if (input.workMode === "Temporary Chat") {
+        tutorResponse.internalUpdate.learner_memory_update = {
+          needed: false,
+          update_type: "none",
+          memory_type: "none",
+          content: "",
+          confidence: 0,
+        };
+        tutorResponse.decisionLogEvents = [
+          ...(tutorResponse.decisionLogEvents ?? []),
+          {
+            type: "memory_not_written",
+            title: "Temporary chat memory write skipped",
+            detail: "Temporary Chat avoids permanent learner memory writes by policy.",
+          },
+        ];
+      } else {
+        await repositories.processMemoryCandidate({
+          user: typeof user === "string" ? { userId, email: `${userId}@local` } : user,
+          workspaceId: input.workspaceId,
+          userMessage: input.userMessage,
+          internalUpdate: tutorResponse.internalUpdate,
+          temporaryChat: false,
+        });
+      }
 
       const assistantRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
         role: "tutor",
@@ -192,11 +239,12 @@ async function executeRetrievalForTutorResponse(
   userId: string,
   workspaceId: string,
   userMessage: string,
-  workMode: string,
-  tutorResponse: TutorBoundaryResponse
+  workMode: WorkMode,
+  tutorResponse: TutorBoundaryResponse,
+  decision: RetrievalBoundaryDecision,
+  costMode: CostMode
 ): Promise<{ citations: TutorBoundaryResponse["message"]["citations"] }> {
-  const decision = tutorResponse.internalUpdate.retrieval_decision;
-  if (!decision?.needs_retrieval) {
+  if (!decision.needs_retrieval) {
     tutorResponse.internalUpdate.retrieval = {
       ...tutorResponse.internalUpdate.retrieval,
       used: false,
@@ -227,6 +275,9 @@ async function executeRetrievalForTutorResponse(
   }
 
   try {
+    const modeBudget = getRetrievalBudgetForCostMode(costMode);
+    const effectiveMaxChunks = Math.max(1, Math.min(decision.max_chunks, modeBudget.maxChunks));
+    const effectiveMaxTokens = Math.min(decision.max_tokens, modeBudget.maxTokens);
     const files = await repositories.listUploadedFiles(userId, workspaceId);
     const indexed = files.filter((file) => file.indexingStatus === "indexed");
 
@@ -251,7 +302,7 @@ async function executeRetrievalForTutorResponse(
       const scoreB = (b.summaryStatus === "ready" ? 2 : 0) + (b.confidence ?? 0);
       return scoreB - scoreA;
     });
-    const selected = ranked.slice(0, Math.max(1, decision.max_chunks));
+    const selected = ranked.slice(0, effectiveMaxChunks);
     const sourceIds = selected.map((file) => file.id);
 
     tutorResponse.internalUpdate.retrieval = {
@@ -273,7 +324,7 @@ async function executeRetrievalForTutorResponse(
     tutorResponse.decisionLogEvents.push({
       type: "retrieval_executed",
       title: "Retrieval executed",
-      detail: `selected_sources=${sourceIds.join(",")}; indexed_candidates=${indexed.length}`,
+      detail: `selected_sources=${sourceIds.join(",")}; indexed_candidates=${indexed.length}; applied_max_chunks=${effectiveMaxChunks}; applied_max_tokens=${effectiveMaxTokens}`,
     });
 
     return { citations: citations.length > 0 ? citations : tutorResponse.message.citations };
@@ -296,7 +347,7 @@ async function executeRetrievalForTutorResponse(
 async function executeWebSearchRetrieval(
   repositories: Repositories,
   userMessage: string,
-  workMode: string,
+  workMode: WorkMode,
   maxChunks: number,
   tutorResponse: TutorBoundaryResponse
 ): Promise<{ citations: TutorBoundaryResponse["message"]["citations"] }> {
@@ -328,7 +379,7 @@ async function executeWebSearchRetrieval(
   tutorResponse.decisionLogEvents?.push({
     type: "web_search_requested",
     title: "Web search requested",
-    detail: "Research mode + freshness cue detected; executing web provider.",
+    detail: "Research mode + freshness cue detected; executing deterministic web provider.",
   });
 
   try {
@@ -399,6 +450,111 @@ async function executeWebSearchRetrieval(
   }
 }
 
+function ensureRetrievalDecision(
+  tutorResponse: TutorBoundaryResponse,
+  message: string,
+  workMode: Parameters<typeof decideRetrievalBoundary>[0]["workMode"],
+  costMode: CostMode
+): RetrievalBoundaryDecision {
+  const existing = tutorResponse.internalUpdate.retrieval_decision;
+  if (existing) {
+    return existing;
+  }
+
+  const fallback = decideRetrievalBoundary({
+    message,
+    workMode,
+    costMode,
+  });
+  tutorResponse.internalUpdate.retrieval_decision = fallback;
+  tutorResponse.decisionLogEvents = [
+    ...(tutorResponse.decisionLogEvents ?? []),
+    {
+      type: "retrieval_scope",
+      title: "Retrieval boundary decision (service fallback)",
+      detail: [
+        `needs_retrieval=${fallback.needs_retrieval ? "true" : "false"}`,
+        `retrieval_scope=${fallback.retrieval_scope}`,
+        `max_chunks=${fallback.max_chunks}`,
+        `max_tokens=${fallback.max_tokens}`,
+      ].join("; "),
+    },
+  ];
+  return fallback;
+}
+
+function getRetrievalBudgetForCostMode(costMode: CostMode): { maxChunks: number; maxTokens: number } {
+  if (costMode === "Cheap Practice") {
+    return { maxChunks: 2, maxTokens: 2000 };
+  }
+  if (costMode === "Deep Research") {
+    return { maxChunks: 10, maxTokens: 12000 };
+  }
+  return { maxChunks: 4, maxTokens: 5000 };
+}
+
+function applyWorkModeGuardrails(
+  tutorResponse: TutorBoundaryResponse,
+  decision: RetrievalBoundaryDecision,
+  workMode: WorkMode,
+  costMode: CostMode
+): RetrievalBoundaryDecision {
+  let next = { ...decision };
+
+  if (workMode === "Practice") {
+    const scoped = clampScope(next.retrieval_scope, ["none", "session", "topic"]);
+    next = {
+      ...next,
+      retrieval_scope: scoped,
+      needs_retrieval: scoped !== "none" && next.needs_retrieval,
+    };
+
+    tutorResponse.decisionLogEvents = [
+      ...(tutorResponse.decisionLogEvents ?? []),
+      {
+        type: "work_mode_policy",
+        title: "Practice retrieval minimization applied",
+        detail: `scope=${next.retrieval_scope}; costMode=${costMode}`,
+      },
+    ];
+  }
+
+  if (workMode === "Research") {
+    tutorResponse.decisionLogEvents = [
+      ...(tutorResponse.decisionLogEvents ?? []),
+      {
+        type: "work_mode_policy",
+        title: "Research web policy eligibility",
+        detail:
+          next.retrieval_scope === "web"
+            ? "Web scope is policy-allowed in Research mode and may execute when freshness cues are present."
+            : `Research scope=${next.retrieval_scope}.`,
+      },
+    ];
+  }
+
+  if (workMode === "Build") {
+    if (next.needs_retrieval && (next.retrieval_scope === "none" || next.retrieval_scope === "session")) {
+      next = { ...next, retrieval_scope: "workspace" };
+    }
+    tutorResponse.decisionLogEvents = [
+      ...(tutorResponse.decisionLogEvents ?? []),
+      {
+        type: "work_mode_policy",
+        title: "Build project-context policy applied",
+        detail: `scope=${next.retrieval_scope}; retrieval=${next.needs_retrieval ? "enabled" : "disabled"}`,
+      },
+    ];
+  }
+
+  tutorResponse.internalUpdate.retrieval_decision = next;
+  return next;
+}
+
+function clampScope(scope: RetrievalScope, allowed: RetrievalScope[]): RetrievalScope {
+  return allowed.includes(scope) ? scope : "topic";
+}
+
 function mapDecisionType(eventType: DecisionLogEvent["type"]): DecisionLogEntry["decisionType"] {
   switch (eventType) {
     case "memory_not_written":
@@ -408,6 +564,7 @@ function mapDecisionType(eventType: DecisionLogEvent["type"]): DecisionLogEntry[
     case "retrieval_executed":
     case "retrieval_skipped":
     case "retrieval_failed":
+    case "work_mode_policy":
       return "retrieval_scope";
     case "web_search_requested":
     case "web_search_executed":
