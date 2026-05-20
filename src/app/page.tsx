@@ -108,6 +108,7 @@ export default function Home() {
   const [fileProcessingStatusById, setFileProcessingStatusById] = useState<
     Record<string, string | undefined>
   >({});
+  const [pendingFilesByFileId, setPendingFilesByFileId] = useState<Record<string, File | undefined>>({});
 
   useEffect(() => {
     try {
@@ -306,7 +307,7 @@ export default function Home() {
         }
 
         setFileUploadStatus({ state: "saving_metadata" });
-        await createWorkspaceFileMetadata({
+        const createdFile = await createWorkspaceFileMetadata({
           workspaceId: activeWorkspaceId,
           idToken: token,
           fileName: uploaded.fileName,
@@ -314,6 +315,7 @@ export default function Home() {
           storagePath: uploaded.storagePath,
         });
 
+        setPendingFilesByFileId((prev) => ({ ...prev, [createdFile.id]: file }));
         await reloadWorkspaceFiles();
         setFileUploadStatus({
           state: "done",
@@ -338,12 +340,27 @@ export default function Home() {
       const token = await getToken();
       if (!token) return;
 
+      const fileForExtraction = pendingFilesByFileId[fileId];
+      if (!fileForExtraction) {
+        setFileProcessingStatusById((prev) => ({
+          ...prev,
+          [fileId]: "File bytes not available. Re-upload the file to extract content.",
+        }));
+        return;
+      }
+
       setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: "Extracting content..." }));
       try {
         await runWorkspaceFileExtraction({
           workspaceId: activeWorkspaceId,
           fileId,
           idToken: token,
+          file: fileForExtraction,
+        });
+        setPendingFilesByFileId((prev) => {
+          const next = { ...prev };
+          delete next[fileId];
+          return next;
         });
         await reloadWorkspaceFiles();
         setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: "Extraction completed." }));
@@ -353,7 +370,7 @@ export default function Home() {
         setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: message }));
       }
     },
-    [activeWorkspaceId, authState.status, getToken, reloadWorkspaceFiles]
+    [activeWorkspaceId, authState.status, getToken, pendingFilesByFileId, reloadWorkspaceFiles]
   );
 
   const handleChunkFile = useCallback(

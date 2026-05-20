@@ -66,7 +66,11 @@ export async function runWorkspaceFileExtraction(input: {
   workspaceId: string;
   fileId: string;
   idToken: string;
+  file: File;
 }): Promise<WorkspaceFileItem> {
+  const formData = new FormData();
+  formData.append("file", input.file, input.file.name);
+
   const res = await runWorkspaceFilesRequest(
     `/api/workspaces/${input.workspaceId}/files/${input.fileId}/extract`,
     {
@@ -74,6 +78,7 @@ export async function runWorkspaceFileExtraction(input: {
       headers: {
         Authorization: `Bearer ${input.idToken}`,
       },
+      body: formData,
     }
   );
 

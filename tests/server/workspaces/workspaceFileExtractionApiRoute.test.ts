@@ -36,8 +36,15 @@ function context(workspaceId: string, fileId: string) {
   return { params: Promise.resolve({ workspaceId, fileId }) };
 }
 
+function makeMultipartRequest(url: string): Request {
+  const formData = new FormData();
+  const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+  formData.append("file", new Blob([pdfBytes], { type: "application/pdf" }), "test.pdf");
+  return new Request(url, { method: "POST", body: formData });
+}
+
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   mockIsUnavailable.mockReturnValue(false);
 });
 
@@ -55,11 +62,24 @@ describe("POST /api/workspaces/[workspaceId]/files/[fileId]/extract", () => {
   it("returns 400 for missing params", async () => {
     const handler = createWorkspaceFileExtractPostHandler(okAuth());
     const response = await handler(
-      new Request("http://localhost/api/workspaces/ws-1/files/file-1/extract", { method: "POST" }),
+      makeMultipartRequest("http://localhost/api/workspaces/ws-1/files/file-1/extract"),
       context("", "")
     );
 
     expect(response.status).toBe(400);
+  });
+
+  it("returns 400 when no file bytes provided", async () => {
+    const handler = createWorkspaceFileExtractPostHandler(okAuth());
+    const response = await handler(
+      new Request("http://localhost/api/workspaces/ws-1/files/file-1/extract", { method: "POST" }),
+      context("ws-1", "file-1")
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json() as { error: string };
+    expect(body.error).toContain("File bytes are required");
+    expect(mockRunExtraction).not.toHaveBeenCalled();
   });
 
   it("returns 404 when workspace or file is missing", async () => {
@@ -67,7 +87,7 @@ describe("POST /api/workspaces/[workspaceId]/files/[fileId]/extract", () => {
 
     const handler = createWorkspaceFileExtractPostHandler(okAuth());
     const response = await handler(
-      new Request("http://localhost/api/workspaces/ws-1/files/file-1/extract", { method: "POST" }),
+      makeMultipartRequest("http://localhost/api/workspaces/ws-1/files/file-1/extract"),
       context("ws-1", "file-1")
     );
 
@@ -79,7 +99,7 @@ describe("POST /api/workspaces/[workspaceId]/files/[fileId]/extract", () => {
 
     const handler = createWorkspaceFileExtractPostHandler(okAuth());
     const response = await handler(
-      new Request("http://localhost/api/workspaces/ws-1/files/file-1/extract", { method: "POST" }),
+      makeMultipartRequest("http://localhost/api/workspaces/ws-1/files/file-1/extract"),
       context("ws-1", "file-1")
     );
 
@@ -92,14 +112,14 @@ describe("POST /api/workspaces/[workspaceId]/files/[fileId]/extract", () => {
 
     const handler = createWorkspaceFileExtractPostHandler(okAuth());
     const response = await handler(
-      new Request("http://localhost/api/workspaces/ws-1/files/file-1/extract", { method: "POST" }),
+      makeMultipartRequest("http://localhost/api/workspaces/ws-1/files/file-1/extract"),
       context("ws-1", "file-1")
     );
 
     expect(response.status).toBe(503);
   });
 
-  it("returns 200 and serialized updated file", async () => {
+  it("returns 200 and serialized updated file when multipart file provided", async () => {
     const now = new Date();
     mockRunExtraction.mockResolvedValueOnce({
       ok: true,
@@ -114,10 +134,10 @@ describe("POST /api/workspaces/[workspaceId]/files/[fileId]/extract", () => {
         indexingStatus: "indexed",
         sourceType: "pdf",
         extractionStatus: "completed",
-        extractedText: "placeholder text",
-        extractedTextPreview: "placeholder text",
-        extractedTextCharCount: 16,
-        extractionSource: "deterministic_test_parser",
+        extractedText: "Real extracted content from PDF.",
+        extractedTextPreview: "Real extracted content from PDF.",
+        extractedTextCharCount: 32,
+        extractionSource: "pdf_parse_pdf_parser",
         extractionErrorCode: null,
         extractionUpdatedAt: now,
         createdAt: now,
@@ -128,12 +148,17 @@ describe("POST /api/workspaces/[workspaceId]/files/[fileId]/extract", () => {
 
     const handler = createWorkspaceFileExtractPostHandler(okAuth());
     const response = await handler(
-      new Request("http://localhost/api/workspaces/ws-1/files/file-1/extract", { method: "POST" }),
+      makeMultipartRequest("http://localhost/api/workspaces/ws-1/files/file-1/extract"),
       context("ws-1", "file-1")
     );
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ id: "file-1", extractionStatus: "completed" });
-    expect(mockRunExtraction).toHaveBeenCalledWith(expect.objectContaining({ userId: "alice" }), "ws-1", "file-1");
+    expect(mockRunExtraction).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "alice" }),
+      "ws-1",
+      "file-1",
+      expect.any(Buffer)
+    );
   });
 });

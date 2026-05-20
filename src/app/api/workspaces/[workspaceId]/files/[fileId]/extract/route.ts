@@ -42,18 +42,19 @@ export function createWorkspaceFileExtractPostHandler(authResolver: AuthResolver
     try {
       const fileBuffer = await readFileBufferFromRequest(request);
 
-      const result = fileBuffer
-        ? await uploadedFileApiService.runExtractionLifecycleForFile(
-            authResult.user,
-            workspaceId,
-            fileId,
-            fileBuffer
-          )
-        : await uploadedFileApiService.runExtractionLifecycleForFile(
-            authResult.user,
-            workspaceId,
-            fileId
-          );
+      if (!fileBuffer) {
+        return Response.json(
+          { error: "File bytes are required for extraction. Send file as multipart/form-data." },
+          { status: 400 }
+        );
+      }
+
+      const result = await uploadedFileApiService.runExtractionLifecycleForFile(
+        authResult.user,
+        workspaceId,
+        fileId,
+        fileBuffer
+      );
 
       if (!result.ok) {
         if (result.code === "workspace_not_found" || result.code === "file_not_found") {
