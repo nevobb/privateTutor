@@ -1,36 +1,29 @@
 # Current Task
 
 ## Active task
-Step 26 — Gemini embeddings provider integration.
+Step 27A — Tutor Teaching Contract and Instruction Awareness.
 
 ## Status
-Completed on branch `codex/phase26-gemini-embedding-provider`.
+Completed on branch `step27a-tutor-teaching-contract`.
 
 ## What was implemented
-- Added real Gemini embedding provider (server-side) for `gemini-embedding-001`:
-  - `src/server/workspaces/geminiFileChunkEmbeddingProvider.ts`
-- Added provider selection:
-  - `EMBEDDING_PROVIDER=deterministic|gemini`
-  - `GEMINI_API_KEY` required only for `gemini`
-- Updated embedding input contract with purpose:
-  - `embeddingPurpose: document | query`
-- Chunk embeddings use document task (`RETRIEVAL_DOCUMENT`).
-- Query embeddings use query task (`QUESTION_ANSWERING`).
-- Embedding service now skips unchanged completed chunk embeddings when hash matches.
-- Semantic retrieval remains guarded and falls back to keyword retrieval on semantic/provider failure.
+- Source files added to `docs/tutor-contract/source/`
+- Compact runtime teaching contract in `src/server/tutor/teachingContract.ts`
+- TUTOR_TEACHING_CONTRACT injected into system prompt via `deepseekSystemPrompt.ts`
+- Deterministic instruction-awareness routing in `sessionMessageApiService.ts`
+- 36 tests in `tests/server/tutor/teachingContract.test.ts`
 
 ## Explicit boundaries preserved
-- No vector DB.
-- No parser changes.
-- No Gemini chat/Genkit migration.
-- No OCR/summaries.
-- No client-side API key exposure (`NEXT_PUBLIC_*` not used).
+- Math/LaTeX rendering NOT done (Step 27B)
+- Citation display NOT done
+- examples_knowledge.md NOT injected into runtime prompt
+- No API keys, no provider internals exposed to user
 
 ## Validation executed
-- `git diff --check` ✅
 - `npm run build` ✅
-- `npx vitest run tests/server/workspaces/geminiFileChunkEmbeddingProvider.test.ts tests/server/workspaces/fileChunkEmbeddingService.test.ts tests/server/workspaces/fileChunkSemanticRetrievalService.test.ts` ✅
-- `npx vitest run tests/server/workspaces/fileChunkEmbeddingProvider.test.ts tests/server/workspaces/fileChunkEmbeddingRepository.test.ts tests/server/workspaces/fileChunkRetrievalService.test.ts tests/server/workspaces/sessionMessageApiService.test.ts` ✅
+- `npx vitest run tests/server/tutor/teachingContract.test.ts` — 36/36 ✅
+- `npx vitest run tests/server/workspaces/sessionMessageApiService.test.ts ...` — 47/47 ✅
+- `gitleaks detect --source .` — no leaks ✅
 
 ## Recommended next phase
-Retrieval quality evaluation on real corpus and decision on full real-provider rollout tuning.
+Step 27B: Math/LaTeX rendering in the chat UI.

@@ -1,3 +1,4 @@
+import { isInstructionAwarenessQuestion, PUBLIC_TEACHING_CONTRACT_SUMMARY } from "../tutor/teachingContract";
 import { getMockTutorResponse as defaultGetMockTutorResponse } from "../../lib/tutor";
 import { getActiveTutorProvider } from "../tutor/providerRegistry";
 import type { ConversationTurn, TutorGroundingContext } from "../tutor/schemas";
@@ -132,6 +133,30 @@ export function createSessionMessageApiService(
         role: "user",
         content: input.userMessage,
       });
+
+      // Deterministic instruction-awareness: if the user asks how the tutor is supposed to teach,
+      // return the public teaching contract summary without calling the LLM provider.
+      if (isInstructionAwarenessQuestion(input.userMessage)) {
+        const assistantRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
+          role: "tutor",
+          content: PUBLIC_TEACHING_CONTRACT_SUMMARY,
+        });
+        return {
+          userMessage: serializeMessage(userRecord),
+          assistantMessage: serializeMessage(assistantRecord),
+          internalUpdate: {
+            detected_intent: "user_preference",
+            confidence: 1.0,
+            should_stop_progression: false,
+            local_question: { detected: false, reason: "" },
+            retrieval: { used: false, scope: "none", source_ids: [], why: "instruction_awareness_shortcut" },
+            retrieval_decision: { needs_retrieval: false, retrieval_scope: "none", max_chunks: 0, max_tokens: 0, should_ask_clarification_first: false },
+            learner_memory_update: { needed: false, update_type: "none", memory_type: "none", content: "", confidence: 0 },
+            knowledge_base_action: { needed: false, action: "none", confidence: 0, requires_user_confirmation: false },
+            decision_log_entries: [],
+          },
+        };
+      }
 
       const tutorResponse = await repositories.getMockTutorResponse(
         input.userMessage,
