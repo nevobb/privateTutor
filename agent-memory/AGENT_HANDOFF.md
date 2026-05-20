@@ -10,23 +10,23 @@
 7. `agent-memory/OPEN_QUESTIONS.md`
 
 ## Current status
-- Step 26 Gemini embedding provider integration completed on branch `codex/phase26-gemini-embedding-provider`.
-- Semantic retrieval can use real Gemini embeddings when configured.
+- Step 28B implemented locally on branch `step28b-production-firebase-mode` (not pushed).
+- App now supports explicit Firebase runtime mode split (emulator vs production).
 
-## What Step 26 added
-- Server-only Gemini embeddings provider (`gemini-embedding-001`).
-- Env-based provider selection (`EMBEDDING_PROVIDER`, `GEMINI_API_KEY`).
-- Task-type separation:
-  - `RETRIEVAL_DOCUMENT` for chunk/document embeddings
-  - `QUESTION_ANSWERING` for query embeddings
-- Unchanged-hash chunk embedding skip optimization.
-- Semantic failure path remains keyword fallback.
+## What Step 28B changed
+- Installed `firebase-admin` for server-only usage.
+- Added server runtime mode logic and Firebase Admin app initialization.
+- Added production token verifier and mode-based verifier selection.
+- Switched server Firestore access to admin-backed DB while preserving existing repository contracts.
+- Added client Firebase mode/runtime config with production env requirements and emulator-only connector behavior.
+- Added visible user identity details and sign-out action in sidebar.
+- Updated env example and added production setup doc.
 
 ## What is still out of scope
-- Vector DB.
-- Gemini chat/Genkit migration.
-- Parser changes.
-- OCR/summaries.
+- Preferences persistence (theme/text size/line width).
+- Session rename.
+- Session archive/delete.
+- Runtime mock cleanup.
 
 ## Next recommended step
-- Retrieval quality evaluation and provider tuning before broader rollout.
+Run full emulator + production manual smoke checklist and then decide whether to push Step 28B branch.

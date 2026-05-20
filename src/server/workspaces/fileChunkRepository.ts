@@ -1,4 +1,3 @@
-import { collection, deleteDoc, doc, getDocs, orderBy, query, setDoc } from "firebase/firestore/lite";
 import { withFirestoreEmulatorClient } from "../firebase/firestoreEmulatorClient";
 import type { FileChunkRecord } from "./workspaceTypes";
 import { toDate } from "./workspaceTypes";
@@ -23,8 +22,10 @@ export async function listFileChunks(
   fileId: string
 ): Promise<FileChunkRecord[]> {
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
-    const ref = collection(db, ...resolveChunksPath(userId, workspaceId, fileId));
-    const snapshot = await getDocs(query(ref, orderBy("chunkIndex", "asc")));
+    const snapshot = await db
+      .collection(resolveChunksPath(userId, workspaceId, fileId).join("/"))
+      .orderBy("chunkIndex", "asc")
+      .get();
 
     return snapshot.docs.map((item) => {
       const data = item.data() as Record<string, unknown>;
@@ -55,13 +56,12 @@ export async function listFileChunks(
 
 export async function deleteFileChunks(userId: string, workspaceId: string, fileId: string): Promise<void> {
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
-    const ref = collection(db, ...resolveChunksPath(userId, workspaceId, fileId));
-    const snapshot = await getDocs(ref);
+    const snapshot = await db.collection(resolveChunksPath(userId, workspaceId, fileId).join("/")).get();
 
     await Promise.all(
       snapshot.docs.map(async (item) => {
-        await deleteDoc(doc(db, ...resolveChunkEmbeddingPath(userId, workspaceId, fileId, item.id)));
-        await deleteDoc(doc(db, ...resolveChunksPath(userId, workspaceId, fileId), item.id));
+        await db.doc(resolveChunkEmbeddingPath(userId, workspaceId, fileId, item.id).join("/")).delete();
+        await db.doc(`${resolveChunksPath(userId, workspaceId, fileId).join("/")}/${item.id}`).delete();
       })
     );
   });
@@ -79,7 +79,7 @@ export async function replaceFileChunks(
     const now = new Date();
     await Promise.all(
       chunks.map((chunk) =>
-        setDoc(doc(db, ...resolveChunksPath(userId, workspaceId, fileId), chunk.chunkId), {
+        db.doc(`${resolveChunksPath(userId, workspaceId, fileId).join("/")}/${chunk.chunkId}`).set({
           text: chunk.text,
           chunkIndex: chunk.chunkIndex,
           charStart: chunk.charStart,
@@ -119,9 +119,9 @@ export async function updateFileChunkEmbeddingLifecycle(
   >
 ): Promise<void> {
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
-    await setDoc(doc(db, ...resolveChunksPath(userId, workspaceId, fileId), chunkId), compactRecord(updates), {
-      merge: true,
-    });
+    await db
+      .doc(`${resolveChunksPath(userId, workspaceId, fileId).join("/")}/${chunkId}`)
+      .set(compactRecord(updates), { merge: true });
   });
 }
 

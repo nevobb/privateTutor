@@ -14,6 +14,7 @@ import MemoryPanel from "../components/memory/MemoryPanel";
 import TutorConversation from "../components/tutor/TutorConversation";
 import { AuthShell } from "../components/auth/AuthShell";
 import { useClientAuth } from "../lib/firebase/useClientAuth";
+import { getClientFirebaseModeLabel } from "../lib/firebase/firebaseClientApp";
 import {
   fetchWorkspaces,
   createWorkspace,
@@ -84,7 +85,7 @@ function getSafeSessionErrorMessage(error: unknown, fallback: string): string {
 }
 
 export default function Home() {
-  const { authState, getToken, signIn } = useClientAuth();
+  const { authState, getToken, signIn, signOut } = useClientAuth();
   const [workspaceState, setWorkspaceState] = useState<WorkspaceLoadState>({
     status: "loading",
   });
@@ -518,21 +519,44 @@ export default function Home() {
     <div className="flex flex-col h-full" dir="ltr">
       {/* Sidebar header: app name + user */}
       <div
-        className="flex items-center justify-between px-4 py-4 flex-shrink-0"
+        className="px-4 py-3 flex-shrink-0 space-y-2"
         style={{ borderBottom: "1px solid var(--tutor-sidebar-border)" }}
       >
-        <span
-          className="text-lg font-semibold"
-          style={{
-            fontFamily: "'Lora', Georgia, serif",
-            color: "var(--tutor-sidebar-text-active)",
-            letterSpacing: "-0.01em",
-          }}
-        >
-          Private Tutor
-        </span>
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className="text-lg font-semibold"
+            style={{
+              fontFamily: "'Lora', Georgia, serif",
+              color: "var(--tutor-sidebar-text-active)",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            Private Tutor
+          </span>
+          {authState.status === "signed-in" && (
+            <button
+              type="button"
+              onClick={() => {
+                void signOut();
+              }}
+              className="rounded-md px-2 py-1 text-[11px] font-medium flex-shrink-0"
+              style={{
+                border: "1px solid var(--tutor-sidebar-border)",
+                color: "var(--tutor-sidebar-text-muted)",
+              }}
+            >
+              Sign out
+            </button>
+          )}
+        </div>
         {authState.status === "signed-in" && (
-          <div className="flex items-center gap-2">
+          <div
+            className="flex items-center gap-2 rounded-md px-2 py-1 min-w-0"
+            style={{
+              border: "1px solid var(--tutor-sidebar-border)",
+              background: "var(--tutor-sidebar-hover)",
+            }}
+          >
             <div
               className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
               style={{ background: "var(--tutor-accent)" }}
@@ -540,6 +564,21 @@ export default function Home() {
               aria-label={displayName ?? "משתמש"}
             >
               {avatarLetter}
+            </div>
+            <div className="min-w-0 leading-tight">
+              <div className="text-[11px] font-medium truncate" style={{ color: "var(--tutor-sidebar-text-active)" }}>
+                {authState.user?.displayName ?? "Signed in"}
+              </div>
+              <div
+                className="text-[10px] truncate"
+                style={{ color: "var(--tutor-sidebar-text-muted)" }}
+                title={authState.user?.email ?? undefined}
+              >
+                {authState.user?.email ?? "No email"}
+              </div>
+              <div className="text-[10px]" style={{ color: "var(--tutor-sidebar-text-muted)" }}>
+                Mode: {getClientFirebaseModeLabel()}
+              </div>
             </div>
           </div>
         )}

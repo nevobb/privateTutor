@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { collection, doc, getDoc, getDocs, orderBy, query, setDoc } from "firebase/firestore/lite";
 import { withFirestoreEmulatorClient } from "../firebase/firestoreEmulatorClient";
 import type { CreateSessionInput, SessionRecord } from "./workspaceTypes";
 import { toDate } from "./workspaceTypes";
@@ -15,8 +14,9 @@ export function sessionPath(
 
 async function assertWorkspaceOwnership(userId: string, workspaceId: string): Promise<void> {
   await withFirestoreEmulatorClient(userId, async ({ db }) => {
-    const workspaceSnapshot = await getDoc(doc(db, ...workspacePath(userId, workspaceId)));
-    if (!workspaceSnapshot.exists() || workspaceSnapshot.data().userId !== userId) {
+    const workspaceSnapshot = await db.doc(workspacePath(userId, workspaceId).join("/")).get();
+    const data = workspaceSnapshot.data() as { userId?: string } | undefined;
+    if (!workspaceSnapshot.exists || data?.userId !== userId) {
       throw new Error("Workspace not found.");
     }
   });
@@ -31,11 +31,11 @@ export async function createSession(
 
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const sessionId = input.id && input.id.trim() ? input.id : randomUUID();
-    const ref = doc(db, ...sessionPath(userId, workspaceId, sessionId));
-    const existing = await getDoc(ref);
+    const ref = db.doc(sessionPath(userId, workspaceId, sessionId).join("/"));
+    const existing = await ref.get();
 
-    if (existing.exists()) {
-      return mapSessionRecord(existing.id, existing.data());
+    if (existing.exists) {
+      return mapSessionRecord(existing.id, existing.data() ?? {});
     }
 
     const now = new Date();
@@ -60,8 +60,7 @@ export async function createSession(
       messageCount: 0,
     };
 
-    await setDoc(
-      ref,
+    await ref.set(
       compactRecord({
         ...record,
         createdAt: now,
@@ -77,11 +76,14 @@ export async function listSessions(userId: string, workspaceId: string): Promise
   await assertWorkspaceOwnership(userId, workspaceId);
 
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
-    const ref = collection(db, ...workspacePath(userId, workspaceId), "sessions");
-    const snapshot = await getDocs(query(ref, orderBy("updatedAt", "desc")));
+    const snapshot = await db
+      .collection(`${workspacePath(userId, workspaceId).join("/")}/sessions`)
+      .orderBy("updatedAt", "desc")
+      .get();
+
     return snapshot.docs
-      .filter((d) => d.data().userId === userId)
-      .map((d) => mapSessionRecord(d.id, d.data()));
+      .filter((d) => (d.data() as { userId?: string }).userId === userId)
+      .map((d) => mapSessionRecord(d.id, d.data() as Record<string, unknown>));
   });
 }
 
@@ -89,11 +91,12 @@ export async function getSession(userId: string, workspaceId: string, sessionId:
   await assertWorkspaceOwnership(userId, workspaceId);
 
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
-    const snapshot = await getDoc(doc(db, ...sessionPath(userId, workspaceId, sessionId)));
-    if (!snapshot.exists() || snapshot.data().userId !== userId) {
+    const snapshot = await db.doc(sessionPath(userId, workspaceId, sessionId).join("/")).get();
+    const data = snapshot.data() as { userId?: string } | undefined;
+    if (!snapshot.exists || data?.userId !== userId) {
       return null;
     }
-    return mapSessionRecord(snapshot.id, snapshot.data());
+    return mapSessionRecord(snapshot.id, data as Record<string, unknown>);
   });
 }
 

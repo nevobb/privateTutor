@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { collection, doc, getDoc, getDocs, orderBy, query, setDoc, updateDoc } from "firebase/firestore/lite";
 import { withFirestoreEmulatorClient } from "../firebase/firestoreEmulatorClient";
 import type { AppendMessageInput, MessageRecord } from "./workspaceTypes";
 import { toDate } from "./workspaceTypes";
@@ -17,13 +16,15 @@ function messagePath(
 
 async function assertSessionOwnership(userId: string, workspaceId: string, sessionId: string): Promise<void> {
   await withFirestoreEmulatorClient(userId, async ({ db }) => {
-    const workspaceSnapshot = await getDoc(doc(db, ...workspacePath(userId, workspaceId)));
-    if (!workspaceSnapshot.exists() || workspaceSnapshot.data().userId !== userId) {
+    const workspaceSnapshot = await db.doc(workspacePath(userId, workspaceId).join("/")).get();
+    const workspaceData = workspaceSnapshot.data() as { userId?: string } | undefined;
+    if (!workspaceSnapshot.exists || workspaceData?.userId !== userId) {
       throw new Error("Workspace not found.");
     }
 
-    const sessionSnapshot = await getDoc(doc(db, ...sessionPath(userId, workspaceId, sessionId)));
-    if (!sessionSnapshot.exists() || sessionSnapshot.data().userId !== userId) {
+    const sessionSnapshot = await db.doc(sessionPath(userId, workspaceId, sessionId).join("/")).get();
+    const sessionData = sessionSnapshot.data() as { userId?: string } | undefined;
+    if (!sessionSnapshot.exists || sessionData?.userId !== userId) {
       throw new Error("Session not found.");
     }
   });
@@ -40,16 +41,16 @@ export async function appendMessage(
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const messageId = randomUUID();
     const now = new Date();
-    const sessionRef = doc(db, ...sessionPath(userId, workspaceId, sessionId));
-    const workspaceRef = doc(db, ...workspacePath(userId, workspaceId));
-    const messageRef = doc(db, ...messagePath(userId, workspaceId, sessionId, messageId));
-    const sessionSnapshot = await getDoc(sessionRef);
+    const sessionRef = db.doc(sessionPath(userId, workspaceId, sessionId).join("/"));
+    const workspaceRef = db.doc(workspacePath(userId, workspaceId).join("/"));
+    const messageRef = db.doc(messagePath(userId, workspaceId, sessionId, messageId).join("/"));
+    const sessionSnapshot = await sessionRef.get();
 
-    if (!sessionSnapshot.exists()) {
+    if (!sessionSnapshot.exists) {
       throw new Error("Session not found.");
     }
 
-    const existingCount = Number(sessionSnapshot.data().messageCount ?? 0);
+    const existingCount = Number((sessionSnapshot.data() as { messageCount?: number }).messageCount ?? 0);
     const sequence = Number.isFinite(existingCount) ? existingCount + 1 : 1;
 
     const record: MessageRecord = {
@@ -67,13 +68,13 @@ export async function appendMessage(
       toolCallId: input.toolCallId,
     };
 
-    await setDoc(messageRef, compactRecord(record));
-    await updateDoc(sessionRef, {
+    await messageRef.set(compactRecord(record));
+    await sessionRef.update({
       updatedAt: now,
       lastMessageAt: now,
       messageCount: sequence,
     });
-    await updateDoc(workspaceRef, {
+    await workspaceRef.update({
       updatedAt: now,
       lastActivityAt: now,
       lastSessionId: sessionId,
@@ -93,10 +94,12 @@ export async function listSessionMessages(userId: string, workspaceId: string, s
   await assertSessionOwnership(userId, workspaceId, sessionId);
 
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
-    const messagesRef = collection(db, ...sessionPath(userId, workspaceId, sessionId), "messages");
-    const snapshot = await getDocs(query(messagesRef, orderBy("sequence", "asc")));
+    const snapshot = await db
+      .collection(`${sessionPath(userId, workspaceId, sessionId).join("/")}/messages`)
+      .orderBy("sequence", "asc")
+      .get();
 
-    return snapshot.docs.map((entry) => mapMessageRecord(entry.id, entry.data()));
+    return snapshot.docs.map((entry) => mapMessageRecord(entry.id, entry.data() as Record<string, unknown>));
   });
 }
 

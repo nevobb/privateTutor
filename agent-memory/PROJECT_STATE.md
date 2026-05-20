@@ -15,25 +15,28 @@
 - Step 23 merged: semantic/vector architecture decision.
 - Step 24 merged: embedding lifecycle boundary.
 - Step 25 merged: semantic retrieval execution with keyword fallback.
-- Step 26 completed on branch: Gemini embedding provider integration.
+- Step 26 merged: Gemini embedding provider integration.
+- Step 28A merged: personal use readiness audit report.
+- Step 28B implemented on branch `step28b-production-firebase-mode` (pending push/merge).
 
 ## Current capabilities
 - Upload → extraction → chunking → retrieval → grounded answer.
-- Embedding generation now supports:
-  - deterministic provider (default/test-safe)
-  - Gemini provider (opt-in via env)
-- Semantic retrieval can use real Gemini query embeddings when configured.
-- Keyword fallback remains in place.
+- Embedding generation supports deterministic + Gemini provider (env-selected).
+- Semantic retrieval has keyword fallback.
+- Firebase runtime now supports explicit mode split:
+  - Emulator mode for local/dev flow.
+  - Production mode foundations for real auth/token verification and server Firestore.
 
 ## Still not implemented
+- UI preferences persistence (theme/text size/line width).
+- Session rename.
+- Session archive/delete.
+- Runtime mock cleanup for real-study mode.
 - Vector DB.
-- Gemini/Genkit chat migration.
-- OCR/summaries.
-- Production Firebase deployment.
 
 ## Boundary note
-- Gemini API key is server-only (`GEMINI_API_KEY`, no `NEXT_PUBLIC_`).
-- Real Gemini provider is opt-in and not forced by default.
+- Gemini API key remains server-only (`GEMINI_API_KEY`, no `NEXT_PUBLIC_`).
+- Firebase Admin credentials are server-only and must never be committed.
 
 ## Recommended next phase
-- Retrieval quality evaluation and scoring/cost tuning with real study materials.
+- Complete Step 28B manual production smoke, then continue with Step 28C/28D personal-use UX/data controls.

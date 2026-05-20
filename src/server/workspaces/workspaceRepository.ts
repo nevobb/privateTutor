@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { collection, doc, getDocs, getDoc, orderBy, query, setDoc } from "firebase/firestore/lite";
 import { withFirestoreEmulatorClient } from "../firebase/firestoreEmulatorClient";
 import type { CreateWorkspaceInput, WorkspaceRecord } from "./workspaceTypes";
 import { toDate } from "./workspaceTypes";
@@ -12,7 +11,7 @@ export async function createWorkspace(userId: string, input: CreateWorkspaceInpu
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const workspaceId = randomUUID();
     const now = new Date();
-    const ref = doc(db, ...workspacePath(userId, workspaceId));
+    const ref = db.doc(workspacePath(userId, workspaceId).join("/"));
 
     const record: WorkspaceRecord = {
       id: workspaceId,
@@ -28,7 +27,7 @@ export async function createWorkspace(userId: string, input: CreateWorkspaceInpu
       lastActivityAt: now,
     };
 
-    await setDoc(ref, compactRecord(record));
+    await ref.set(compactRecord(record));
     return record;
   });
 }
@@ -40,11 +39,11 @@ export async function createWorkspaceWithId(
 ): Promise<WorkspaceRecord> {
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const now = new Date();
-    const ref = doc(db, ...workspacePath(userId, workspaceId));
-    const snapshot = await getDoc(ref);
+    const ref = db.doc(workspacePath(userId, workspaceId).join("/"));
+    const snapshot = await ref.get();
 
-    if (snapshot.exists()) {
-      return mapWorkspaceRecord(snapshot.id, snapshot.data());
+    if (snapshot.exists) {
+      return mapWorkspaceRecord(snapshot.id, snapshot.data() ?? {});
     }
 
     const record: WorkspaceRecord = {
@@ -61,33 +60,36 @@ export async function createWorkspaceWithId(
       lastActivityAt: now,
     };
 
-    await setDoc(ref, compactRecord(record));
+    await ref.set(compactRecord(record));
     return record;
   });
 }
 
 export async function listWorkspaces(userId: string): Promise<WorkspaceRecord[]> {
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
-    const ref = collection(db, "users", userId, "workspaces");
-    const snapshot = await getDocs(query(ref, orderBy("updatedAt", "desc")));
+    const snapshot = await db
+      .collection(`users/${userId}/workspaces`)
+      .orderBy("updatedAt", "desc")
+      .get();
+
     return snapshot.docs
       .filter((d) => {
         const data = d.data() as Record<string, unknown>;
         return getOwnerUserId(data) === userId;
       })
-      .map((d) => mapWorkspaceRecord(d.id, d.data()));
+      .map((d) => mapWorkspaceRecord(d.id, d.data() as Record<string, unknown>));
   });
 }
 
 export async function getWorkspace(userId: string, workspaceId: string): Promise<WorkspaceRecord | null> {
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
-    const snapshot = await getDoc(doc(db, ...workspacePath(userId, workspaceId)));
+    const snapshot = await db.doc(workspacePath(userId, workspaceId).join("/")).get();
 
-    if (!snapshot.exists()) {
+    if (!snapshot.exists) {
       return null;
     }
 
-    const data = snapshot.data() as Record<string, unknown>;
+    const data = (snapshot.data() ?? {}) as Record<string, unknown>;
     if (getOwnerUserId(data) !== userId) {
       return null;
     }
@@ -108,14 +110,14 @@ export async function moveWorkspace(
   input: MoveWorkspaceInput
 ): Promise<WorkspaceRecord | null> {
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
-    const ref = doc(db, ...workspacePath(userId, workspaceId));
-    const snapshot = await getDoc(ref);
+    const ref = db.doc(workspacePath(userId, workspaceId).join("/"));
+    const snapshot = await ref.get();
 
-    if (!snapshot.exists()) {
+    if (!snapshot.exists) {
       return null;
     }
 
-    const current = snapshot.data();
+    const current = (snapshot.data() ?? {}) as Record<string, unknown>;
     const ownerId =
       typeof current.userId === "string"
         ? current.userId
@@ -129,17 +131,12 @@ export async function moveWorkspace(
 
     const now = new Date();
     const existingRecord = mapWorkspaceRecord(snapshot.id, current);
-    const currentPath =
-      typeof current.currentPath === "string" ? current.currentPath : undefined;
+    const currentPath = typeof current.currentPath === "string" ? current.currentPath : undefined;
     const previousPaths = Array.isArray(current.previousPaths)
       ? current.previousPaths.filter((entry) => typeof entry === "string").map((entry) => String(entry))
       : [];
 
-    if (
-      currentPath &&
-      currentPath !== input.currentPath &&
-      !previousPaths.includes(currentPath)
-    ) {
+    if (currentPath && currentPath !== input.currentPath && !previousPaths.includes(currentPath)) {
       previousPaths.push(currentPath);
     }
 
@@ -161,7 +158,7 @@ export async function moveWorkspace(
       lastActivityAt: now,
     };
 
-    await setDoc(ref, compactRecord(nextRecord));
+    await ref.set(compactRecord(nextRecord));
     return nextRecord;
   });
 }

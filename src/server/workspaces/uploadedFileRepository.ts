@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { collection, doc, getDoc, getDocs, orderBy, query, setDoc } from "firebase/firestore/lite";
 import { withFirestoreEmulatorClient } from "../firebase/firestoreEmulatorClient";
 import type { CreateUploadedFileInput, UploadedFileRecord } from "./workspaceTypes";
 import { toDate } from "./workspaceTypes";
@@ -15,7 +14,7 @@ export async function createUploadedFile(
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const fileId = randomUUID();
     const now = new Date();
-    const ref = doc(db, ...uploadedFilePath(userId, fileId));
+    const ref = db.doc(uploadedFilePath(userId, fileId).join("/"));
 
     const record: UploadedFileRecord = {
       id: fileId,
@@ -50,16 +49,16 @@ export async function createUploadedFile(
       updatedAt: now,
     };
 
-    await setDoc(ref, compactRecord(record));
+    await ref.set(compactRecord(record));
     return record;
   });
 }
 
 export async function getUploadedFile(userId: string, fileId: string): Promise<UploadedFileRecord | null> {
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
-    const snapshot = await getDoc(doc(db, ...uploadedFilePath(userId, fileId)));
+    const snapshot = await db.doc(uploadedFilePath(userId, fileId).join("/")).get();
 
-    if (!snapshot.exists()) {
+    if (!snapshot.exists) {
       return null;
     }
 
@@ -74,8 +73,7 @@ export async function getUploadedFile(userId: string, fileId: string): Promise<U
 
 export async function listUploadedFiles(userId: string, workspaceId: string): Promise<UploadedFileRecord[]> {
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
-    const ref = collection(db, "users", userId, "uploadedFiles");
-    const snapshot = await getDocs(query(ref, orderBy("updatedAt", "desc")));
+    const snapshot = await db.collection(`users/${userId}/uploadedFiles`).orderBy("updatedAt", "desc").get();
 
     return snapshot.docs
       .filter((item) => {
@@ -116,10 +114,10 @@ export async function updateUploadedFile(
   >
 ): Promise<UploadedFileRecord | null> {
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
-    const ref = doc(db, ...uploadedFilePath(userId, fileId));
-    const snapshot = await getDoc(ref);
+    const ref = db.doc(uploadedFilePath(userId, fileId).join("/"));
+    const snapshot = await ref.get();
 
-    if (!snapshot.exists()) {
+    if (!snapshot.exists) {
       return null;
     }
 
@@ -154,7 +152,7 @@ export async function updateUploadedFile(
       updatedAt: new Date(),
     };
 
-    await setDoc(ref, compactRecord(next));
+    await ref.set(compactRecord(next));
     return next;
   });
 }

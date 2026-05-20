@@ -65,28 +65,73 @@ export function defaultClassification(temporary: boolean): HarnessClassification
 }
 
 export function parseHarnessJson(raw: string): HarnessJsonResponse | null {
+  const parsedRecord = parseHarnessRecord(raw);
+  if (!parsedRecord) {
+    return null;
+  }
+
+  if (typeof parsedRecord.message !== "string" || parsedRecord.message.trim().length === 0) {
+    return null;
+  }
+
+  return {
+    message: String(parsedRecord.message).trim(),
+    intent: isValidIntent(parsedRecord.intent) ? parsedRecord.intent : "factual_or_regular",
+    confidence: typeof parsedRecord.confidence === "number" ? parsedRecord.confidence : 0.7,
+    shouldStopProgression: Boolean(parsedRecord.shouldStopProgression),
+    localQuestionDetected: Boolean(parsedRecord.localQuestionDetected),
+    localQuestionReason:
+      typeof parsedRecord.localQuestionReason === "string" ? parsedRecord.localQuestionReason : "",
+    memoryUpdateNeeded: Boolean(parsedRecord.memoryUpdateNeeded),
+    memoryUpdateType: isValidMemoryUpdateType(parsedRecord.memoryUpdateType)
+      ? parsedRecord.memoryUpdateType
+      : "none",
+    memoryType: typeof parsedRecord.memoryType === "string" ? parsedRecord.memoryType : "none",
+    memoryContent: typeof parsedRecord.memoryContent === "string" ? parsedRecord.memoryContent : "",
+    memoryConfidence: typeof parsedRecord.memoryConfidence === "number" ? parsedRecord.memoryConfidence : 0,
+    retrievalDecision: parseRetrievalDecision(parsedRecord),
+  };
+}
+
+function parseHarnessRecord(raw: string): Record<string, unknown> | null {
+  const direct = tryParseJsonObject(raw);
+  if (direct) {
+    return direct;
+  }
+
+  const fenced = extractFencedJson(raw);
+  if (fenced) {
+    const parsedFenced = tryParseJsonObject(fenced);
+    if (parsedFenced) return parsedFenced;
+  }
+
+  const firstBrace = raw.indexOf("{");
+  const lastBrace = raw.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    const candidate = raw.slice(firstBrace, lastBrace + 1);
+    const parsedCandidate = tryParseJsonObject(candidate);
+    if (parsedCandidate) return parsedCandidate;
+  }
+
+  return null;
+}
+
+function tryParseJsonObject(value: string): Record<string, unknown> | null {
   try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (typeof parsed.message !== "string" || parsed.message.trim().length === 0) {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       return null;
     }
-    return {
-      message: String(parsed.message).trim(),
-      intent: isValidIntent(parsed.intent) ? parsed.intent : "factual_or_regular",
-      confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.7,
-      shouldStopProgression: Boolean(parsed.shouldStopProgression),
-      localQuestionDetected: Boolean(parsed.localQuestionDetected),
-      localQuestionReason: typeof parsed.localQuestionReason === "string" ? parsed.localQuestionReason : "",
-      memoryUpdateNeeded: Boolean(parsed.memoryUpdateNeeded),
-      memoryUpdateType: isValidMemoryUpdateType(parsed.memoryUpdateType) ? parsed.memoryUpdateType : "none",
-      memoryType: typeof parsed.memoryType === "string" ? parsed.memoryType : "none",
-      memoryContent: typeof parsed.memoryContent === "string" ? parsed.memoryContent : "",
-      memoryConfidence: typeof parsed.memoryConfidence === "number" ? parsed.memoryConfidence : 0,
-      retrievalDecision: parseRetrievalDecision(parsed),
-    };
+    return parsed as Record<string, unknown>;
   } catch {
     return null;
   }
+}
+
+function extractFencedJson(raw: string): string | null {
+  const match = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (!match) return null;
+  return match[1]?.trim() || null;
 }
 
 const VALID_INTENTS: TutorIntent[] = [

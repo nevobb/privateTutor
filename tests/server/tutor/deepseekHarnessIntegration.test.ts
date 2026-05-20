@@ -103,4 +103,59 @@ describe("DeepSeek harness mapping", () => {
     expect(response.decisionLogEvents?.some((e) => e.type === "harness_fallback")).toBe(true);
     expect(response.decisionLogEvents?.some((e) => e.type === "retrieval_scope")).toBe(true);
   });
+
+  it("uses tutor message field when model wraps harness JSON in markdown fences", async () => {
+    process.env.DEEPSEEK_API_KEY = "test-key";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: [
+                    "```json",
+                    JSON.stringify({
+                      message: "היי, כאן הסבר קצר וברור.",
+                      intent: "factual_or_regular",
+                      confidence: 0.86,
+                      shouldStopProgression: false,
+                      localQuestionDetected: false,
+                      localQuestionReason: "",
+                      memoryUpdateNeeded: false,
+                      memoryUpdateType: "none",
+                      memoryType: "none",
+                      memoryContent: "",
+                      memoryConfidence: 0,
+                      needs_retrieval: false,
+                      retrieval_scope: "none",
+                      max_chunks: 0,
+                      max_tokens: 0,
+                      should_ask_clarification_first: false,
+                    }),
+                    "```",
+                  ].join("\n"),
+                },
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      )
+    );
+
+    const provider = new DeepSeekTutorProvider();
+    const response = await provider.call({
+      userId: "u1",
+      workspaceId: "w1",
+      message: "היי מה חדש",
+      workMode: "Learning",
+      costMode: "Normal Learning",
+    });
+
+    expect(response.message.content).toBe("היי, כאן הסבר קצר וברור.");
+    expect(response.message.content).not.toContain("\"intent\"");
+    expect(response.decisionLogEvents?.some((e) => e.type === "harness_classification")).toBe(true);
+  });
 });

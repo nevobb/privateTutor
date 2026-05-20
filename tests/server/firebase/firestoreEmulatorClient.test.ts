@@ -1,90 +1,51 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockInitializeApp = vi.fn();
-const mockGetApps = vi.fn();
-const mockGetFirestore = vi.fn();
-const mockConnectFirestoreEmulator = vi.fn();
+const mockGetFirebaseAdminFirestore = vi.fn();
+const mockGetFirebaseServerMode = vi.fn();
+const mockGetRequiredServerProjectId = vi.fn();
+const mockFetch = vi.fn();
 
-vi.mock("firebase/app", () => ({
-  initializeApp: mockInitializeApp,
-  getApps: mockGetApps,
+vi.mock("../../../src/server/firebase/firebaseAdminApp", () => ({
+  getFirebaseAdminFirestore: mockGetFirebaseAdminFirestore,
 }));
 
-vi.mock("firebase/firestore/lite", () => ({
-  getFirestore: mockGetFirestore,
-  connectFirestoreEmulator: mockConnectFirestoreEmulator,
+vi.mock("../../../src/server/firebase/firebaseServerRuntimeMode", () => ({
+  getFirebaseServerMode: mockGetFirebaseServerMode,
+  getRequiredServerProjectId: mockGetRequiredServerProjectId,
 }));
-
-const EMULATOR_CONNECTED_APPS_KEY = "__privateTutorFirestoreEmulatorConnectedApps";
-const EMULATOR_ENV_READY_KEY = "__privateTutorFirestoreEmulatorEnvReady";
-
-function makeApp(name = "demo-private-tutor-firestore-emulator") {
-  return { name } as { name: string };
-}
 
 describe("firestoreEmulatorClient", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    delete (globalThis as typeof globalThis & { [EMULATOR_CONNECTED_APPS_KEY]?: Set<string> })[
-      EMULATOR_CONNECTED_APPS_KEY
-    ];
-    delete (globalThis as typeof globalThis & { [EMULATOR_ENV_READY_KEY]?: boolean })[
-      EMULATOR_ENV_READY_KEY
-    ];
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("ok", { status: 200 })));
+
+    mockGetRequiredServerProjectId.mockReturnValue("demo-private-tutor");
+    mockGetFirebaseAdminFirestore.mockReturnValue({ marker: "db" });
+    mockFetch.mockResolvedValue(new Response("ok", { status: 200 }));
+    vi.stubGlobal("fetch", mockFetch);
   });
 
-  it("connects Firestore emulator for a user-specific app and reuses that user's singleton client", async () => {
-    const app = makeApp("demo-private-tutor-firestore-emulator-YWxpY2U");
-    const db = {};
-    mockGetApps.mockReturnValue([]);
-    mockInitializeApp.mockReturnValue(app);
-    mockGetFirestore.mockReturnValue(db);
+  it("reuses a per-user singleton client", async () => {
+    mockGetFirebaseServerMode.mockReturnValue("emulator");
 
     const firestoreClientModule = await import("../../../src/server/firebase/firestoreEmulatorClient");
 
-    await firestoreClientModule.getFirestoreEmulatorClient("alice");
-    await firestoreClientModule.getFirestoreEmulatorClient("alice");
+    const first = await firestoreClientModule.getFirestoreEmulatorClient("alice");
+    const second = await firestoreClientModule.getFirestoreEmulatorClient("alice");
 
-    expect(mockInitializeApp).toHaveBeenCalledTimes(1);
-    expect(mockConnectFirestoreEmulator).toHaveBeenCalledTimes(1);
-    expect(mockConnectFirestoreEmulator).toHaveBeenCalledWith(
-      db,
-      "127.0.0.1",
-      8080,
-      expect.objectContaining({
-        mockUserToken: expect.objectContaining({
-          sub: "alice",
-          user_id: "alice",
-        }),
-      })
-    );
+    expect(first).toBe(second);
+    expect(mockGetFirebaseAdminFirestore).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("connects Firestore emulator for an existing user-specific app (hot-reload path) exactly once", async () => {
-    const app = makeApp("demo-private-tutor-firestore-emulator-Ym9i");
-    const db = {};
-    mockGetApps.mockReturnValue([app]);
-    mockGetFirestore.mockReturnValue(db);
+  it("skips emulator reachability check in production mode", async () => {
+    mockGetFirebaseServerMode.mockReturnValue("production");
 
     const firestoreClientModule = await import("../../../src/server/firebase/firestoreEmulatorClient");
 
     await firestoreClientModule.getFirestoreEmulatorClient("bob");
-    await firestoreClientModule.getFirestoreEmulatorClient("bob");
 
-    expect(mockInitializeApp).not.toHaveBeenCalled();
-    expect(mockConnectFirestoreEmulator).toHaveBeenCalledTimes(1);
-    expect(mockConnectFirestoreEmulator).toHaveBeenCalledWith(
-      db,
-      "127.0.0.1",
-      8080,
-      expect.objectContaining({
-        mockUserToken: expect.objectContaining({
-          sub: "bob",
-          user_id: "bob",
-        }),
-      })
-    );
+    expect(mockGetFirebaseAdminFirestore).toHaveBeenCalledTimes(1);
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });

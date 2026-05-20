@@ -40,6 +40,36 @@ describe("harnessTypes", () => {
     expect(parseHarnessJson("not json")).toBeNull();
   });
 
+  it("parses fenced JSON payloads returned by model", () => {
+    const raw = [
+      "```json",
+      JSON.stringify({
+        message: "זה הסבר רגיל לתלמיד.",
+        intent: "factual_or_regular",
+        confidence: 0.82,
+        shouldStopProgression: false,
+        localQuestionDetected: false,
+        localQuestionReason: "",
+        memoryUpdateNeeded: false,
+        memoryUpdateType: "none",
+        memoryType: "none",
+        memoryContent: "",
+        memoryConfidence: 0,
+        needs_retrieval: false,
+        retrieval_scope: "none",
+        max_chunks: 0,
+        max_tokens: 0,
+        should_ask_clarification_first: false,
+      }),
+      "```",
+    ].join("\n");
+
+    const parsed = parseHarnessJson(raw);
+    expect(parsed).not.toBeNull();
+    expect(parsed?.message).toBe("זה הסבר רגיל לתלמיד.");
+    expect(parsed?.intent).toBe("factual_or_regular");
+  });
+
   it("provides safe temporary defaults", () => {
     const classification = defaultClassification(true);
     expect(classification.intent).toBe("temporary_chat");

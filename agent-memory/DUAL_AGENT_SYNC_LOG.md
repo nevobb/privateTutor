@@ -984,3 +984,57 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: open PR for Step 26 and run retrieval quality evaluation phase.
   - Blockers/Risks: none.
+
+## 2026-05-20 18:43 (Asia/Jerusalem) — Codex
+- Step/Task ID: Step 28B
+- Task summary: Implement Firebase emulator|production mode separation and real-user identity foundation (no push).
+- What I changed:
+  - Installed `firebase-admin` and added server-only Admin app/runtime mode boundary.
+  - Added production token verifier and mode-based verifier selection (`verifyFirebaseToken`).
+  - Migrated server Firestore repositories to admin-backed read/write/query access while preserving user-owned paths.
+  - Added client Firebase runtime mode config with production `NEXT_PUBLIC_FIREBASE_*` requirements and emulator-only connector wiring.
+  - Added signed-in identity visibility (name/email/mode) and sign-out action in sidebar.
+  - Updated `.env.local.example` and added `docs/FIREBASE_PRODUCTION_SETUP.md`.
+  - Added/updated focused tests for runtime mode/auth boundary.
+- Files touched:
+  - `package.json`
+  - `package-lock.json`
+  - `src/lib/firebase/firebaseRuntimeMode.ts`
+  - `src/lib/firebase/firebaseClientApp.ts`
+  - `src/server/firebase/firebaseServerRuntimeMode.ts`
+  - `src/server/firebase/firebaseAdminApp.ts`
+  - `src/server/firebase/firestoreEmulatorClient.ts`
+  - `src/server/firebase/firestoreTypes.ts`
+  - `src/server/firebase/firebaseServerConfig.ts`
+  - `src/server/auth/verifyFirebaseToken.ts`
+  - `src/server/auth/verifyFirebaseTokenProduction.ts`
+  - `src/server/workspaces/workspaceRepository.ts`
+  - `src/server/workspaces/sessionRepository.ts`
+  - `src/server/workspaces/messageRepository.ts`
+  - `src/server/workspaces/uploadedFileRepository.ts`
+  - `src/server/workspaces/learnerMemoryRepository.ts`
+  - `src/server/workspaces/decisionLogRepository.ts`
+  - `src/server/workspaces/fileChunkRepository.ts`
+  - `src/server/workspaces/fileChunkEmbeddingRepository.ts`
+  - `src/app/page.tsx`
+  - `.env.local.example`
+  - `docs/FIREBASE_PRODUCTION_SETUP.md`
+  - `tests/server/auth/verifyFirebaseToken.test.ts`
+  - `tests/server/auth/verifyFirebaseTokenProduction.test.ts`
+  - `tests/server/firebase/firestoreEmulatorClient.test.ts`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/AGENT_HANDOFF.md`
+  - `agent-memory/TASK_LOG.md`
+  - `agent-memory/PROJECT_STATE.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npm run build` → passed
+  - `npx vitest run tests/server/auth/verifyFirebaseToken.test.ts tests/server/auth/verifyFirebaseTokenProduction.test.ts tests/server/firebase/firestoreEmulatorClient.test.ts tests/server/auth/authBoundary.test.ts tests/server/workspaces/sessionMessageApiService.test.ts tests/server/workspaces/fileChunkRetrievalService.test.ts tests/server/workspaces/fileChunkSemanticRetrievalService.test.ts` → passed
+- Git status:
+  - Branch: `step28b-production-firebase-mode`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done (implementation + validations), pending manual production smoke and push decision.
+  - Next recommended step: run emulator+production manual smoke checklist from Step 28B prompt with Nevo credentials, then decide push.
+  - Blockers/Risks: production smoke requires valid local Firebase project config and ADC credentials (not in repo).

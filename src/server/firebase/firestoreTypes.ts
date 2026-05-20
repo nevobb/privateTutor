@@ -1,10 +1,8 @@
-import type { FirebaseApp } from "firebase/app";
-import type { Firestore } from "firebase/firestore/lite";
+import type { Firestore } from "firebase-admin/firestore";
 
 import type { FirestoreServerConfig } from "./firebaseServerConfig";
 
 export interface FirestoreEmulatorClient {
-  readonly app: FirebaseApp;
   readonly db: Firestore;
   readonly config: FirestoreServerConfig;
 }

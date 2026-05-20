@@ -1,13 +1,9 @@
-import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
-import { connectFirestoreEmulator, getFirestore } from "firebase/firestore/lite";
-
 import { firestoreServerConfig } from "./firebaseServerConfig";
+import { getFirebaseAdminFirestore } from "./firebaseAdminApp";
+import { getFirebaseServerMode, getRequiredServerProjectId } from "./firebaseServerRuntimeMode";
 import type { FirestoreEmulatorClient } from "./firestoreTypes";
 
-const FIRESTORE_EMULATOR_APP_NAME = "demo-private-tutor-firestore-emulator";
 const FIRESTORE_EMULATOR_TIMEOUT_MS = 1500;
-const FIRESTORE_EMULATOR_CONNECTED_APPS_KEY = "__privateTutorFirestoreEmulatorConnectedApps";
-const FIRESTORE_EMULATOR_ENV_READY_KEY = "__privateTutorFirestoreEmulatorEnvReady";
 
 export class FirestoreEmulatorUnavailableError extends Error {
   public readonly code = "firestore_emulator_unreachable" as const;
@@ -24,22 +20,22 @@ export class FirestoreEmulatorUnavailableError extends Error {
   }
 }
 
-const firestoreEmulatorClientPromisesByUser = new Map<string, Promise<FirestoreEmulatorClient>>();
+const firestoreClientPromisesByUser = new Map<string, Promise<FirestoreEmulatorClient>>();
 
 export async function getFirestoreEmulatorClient(userId: string): Promise<FirestoreEmulatorClient> {
   const normalizedUserId = normalizeUserId(userId);
-  const existingPromise = firestoreEmulatorClientPromisesByUser.get(normalizedUserId);
+  const existingPromise = firestoreClientPromisesByUser.get(normalizedUserId);
 
   if (existingPromise) {
     return existingPromise;
   }
 
-  const clientPromise = createFirestoreEmulatorClient(normalizedUserId).catch((error: unknown) => {
-    firestoreEmulatorClientPromisesByUser.delete(normalizedUserId);
+  const clientPromise = createFirestoreClient(normalizedUserId).catch((error: unknown) => {
+    firestoreClientPromisesByUser.delete(normalizedUserId);
     throw error;
   });
 
-  firestoreEmulatorClientPromisesByUser.set(normalizedUserId, clientPromise);
+  firestoreClientPromisesByUser.set(normalizedUserId, clientPromise);
   return clientPromise;
 }
 
@@ -55,91 +51,42 @@ export function isFirestoreEmulatorUnavailableError(error: unknown): error is Fi
   return error instanceof FirestoreEmulatorUnavailableError;
 }
 
-async function createFirestoreEmulatorClient(userId: string): Promise<FirestoreEmulatorClient> {
-  ensureFirestoreEmulatorEnvironment();
-  await assertFirestoreEmulatorReachable();
+async function createFirestoreClient(userId: string): Promise<FirestoreEmulatorClient> {
+  const mode = getFirebaseServerMode();
+  const projectId = getRequiredServerProjectId();
 
-  const app = getOrCreateFirestoreAppForUser(userId);
-  const db = getFirestore(app);
-
-  const connectedApps = getConnectedFirestoreEmulatorApps();
-  if (!connectedApps.has(app.name)) {
-    connectFirestoreEmulator(
-      db,
-      firestoreServerConfig.host,
-      firestoreServerConfig.port,
-      {
-        mockUserToken: {
-          sub: userId,
-          user_id: userId,
-        },
-      }
-    );
-    connectedApps.add(app.name);
+  if (mode === "emulator") {
+    ensureFirestoreEmulatorEnvironment(projectId);
+    await assertFirestoreEmulatorReachable(projectId);
   }
 
+  const db = getFirebaseAdminFirestore();
+
   return Object.freeze({
-    app,
     db,
-    config: firestoreServerConfig,
+    config: {
+      projectId,
+      host: firestoreServerConfig.host,
+      port: firestoreServerConfig.port,
+      baseUrl: firestoreServerConfig.baseUrl,
+    },
   });
 }
 
-function ensureFirestoreEmulatorEnvironment(): void {
-  const globalState = globalThis as typeof globalThis & {
-    [FIRESTORE_EMULATOR_ENV_READY_KEY]?: boolean;
-  };
-
-  if (globalState[FIRESTORE_EMULATOR_ENV_READY_KEY]) {
-    return;
-  }
-
+function ensureFirestoreEmulatorEnvironment(projectId: string): void {
   process.env.FIRESTORE_EMULATOR_HOST = `${firestoreServerConfig.host}:${firestoreServerConfig.port}`;
-  process.env.GCLOUD_PROJECT = firestoreServerConfig.projectId;
-  globalState[FIRESTORE_EMULATOR_ENV_READY_KEY] = true;
-}
-
-function getOrCreateFirestoreAppForUser(userId: string): FirebaseApp {
-  const appName = `${FIRESTORE_EMULATOR_APP_NAME}-${encodeUserIdForAppName(userId)}`;
-  const existingApp = getApps().find((app) => app.name === appName);
-
-  if (existingApp) {
-    return existingApp;
-  }
-
-  return initializeApp(
-    {
-      projectId: firestoreServerConfig.projectId,
-    },
-    appName
-  );
+  process.env.GCLOUD_PROJECT = projectId;
 }
 
 function normalizeUserId(userId: string): string {
   const trimmed = typeof userId === "string" ? userId.trim() : "";
   if (!trimmed) {
-    throw new Error("trusted userId is required for Firestore emulator client.");
+    throw new Error("trusted userId is required for Firestore server client.");
   }
   return trimmed;
 }
 
-function encodeUserIdForAppName(userId: string): string {
-  return Buffer.from(userId, "utf8").toString("base64url");
-}
-
-function getConnectedFirestoreEmulatorApps(): Set<string> {
-  const globalState = globalThis as typeof globalThis & {
-    [FIRESTORE_EMULATOR_CONNECTED_APPS_KEY]?: Set<string>;
-  };
-
-  if (!globalState[FIRESTORE_EMULATOR_CONNECTED_APPS_KEY]) {
-    globalState[FIRESTORE_EMULATOR_CONNECTED_APPS_KEY] = new Set<string>();
-  }
-
-  return globalState[FIRESTORE_EMULATOR_CONNECTED_APPS_KEY];
-}
-
-async function assertFirestoreEmulatorReachable(): Promise<void> {
+async function assertFirestoreEmulatorReachable(projectId: string): Promise<void> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();
@@ -155,11 +102,11 @@ async function assertFirestoreEmulatorReachable(): Promise<void> {
     throw new FirestoreEmulatorUnavailableError(
       [
         "Firestore emulator is unreachable.",
-        `Expected a local emulator at ${firestoreServerConfig.baseUrl} for project ${firestoreServerConfig.projectId}.`,
+        `Expected a local emulator at ${firestoreServerConfig.baseUrl} for project ${projectId}.`,
         "Start the emulator and retry.",
       ].join(" "),
       firestoreServerConfig.baseUrl,
-      firestoreServerConfig.projectId,
+      projectId,
       cause
     );
   } finally {

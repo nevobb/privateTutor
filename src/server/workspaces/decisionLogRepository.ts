@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { collection, doc, getDoc, getDocs, limit, orderBy, query, setDoc, where } from "firebase/firestore/lite";
 import { withFirestoreEmulatorClient } from "../firebase/firestoreEmulatorClient";
 import type { DecisionLogEntryRecord, WriteDecisionLogEntryInput } from "./workspaceTypes";
 import { toDate } from "./workspaceTypes";
@@ -15,7 +14,7 @@ export async function writeDecisionLogEntry(
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const entryId = randomUUID();
     const createdAt = new Date();
-    const ref = doc(db, ...decisionLogPath(userId, entryId));
+    const ref = db.doc(decisionLogPath(userId, entryId).join("/"));
 
     const record: DecisionLogEntryRecord = {
       id: entryId,
@@ -32,14 +31,28 @@ export async function writeDecisionLogEntry(
       sessionId: input.sessionId,
     };
 
-    await setDoc(ref, compactRecord(record));
-    const snapshot = await getDoc(ref);
+    await ref.set(compactRecord(record));
+    const snapshot = await ref.get();
 
-    if (!snapshot.exists()) {
+    if (!snapshot.exists) {
       return record;
     }
 
-    return mapDecisionLog(snapshot.id, snapshot.data());
+    return mapDecisionLog(snapshot.id, (snapshot.data() ?? {}) as Record<string, unknown>);
+  });
+}
+
+export async function appendDecisionLogEntry(
+  userId: string,
+  entry: Omit<DecisionLogEntryRecord, "id" | "createdAt">
+): Promise<DecisionLogEntryRecord> {
+  return writeDecisionLogEntry(userId, {
+    decisionType: entry.decisionType,
+    title: entry.title,
+    decision: entry.decision,
+    rationale: entry.rationale,
+    workspaceId: entry.workspaceId,
+    sessionId: entry.sessionId,
   });
 }
 
@@ -54,21 +67,19 @@ export async function listDecisionLogEntries(
   filters: ListDecisionLogFilters = {}
 ): Promise<DecisionLogEntryRecord[]> {
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
-    const constraints = [];
+    let ref: FirebaseFirestore.Query = db.collection(`users/${userId}/decisionLog`);
 
     if (filters.workspaceId) {
-      constraints.push(where("workspaceId", "==", filters.workspaceId));
+      ref = ref.where("workspaceId", "==", filters.workspaceId);
     }
     if (filters.sessionId) {
-      constraints.push(where("sessionId", "==", filters.sessionId));
+      ref = ref.where("sessionId", "==", filters.sessionId);
     }
 
-    constraints.push(orderBy("createdAt", "desc"));
-    constraints.push(limit(filters.limit ?? 20));
+    ref = ref.orderBy("createdAt", "desc").limit(filters.limit ?? 20);
 
-    const ref = collection(db, "users", userId, "decisionLog");
-    const snapshot = await getDocs(query(ref, ...constraints));
-    return snapshot.docs.map((d) => mapDecisionLog(d.id, d.data()));
+    const snapshot = await ref.get();
+    return snapshot.docs.map((d) => mapDecisionLog(d.id, d.data() as Record<string, unknown>));
   });
 }
 
