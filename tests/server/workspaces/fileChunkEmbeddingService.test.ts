@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createFileChunkEmbeddingService } from "../../../src/server/workspaces/fileChunkEmbeddingService";
 import type { AuthenticatedUser } from "../../../src/server/auth/authTypes";
 import type { FileChunkRecord, UploadedFileRecord, WorkspaceRecord } from "../../../src/server/workspaces/workspaceTypes";
+import { computeEmbeddingSourceTextHash } from "../../../src/server/workspaces/fileChunkEmbeddingHash";
 
 const user: AuthenticatedUser = { userId: "alice", email: "alice@test.example" };
 const now = new Date("2026-05-20T08:00:00.000Z");
@@ -47,6 +48,7 @@ const chunks: FileChunkRecord[] = [
     charEnd: 14,
     tokenEstimate: 4,
     source: "extracted_text",
+    embeddingStatus: "not_started",
     createdAt: now,
   },
 ];
@@ -85,6 +87,9 @@ describe("fileChunkEmbeddingService", () => {
       "chunk_0000",
       expect.objectContaining({ embeddingStatus: "completed", embeddingErrorCode: null })
     );
+    expect(mockDeps.embeddingProvider.embedText).toHaveBeenCalledWith(
+      expect.objectContaining({ embeddingPurpose: "document" })
+    );
   });
 
   it("marks failed when provider throws", async () => {
@@ -104,5 +109,19 @@ describe("fileChunkEmbeddingService", () => {
       "chunk_0000",
       expect.objectContaining({ embeddingStatus: "failed", embeddingErrorCode: "embedding_generation_failed" })
     );
+  });
+
+  it("skips unchanged completed embeddings", async () => {
+    const mockDeps = deps();
+    const unchangedChunk = {
+      ...chunks[0],
+      embeddingStatus: "completed" as const,
+      embeddingSourceTextHash: computeEmbeddingSourceTextHash(chunks[0].text),
+    };
+    mockDeps.listFileChunks = vi.fn(async () => [unchangedChunk]);
+    const service = createFileChunkEmbeddingService(mockDeps as never);
+
+    await service.runEmbeddingLifecycleForFile(user, "ws-1", "file-1");
+    expect(mockDeps.embeddingProvider.embedText).not.toHaveBeenCalled();
   });
 });

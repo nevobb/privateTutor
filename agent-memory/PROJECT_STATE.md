@@ -9,29 +9,31 @@
 - Phase 16 merged: extraction lifecycle/provider boundary.
 - Phase 17 merged: deterministic file chunking boundary.
 - Phase 18 merged: deterministic chunk retrieval.
-- Phase 19 merged: grounded provider answer from retrieved chunks.
+- Phase 19 merged: grounded provider answer path.
 - Phase 20 merged: MVP validation.
 - Phase 21 merged: real PDF/DOCX parser foundation.
 - Step 23 merged: semantic/vector architecture decision.
 - Step 24 merged: embedding lifecycle boundary.
-- Step 25 completed on branch: semantic retrieval execution with keyword fallback.
+- Step 25 merged: semantic retrieval execution with keyword fallback.
+- Step 26 completed on branch: Gemini embedding provider integration.
 
 ## Current capabilities
 - Upload → extraction → chunking → retrieval → grounded answer.
-- Retrieval now supports:
-  - semantic execution over available deterministic/mock embeddings
-  - automatic keyword fallback when semantic is unavailable/empty/stale/failing
-- Grounding context and citations remain compatible with existing flow.
+- Embedding generation now supports:
+  - deterministic provider (default/test-safe)
+  - Gemini provider (opt-in via env)
+- Semantic retrieval can use real Gemini query embeddings when configured.
+- Keyword fallback remains in place.
 
 ## Still not implemented
-- Real embedding provider integration.
-- External vector DB.
-- Gemini/Genkit.
+- Vector DB.
+- Gemini/Genkit chat migration.
+- OCR/summaries.
 - Production Firebase deployment.
 
 ## Boundary note
-- Step 25 did not add real external embedding APIs.
-- Step 25 did not change parser behavior.
+- Gemini API key is server-only (`GEMINI_API_KEY`, no `NEXT_PUBLIC_`).
+- Real Gemini provider is opt-in and not forced by default.
 
 ## Recommended next phase
-- Real embedding provider integration (or quality-evaluation phase before provider commitment).
+- Retrieval quality evaluation and scoring/cost tuning with real study materials.

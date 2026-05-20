@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { DeterministicFileChunkEmbeddingProvider } from "../../../src/server/workspaces/fileChunkEmbeddingProvider";
+import {
+  DeterministicFileChunkEmbeddingProvider,
+  buildFileChunkEmbeddingProvider,
+} from "../../../src/server/workspaces/fileChunkEmbeddingProvider";
+import { GeminiFileChunkEmbeddingProvider } from "../../../src/server/workspaces/geminiFileChunkEmbeddingProvider";
 
 describe("DeterministicFileChunkEmbeddingProvider", () => {
   it("returns stable vectors for same text", async () => {
@@ -47,5 +51,13 @@ describe("DeterministicFileChunkEmbeddingProvider", () => {
 
     expect(first.vector).not.toEqual(second.vector);
     expect(first.sourceTextHash).not.toBe(second.sourceTextHash);
+  });
+
+  it("selects Gemini provider only when EMBEDDING_PROVIDER=gemini", () => {
+    const deterministic = buildFileChunkEmbeddingProvider({ EMBEDDING_PROVIDER: "deterministic" } as never);
+    const gemini = buildFileChunkEmbeddingProvider({ EMBEDDING_PROVIDER: "gemini", GEMINI_API_KEY: "k" } as never);
+
+    expect(deterministic).toBeInstanceOf(DeterministicFileChunkEmbeddingProvider);
+    expect(gemini).toBeInstanceOf(GeminiFileChunkEmbeddingProvider);
   });
 });

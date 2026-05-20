@@ -946,3 +946,41 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: open PR for Step 25 and evaluate quality before real provider integration.
   - Blockers/Risks: none.
+
+## 2026-05-20 12:43 (Asia/Jerusalem) — Codex
+- Step/Task ID: Step 26
+- Task summary: Integrate Gemini embeddings provider as optional real provider for embedding + semantic retrieval paths.
+- What I changed:
+  - Added server-side Gemini embedding provider (`gemini-embedding-001`) with task type mapping for document/query embeddings.
+  - Added provider selection (`EMBEDDING_PROVIDER`) and secure key handling (`GEMINI_API_KEY`) with controlled missing-key failure.
+  - Updated embedding/semantic services to pass embedding purpose and keep keyword fallback behavior.
+  - Added focused Gemini/provider tests and updated regressions.
+- Files touched:
+  - `src/server/workspaces/geminiFileChunkEmbeddingProvider.ts`
+  - `src/server/workspaces/fileChunkEmbeddingProvider.ts`
+  - `src/server/workspaces/fileChunkEmbeddingService.ts`
+  - `src/server/workspaces/fileChunkSemanticRetrievalService.ts`
+  - `tests/server/workspaces/geminiFileChunkEmbeddingProvider.test.ts`
+  - `tests/server/workspaces/fileChunkEmbeddingProvider.test.ts`
+  - `tests/server/workspaces/fileChunkEmbeddingService.test.ts`
+  - `tests/server/workspaces/fileChunkSemanticRetrievalService.test.ts`
+  - `tests/server/workspaces/fileChunkRetrievalService.test.ts`
+  - `README.md`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/AGENT_HANDOFF.md`
+  - `agent-memory/TASK_LOG.md`
+  - `agent-memory/PROJECT_STATE.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git diff --check` — passed
+  - `npm run build` — passed
+  - `npx vitest run tests/server/workspaces/geminiFileChunkEmbeddingProvider.test.ts tests/server/workspaces/fileChunkEmbeddingService.test.ts tests/server/workspaces/fileChunkSemanticRetrievalService.test.ts` — passed (13/13)
+  - `npx vitest run tests/server/workspaces/fileChunkEmbeddingProvider.test.ts tests/server/workspaces/fileChunkEmbeddingRepository.test.ts tests/server/workspaces/fileChunkRetrievalService.test.ts tests/server/workspaces/sessionMessageApiService.test.ts` — passed (44 passed, 1 skipped)
+- Git status:
+  - Branch: `codex/phase26-gemini-embedding-provider`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: open PR for Step 26 and run retrieval quality evaluation phase.
+  - Blockers/Risks: none.

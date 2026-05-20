@@ -1,4 +1,5 @@
 import { computeEmbeddingSourceTextHash } from "./fileChunkEmbeddingHash";
+import { GeminiFileChunkEmbeddingProvider } from "./geminiFileChunkEmbeddingProvider";
 
 export type FileChunkEmbeddingInput = {
   text: string;
@@ -6,6 +7,7 @@ export type FileChunkEmbeddingInput = {
   fileId: string;
   workspaceId: string;
   userId: string;
+  embeddingPurpose?: "document" | "query";
 };
 
 export type FileChunkEmbeddingResult = {
@@ -55,7 +57,17 @@ export class DeterministicFileChunkEmbeddingProvider implements FileChunkEmbeddi
 }
 
 export const fileChunkEmbeddingProvider: FileChunkEmbeddingProvider =
-  new DeterministicFileChunkEmbeddingProvider();
+  buildFileChunkEmbeddingProvider();
+
+export function buildFileChunkEmbeddingProvider(
+  env: NodeJS.ProcessEnv = process.env
+): FileChunkEmbeddingProvider {
+  const mode = (env.EMBEDDING_PROVIDER ?? "deterministic").toLowerCase();
+  if (mode === "gemini") {
+    return new GeminiFileChunkEmbeddingProvider(env.GEMINI_API_KEY ?? "");
+  }
+  return new DeterministicFileChunkEmbeddingProvider();
+}
 
 function buildDeterministicVector(text: string, dimension: number): number[] {
   const buckets = new Array<number>(dimension).fill(0);
