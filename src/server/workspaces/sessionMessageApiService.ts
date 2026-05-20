@@ -459,6 +459,7 @@ function executeChunkRetrieval(
   effectiveMaxTokens: number
 ): { citations: TutorBoundaryResponse["message"]["citations"]; retrievedChunks: RetrievedFileChunk[] } {
   const { chunks, eligibleFileCount } = chunkResult;
+  const retrievalMethod = chunks[0]?.retrievalMethod ?? "keyword_only";
 
   if (chunks.length === 0) {
     tutorResponse.internalUpdate.retrieval = {
@@ -471,7 +472,7 @@ function executeChunkRetrieval(
     tutorResponse.decisionLogEvents?.push({
       type: "retrieval_skipped",
       title: "Retrieval skipped",
-      detail: `No matching file chunks found; eligible_files=${eligibleFileCount}; applied_max_chunks=${effectiveMaxChunks}`,
+      detail: `No matching file chunks found; eligible_files=${eligibleFileCount}; applied_max_chunks=${effectiveMaxChunks}; semantic_attempted=true; fallback_reason=no_semantic_or_keyword_match`,
     });
     return { citations: tutorResponse.message.citations, retrievedChunks: [] };
   }
@@ -483,7 +484,12 @@ function executeChunkRetrieval(
     used: true,
     scope: decision.retrieval_scope,
     source_ids: chunkIds,
-    why: `retrieval_executed_selected_${chunks.length}_file_chunks`,
+    why:
+      retrievalMethod === "semantic"
+        ? `semantic_retrieval_executed_selected_${chunks.length}_file_chunks`
+        : retrievalMethod === "keyword_fallback"
+          ? `keyword_fallback_retrieval_executed_selected_${chunks.length}_file_chunks`
+          : `retrieval_executed_selected_${chunks.length}_file_chunks`,
   };
 
   const citations = chunks.map((chunk) => ({
@@ -495,7 +501,7 @@ function executeChunkRetrieval(
   tutorResponse.decisionLogEvents?.push({
     type: "retrieval_executed",
     title: "Retrieval executed",
-    detail: `selected_chunk_ids=${chunkIds.join(",")}; selected_file_ids=${fileIds.join(",")}; total_candidates=${eligibleFileCount}; applied_max_chunks=${effectiveMaxChunks}; applied_max_tokens=${effectiveMaxTokens}; grounding_context_injected=true`,
+    detail: `selected_chunk_ids=${chunkIds.join(",")}; selected_file_ids=${fileIds.join(",")}; total_candidates=${eligibleFileCount}; applied_max_chunks=${effectiveMaxChunks}; applied_max_tokens=${effectiveMaxTokens}; retrieval_method=${retrievalMethod}; semantic_attempted=true; semantic_used=${retrievalMethod === "semantic" ? "true" : "false"}; fallback_reason=${retrievalMethod === "keyword_fallback" ? "semantic_unavailable_or_empty" : "none"}; grounding_context_injected=true`,
   });
 
   return { citations, retrievedChunks: chunks };

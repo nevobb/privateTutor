@@ -7,35 +7,31 @@
 ## Current completed milestones
 - Phase 15 merged: real file upload foundation.
 - Phase 16 merged: extraction lifecycle/provider boundary.
-- Phase 17 merged (#50): deterministic file chunking boundary.
-- Phase 18 merged (#51): deterministic retrieval over persisted file chunks.
-- Phase 19 merged (#52): provider prompt-context injection / grounded tutor answer.
-- Phase 20 merged (#53): MVP validation and behavior regression.
-- Phase 21 merged (#55): real PDF/DOCX parser foundation.
-- Step 23 merged (#54): semantic/vector architecture decision.
-- Step 24 implemented on branch: embedding lifecycle boundary.
+- Phase 17 merged: deterministic file chunking boundary.
+- Phase 18 merged: deterministic chunk retrieval.
+- Phase 19 merged: grounded provider answer from retrieved chunks.
+- Phase 20 merged: MVP validation.
+- Phase 21 merged: real PDF/DOCX parser foundation.
+- Step 23 merged: semantic/vector architecture decision.
+- Step 24 merged: embedding lifecycle boundary.
+- Step 25 completed on branch: semantic retrieval execution with keyword fallback.
 
 ## Current capabilities
-- Upload → extraction → chunking → keyword retrieval → grounded provider answer.
-- Extraction supports real parser path:
-  - DOCX via mammoth
-  - PDF via pdf-parse
-  - fallback to deterministic provider when file bytes are absent.
-- Embedding lifecycle boundary exists on Step 24 branch:
-  - deterministic mock embeddings
-  - embedding metadata lifecycle on chunks
-  - embedding storage under chunk embedding subdocument path
+- Upload → extraction → chunking → retrieval → grounded answer.
+- Retrieval now supports:
+  - semantic execution over available deterministic/mock embeddings
+  - automatic keyword fallback when semantic is unavailable/empty/stale/failing
+- Grounding context and citations remain compatible with existing flow.
 
 ## Still not implemented
-- Real embedding provider calls.
-- Vector DB integration.
-- Semantic retrieval execution/hybrid ranking.
+- Real embedding provider integration.
+- External vector DB.
 - Gemini/Genkit.
 - Production Firebase deployment.
 
 ## Boundary note
-- Step 24 does not change runtime retrieval behavior.
-- Retrieval remains deterministic keyword-based until Step 25.
+- Step 25 did not add real external embedding APIs.
+- Step 25 did not change parser behavior.
 
 ## Recommended next phase
-- Step 25: semantic retrieval execution with hybrid semantic+keyword strategy and fallback.
+- Real embedding provider integration (or quality-evaluation phase before provider commitment).

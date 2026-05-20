@@ -618,7 +618,10 @@ describeService("sessionMessageApiService", () => {
           chunkIndex: 0,
           tokenEstimate: 80,
           score: 3,
+          semanticScore: 0.88,
+          finalScore: 0.88,
           sourceLabel: "Physics.pdf",
+          retrievalMethod: "semantic",
         },
         {
           chunkId: "ck-2",
@@ -628,7 +631,10 @@ describeService("sessionMessageApiService", () => {
           chunkIndex: 1,
           tokenEstimate: 60,
           score: 2,
+          semanticScore: 0.85,
+          finalScore: 0.85,
           sourceLabel: "Physics.pdf",
+          retrievalMethod: "semantic",
         },
       ];
 
@@ -678,7 +684,7 @@ describeService("sessionMessageApiService", () => {
           retrieval: {
             used: true,
             source_ids: ["ck-1", "ck-2"],
-            why: expect.stringContaining("file_chunks"),
+            why: expect.stringContaining("semantic_retrieval_executed"),
           },
         },
       });
@@ -878,6 +884,57 @@ describeService("sessionMessageApiService", () => {
           decision: expect.stringContaining("ck-X"),
         })
       );
+    });
+
+    it("marks keyword fallback when semantic retrieval is unavailable", async () => {
+      const repos = makeRepos({
+        retrieveFileChunks: vi.fn(async () => ({
+          chunks: [
+            {
+              chunkId: "ck-F",
+              fileId: "file-B",
+              workspaceId: "ws-1",
+              text: "force laws",
+              chunkIndex: 0,
+              tokenEstimate: 50,
+              score: 2,
+              sourceLabel: "doc.pdf",
+              retrievalMethod: "keyword_fallback",
+            },
+          ],
+          eligibleFileCount: 1,
+        })),
+        getMockTutorResponse: vi.fn(async () => ({
+          ...tutorResponse,
+          internalUpdate: {
+            ...tutorResponse.internalUpdate,
+            retrieval_decision: {
+              needs_retrieval: true,
+              retrieval_scope: "topic",
+              max_chunks: 4,
+              max_tokens: 5000,
+              should_ask_clarification_first: false,
+            },
+          },
+        })),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "force laws",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(result).toMatchObject({
+        internalUpdate: {
+          retrieval: {
+            used: true,
+            why: expect.stringContaining("keyword_fallback"),
+          },
+        },
+      });
     });
 
     it("web retrieval path is unaffected when scope is web", async () => {

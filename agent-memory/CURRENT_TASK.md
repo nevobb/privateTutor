@@ -1,40 +1,38 @@
 # Current Task
 
 ## Active task
-Step 24 — Embedding lifecycle boundary.
+Step 25 — Semantic retrieval execution.
 
 ## Status
-Implemented on branch `codex/phase24-embedding-lifecycle-boundary`.
+Completed on branch `codex/phase25-semantic-retrieval-execution`.
 
 ## What was implemented
-- Added chunk embedding lifecycle fields on `FileChunk` metadata:
-  - `embeddingStatus`, `embeddingProvider`, `embeddingModel`, `embeddingDimension`, `embeddingUpdatedAt`, `embeddingErrorCode`, `embeddingSourceTextHash`
-- Added deterministic mock embedding provider boundary:
-  - `src/server/workspaces/fileChunkEmbeddingProvider.ts`
-- Added embedding hash utility:
-  - `src/server/workspaces/fileChunkEmbeddingHash.ts`
-- Added embedding repository for storage path:
-  - `users/{userId}/workspaces/{workspaceId}/files/{fileId}/chunks/{chunkId}/embedding/current`
-  - file: `src/server/workspaces/fileChunkEmbeddingRepository.ts`
-- Added embedding lifecycle service:
-  - `src/server/workspaces/fileChunkEmbeddingService.ts`
-- Added endpoint:
-  - `POST /api/workspaces/[workspaceId]/files/[fileId]/embeddings`
-- Added focused tests for provider/repository/service/route.
-
-## Mainline context preserved
-- Phase 21 parser foundation from `main` remains intact:
-  - real DOCX/PDF parser path (`mammoth`, `pdf-parse`)
-  - extraction route multipart file handling
-  - extraction provider/type extensions
+- Added semantic retrieval service:
+  - `src/server/workspaces/fileChunkSemanticRetrievalService.ts`
+- Added deterministic cosine similarity ranking over existing stored embeddings.
+- Semantic retrieval rules:
+  - uses deterministic/mock embedding provider for query embedding
+  - uses chunk embedding records from existing embedding storage
+  - ignores missing/stale/hash-mismatched embeddings
+  - enforces `maxChunks` and `maxTokens`
+- Integrated hybrid behavior in retrieval execution path:
+  - semantic first when available
+  - keyword fallback when semantic unavailable/empty/failing
+  - keyword-only when semantic not attempted
+- Preserved grounded citations/context flow and session response shape.
 
 ## Explicit boundaries preserved
 - No real embedding provider calls.
-- No vector DB.
-- No semantic retrieval execution.
-- No runtime retrieval behavior changes.
-- No parser behavior changes in this branch update.
-- No provider prompt grounding changes.
+- No external vector DB.
+- No parser changes.
+- No retrieval transcript shape changes.
+- No Gemini/Genkit.
+
+## Validation executed
+- `git diff --check` ✅
+- `npm run build` ✅
+- `npx vitest run tests/server/workspaces/fileChunkSemanticRetrievalService.test.ts tests/server/workspaces/fileChunkRetrievalService.test.ts tests/server/workspaces/sessionMessageApiService.test.ts` ✅
+- `npx vitest run tests/server/workspaces/fileChunkEmbeddingProvider.test.ts tests/server/workspaces/fileChunkEmbeddingRepository.test.ts tests/server/workspaces/fileChunkEmbeddingService.test.ts tests/server/workspaces/workspaceFileEmbeddingsApiRoute.test.ts` ✅
 
 ## Recommended next phase
-Step 25 — Semantic retrieval execution (hybrid semantic+keyword), with keyword fallback retained.
+Real embedding provider selection/integration or retrieval quality evaluation on real corpus.
