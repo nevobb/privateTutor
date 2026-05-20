@@ -16,13 +16,23 @@ type PdfParserFn = (buffer: Buffer) => Promise<PdfParseResult>;
 type DocxParserFn = (buffer: Buffer) => Promise<DocxParseResult>;
 
 async function defaultPdfParser(buffer: Buffer): Promise<PdfParseResult> {
+  // pdf-parse v2 requires DOMMatrix (a browser DOM API). Polyfill it from
+  // @napi-rs/canvas if not already available in this Node.js environment.
+  if (typeof globalThis.DOMMatrix === "undefined") {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const canvasModule = require("@napi-rs/canvas") as { DOMMatrix?: unknown };
+    if (canvasModule.DOMMatrix) {
+      (globalThis as Record<string, unknown>).DOMMatrix = canvasModule.DOMMatrix;
+    }
+  }
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { PDFParse } = require("pdf-parse") as { PDFParse: new (opts: { data: Buffer }) => { getText(): Promise<{ text: string; pages?: number; total?: number }> } };
+  const { PDFParse } = require("pdf-parse") as { PDFParse: new (opts: { data: Buffer }) => { getText(): Promise<{ text: string; pages?: unknown; total?: number }> } };
   const parser = new PDFParse({ data: buffer });
   const result = await parser.getText();
+  const numpages = Array.isArray(result.pages) ? result.pages.length : (typeof result.pages === "number" ? result.pages : result.total);
   return {
     text: result.text ?? "",
-    numpages: result.pages ?? result.total,
+    numpages,
   };
 }
 
