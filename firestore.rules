@@ -80,6 +80,14 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
+    // File chunks and their embeddings — written by server during chunking/embedding lifecycle
+    match /users/{userId}/workspaces/{workspaceId}/files/{fileId}/chunks/{chunkId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /users/{userId}/workspaces/{workspaceId}/files/{fileId}/chunks/{chunkId}/embedding/current {
+      allow read, write: if isOwner(userId);
+    }
+
     // Deny everything else including root-level collections
     match /{document=**} {
       allow read, write: if false;
