@@ -146,6 +146,9 @@ export async function updateUploadedFile(
     }
 
     const current = mapUploadedFileRecord(snapshot.id, data);
+    const hasOwn = <K extends keyof typeof updates>(key: K): boolean =>
+      Object.prototype.hasOwnProperty.call(updates, key);
+
     const next: UploadedFileRecord = {
       ...current,
       assignmentStatus: updates.assignmentStatus ?? current.assignmentStatus,
@@ -171,12 +174,16 @@ export async function updateUploadedFile(
       embeddingStatus: updates.embeddingStatus ?? current.embeddingStatus,
       embeddingUpdatedAt: updates.embeddingUpdatedAt ?? current.embeddingUpdatedAt,
       understandingStatus: updates.understandingStatus ?? current.understandingStatus,
-      understandingUpdatedAt: updates.understandingUpdatedAt ?? current.understandingUpdatedAt,
-      understandingErrorCode: updates.understandingErrorCode ?? current.understandingErrorCode,
+      understandingUpdatedAt: hasOwn("understandingUpdatedAt")
+        ? updates.understandingUpdatedAt
+        : current.understandingUpdatedAt,
+      understandingErrorCode: hasOwn("understandingErrorCode")
+        ? updates.understandingErrorCode
+        : current.understandingErrorCode,
       visualStatus: updates.visualStatus ?? current.visualStatus,
-      visualUpdatedAt: updates.visualUpdatedAt ?? current.visualUpdatedAt,
-      visualErrorCode: updates.visualErrorCode ?? current.visualErrorCode,
-      materialType: updates.materialType ?? current.materialType,
+      visualUpdatedAt: hasOwn("visualUpdatedAt") ? updates.visualUpdatedAt : current.visualUpdatedAt,
+      visualErrorCode: hasOwn("visualErrorCode") ? updates.visualErrorCode : current.visualErrorCode,
+      materialType: hasOwn("materialType") ? updates.materialType : current.materialType,
       updatedAt: new Date(),
     };
 

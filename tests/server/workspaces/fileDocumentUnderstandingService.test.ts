@@ -98,6 +98,34 @@ describe("fileDocumentUnderstandingService", () => {
     }
     expect(d.replaceDetectedQuestions).toHaveBeenCalledTimes(1);
     expect(d.replaceDocumentOutline).toHaveBeenCalledTimes(1);
+    expect(d.updateUploadedFile).toHaveBeenCalledWith(
+      "alice",
+      "file-1",
+      expect.objectContaining({ understandingStatus: "completed", understandingErrorCode: null })
+    );
+  });
+
+  it("keeps success when decision-log write fails", async () => {
+    const d = deps();
+    d.writeDecisionLogEntry = vi.fn(async () => {
+      throw new Error("log failed");
+    });
+    const service = createFileDocumentUnderstandingService(d as never);
+
+    const result = await service.runDocumentUnderstandingLifecycleForFile(user, "ws-1", "file-1");
+    expect(result.ok).toBe(true);
+    expect(d.replaceDetectedQuestions).toHaveBeenCalledTimes(1);
+    expect(d.replaceDocumentOutline).toHaveBeenCalledTimes(1);
+    expect(d.updateUploadedFile).toHaveBeenCalledWith(
+      "alice",
+      "file-1",
+      expect.objectContaining({ understandingStatus: "completed" })
+    );
+    expect(d.updateUploadedFile).not.toHaveBeenCalledWith(
+      "alice",
+      "file-1",
+      expect.objectContaining({ understandingStatus: "failed" })
+    );
   });
 
   it("marks understanding failed when provider throws", async () => {
@@ -111,6 +139,27 @@ describe("fileDocumentUnderstandingService", () => {
 
     const result = await service.runDocumentUnderstandingLifecycleForFile(user, "ws-1", "file-1");
     expect(result.ok).toBe(false);
+    expect(d.updateUploadedFile).toHaveBeenCalledWith(
+      "alice",
+      "file-1",
+      expect.objectContaining({ understandingStatus: "failed" })
+    );
+  });
+
+  it("keeps lifecycle failure result when provider and decision-log both fail", async () => {
+    const d = deps();
+    d.structuringProvider = {
+      structureDocument: vi.fn(async () => {
+        throw new Error("provider failed");
+      }),
+    };
+    d.writeDecisionLogEntry = vi.fn(async () => {
+      throw new Error("log failed");
+    });
+    const service = createFileDocumentUnderstandingService(d as never);
+
+    const result = await service.runDocumentUnderstandingLifecycleForFile(user, "ws-1", "file-1");
+    expect(result).toEqual({ ok: false, code: "lifecycle_failed" });
     expect(d.updateUploadedFile).toHaveBeenCalledWith(
       "alice",
       "file-1",

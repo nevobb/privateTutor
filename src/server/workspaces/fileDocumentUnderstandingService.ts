@@ -141,7 +141,7 @@ export function createFileDocumentUnderstandingService(
           materialType: structured.materialType,
         });
 
-        await deps.writeDecisionLogEntry(user.userId, {
+        await safeWriteDecisionLogEntry(deps, user.userId, {
           decisionType: "topic_classification",
           title: "Document understanding lifecycle",
           decision: "understanding_completed",
@@ -163,7 +163,7 @@ export function createFileDocumentUnderstandingService(
           understandingUpdatedAt: new Date(),
         });
 
-        await deps.writeDecisionLogEntry(user.userId, {
+        await safeWriteDecisionLogEntry(deps, user.userId, {
           decisionType: "topic_classification",
           title: "Document understanding lifecycle",
           decision: "understanding_failed",
@@ -179,3 +179,15 @@ export function createFileDocumentUnderstandingService(
 
 export const fileDocumentUnderstandingService: FileDocumentUnderstandingService =
   createFileDocumentUnderstandingService();
+
+async function safeWriteDecisionLogEntry(
+  deps: Pick<Deps, "writeDecisionLogEntry">,
+  userId: string,
+  input: Parameters<Deps["writeDecisionLogEntry"]>[1]
+): Promise<void> {
+  try {
+    await deps.writeDecisionLogEntry(userId, input);
+  } catch {
+    // Non-fatal by design: understanding lifecycle must not fail on decision-log writes.
+  }
+}
