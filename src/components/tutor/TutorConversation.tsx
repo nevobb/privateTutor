@@ -16,6 +16,7 @@ import {
   DecisionLogApiError,
 } from "../../lib/diagnostics/decisionLogApiClient";
 import type { DecisionLogListItem } from "../../lib/diagnostics/decisionLogApiTypes";
+import type { SourceCitation } from "../../types";
 
 const SCOPE_MODE_LABELS: Record<WorkMode, string> = {
   Learning: "Learn",
@@ -24,6 +25,8 @@ const SCOPE_MODE_LABELS: Record<WorkMode, string> = {
   Build: "Build",
   "Temporary Chat": "Temp Chat",
 };
+const TIMEOUT_RECOVERY_ATTEMPTS = 4;
+const TIMEOUT_RECOVERY_INTERVAL_MS = 2000;
 
 interface TutorConversationProps {
   activeSessionId: string | null;
@@ -52,6 +55,7 @@ export default function TutorConversation({
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [composerNotice, setComposerNotice] = useState<string | null>(null);
   const [decisionLogState, setDecisionLogState] = useState<
     | { status: "disabled"; message: string }
     | { status: "loading" }
@@ -181,12 +185,34 @@ export default function TutorConversation({
           result.userMessage,
           result.assistantMessage,
         ]);
+        setComposerNotice(null);
         if (developerDiagnosticsEnabled) {
           setDecisionLogRefreshKey((prev) => prev + 1);
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error(error);
-        setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+        if (isTimeoutError(error)) {
+          setComposerNotice("המורה עדיין מעבד את התשובה...");
+          const recovered = await recoverAfterTimeout({
+            getToken,
+            activeWorkspaceId,
+            activeSessionId,
+            baselineMessageIds: new Set(messages.map((message) => message.id)),
+          });
+          if (recovered) {
+            setMessages(recovered.messages);
+            setComposerNotice(null);
+            if (developerDiagnosticsEnabled) {
+              setDecisionLogRefreshKey((prev) => prev + 1);
+            }
+          } else {
+            setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+            setComposerNotice("שירות ההודעות לא הגיב בזמן. נסה שוב.");
+          }
+        } else {
+          setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+          setComposerNotice("שליחת ההודעה נכשלה. נסה שוב.");
+        }
       } finally {
         setIsTyping(false);
       }
@@ -199,6 +225,7 @@ export default function TutorConversation({
       getToken,
       inputValue,
       isTyping,
+      messages,
       workMode,
     ]
   );
@@ -304,6 +331,22 @@ export default function TutorConversation({
               <TypingDot delay={0} />
               <TypingDot delay={160} />
               <TypingDot delay={320} />
+            </div>
+          </div>
+        )}
+
+        {!isTyping && composerNotice && (
+          <div className="flex justify-start">
+            <div
+              className="px-4 py-2.5 rounded-2xl rounded-tl-sm text-xs"
+              style={{
+                background: "var(--tutor-surface)",
+                border: "1px solid var(--tutor-border-subtle)",
+                color: "var(--tutor-text-muted)",
+              }}
+              dir="rtl"
+            >
+              {composerNotice}
             </div>
           </div>
         )}
@@ -470,6 +513,7 @@ export function shouldSubmitOnKeyDown(key: string, shiftKey: boolean): boolean {
 
 function MessageBubble({ msg }: { msg: TutorMessage }) {
   const isUser = msg.role === "user";
+  const normalizedSources = normalizeCitations(msg.citations);
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -499,36 +543,93 @@ function MessageBubble({ msg }: { msg: TutorMessage }) {
           style={{ fontFamily: isUser ? undefined : "'Lora', Georgia, serif" }}
         />
 
-        {msg.citations && msg.citations.length > 0 && (
+        {normalizedSources.length > 0 && (
           <div
             className="mt-3 pt-2.5 space-y-1"
             style={{ borderTop: "1px solid var(--tutor-border-subtle)" }}
           >
-            <p
-              className="text-[10px] font-semibold uppercase tracking-wide"
-              style={{ color: "var(--tutor-text-muted)" }}
-              dir="rtl"
-            >
-              מקורות
-            </p>
-            {msg.citations.map((cite) => (
-              <div
-                key={cite.id}
-                className="text-[11px] px-2.5 py-1.5 rounded-lg"
-                style={{
-                  background: "var(--tutor-border-subtle)",
-                  color: "var(--tutor-text-secondary)",
-                }}
-                dir="rtl"
-              >
-                &ldquo;{cite.referenceText}&rdquo;
-              </div>
-            ))}
+            <SourcesSection citations={normalizedSources} />
           </div>
         )}
       </div>
     </div>
   );
+}
+
+interface NormalizedCitation extends SourceCitation {
+  renderKey: string;
+  sourceLabel: string;
+}
+
+export function SourcesSection({ citations }: { citations: NormalizedCitation[] }) {
+  return (
+    <details className="group">
+      <summary
+        className="cursor-pointer select-none text-[10px] font-semibold tracking-wide"
+        style={{ color: "var(--tutor-text-muted)" }}
+        dir="ltr"
+      >
+        Sources ({citations.length})
+      </summary>
+      <div className="mt-2 space-y-1.5">
+        {citations.map((cite) => (
+          <div
+            key={cite.renderKey}
+            className="text-[11px] px-2.5 py-1.5 rounded-lg space-y-0.5"
+            style={{
+              background: "var(--tutor-border-subtle)",
+              color: "var(--tutor-text-secondary)",
+            }}
+            dir="auto"
+          >
+            <div className="text-[10px]" style={{ color: "var(--tutor-text-muted)" }} dir="ltr">
+              {cite.sourceLabel}
+            </div>
+            <div
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 3,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              &ldquo;{cite.referenceText}&rdquo;
+            </div>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+export function normalizeCitations(citations: SourceCitation[] | undefined): NormalizedCitation[] {
+  if (!citations || citations.length === 0) return [];
+
+  const deduped = new Map<string, SourceCitation>();
+  for (const cite of citations) {
+    const dedupeKey = `${cite.sourceId}::${cite.referenceText}`;
+    if (!deduped.has(dedupeKey)) {
+      deduped.set(dedupeKey, cite);
+    }
+  }
+
+  return Array.from(deduped.values()).map((cite, index) => {
+    const sourceLabel = formatSourceLabel(cite);
+    return {
+      ...cite,
+      sourceLabel,
+      renderKey: `${cite.sourceId || "unknown-source"}:${cite.id || "unknown-id"}:${index}`,
+    };
+  });
+}
+
+function formatSourceLabel(citation: SourceCitation): string {
+  const parts = citation.sourceId.split(":");
+  if (parts.length >= 2) {
+    const [fileId, chunkId] = parts;
+    return `${fileId} • ${chunkId}`;
+  }
+  return citation.sourceId;
 }
 
 function TypingDot({ delay }: { delay: number }) {
@@ -540,5 +641,45 @@ function TypingDot({ delay }: { delay: number }) {
         animationDelay: `${delay}ms`,
       }}
     />
+  );
+}
+
+async function recoverAfterTimeout(input: {
+  getToken: () => Promise<string | null>;
+  activeWorkspaceId: string;
+  activeSessionId: string;
+  baselineMessageIds: Set<string>;
+}): Promise<{ messages: TutorMessage[] } | null> {
+  for (let attempt = 0; attempt < TIMEOUT_RECOVERY_ATTEMPTS; attempt += 1) {
+    await wait(TIMEOUT_RECOVERY_INTERVAL_MS);
+    const token = await input.getToken();
+    if (!token) {
+      return null;
+    }
+    try {
+      const loaded = await fetchSessionMessages(token, input.activeWorkspaceId, input.activeSessionId);
+      if (hasNewAssistantMessage(loaded, input.baselineMessageIds)) {
+        return { messages: loaded };
+      }
+    } catch {
+      // ignore temporary poll errors and continue within recovery window
+    }
+  }
+  return null;
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function hasNewAssistantMessage(messages: TutorMessage[], baselineMessageIds: Set<string>): boolean {
+  return messages.some((message) => message.role === "tutor" && !baselineMessageIds.has(message.id));
+}
+
+export function isTimeoutError(error: unknown): boolean {
+  return (
+    error instanceof SessionMessagesApiError &&
+    error.status === 503 &&
+    error.message.includes("לא הגיב בזמן")
   );
 }

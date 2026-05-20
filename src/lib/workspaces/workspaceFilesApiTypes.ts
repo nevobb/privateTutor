@@ -5,6 +5,7 @@ export interface WorkspaceFileItem {
   userId: string;
   workspaceId?: string;
   fileName: string;
+  originalFileName?: string;
   sourceType: "pdf" | "docx" | "note" | "other";
   storagePath?: string;
   topic?: string;
@@ -32,6 +33,8 @@ export interface WorkspaceFileItem {
   chunkCount?: number;
   chunkingErrorCode: string | null;
   chunkingUpdatedAt: string | null;
+  embeddingStatus: "not_started" | "completed" | "failed";
+  embeddingUpdatedAt: string | null;
   uploadedAt: string;
   createdAt: string;
   updatedAt: string;

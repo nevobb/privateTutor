@@ -93,6 +93,11 @@ function renderPanelBody(
         files.map((file) => {
           const extractionStatus = file.extractionStatus ?? "not_started";
           const chunkingStatus = file.chunkingStatus ?? "not_started";
+          const embeddingStatus = file.embeddingStatus ?? "not_started";
+          const isReadyForLearning =
+            extractionStatus === "completed" &&
+            chunkingStatus === "completed" &&
+            embeddingStatus === "completed";
 
           const extractDisabled =
             disabled ||
@@ -109,7 +114,8 @@ function renderPanelBody(
           const embedDisabled =
             disabled ||
             !onEmbedFile ||
-            chunkingStatus !== "completed";
+            chunkingStatus !== "completed" ||
+            embeddingStatus === "completed";
 
           return (
             <div
@@ -132,8 +138,13 @@ function renderPanelBody(
                 {file.uploadedAt.toLocaleDateString("he-IL", { day: "numeric", month: "short" })}
               </span>
               <span style={{ color: "var(--tutor-text-muted)", flexShrink: 0 }}>
-                {`E:${extractionStatus} C:${chunkingStatus}`}
+                {`E:${extractionStatus} C:${chunkingStatus} Emb:${embeddingStatus}`}
               </span>
+              {isReadyForLearning ? (
+                <span style={{ color: "var(--tutor-accent)", flexShrink: 0 }}>
+                  Ready
+                </span>
+              ) : null}
               <button
                 type="button"
                 className="px-2 py-1 rounded text-[10px]"

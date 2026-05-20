@@ -140,6 +140,7 @@ export function createUploadedFileApiService(
       const created = await repositories.createUploadedFile(user.userId, {
         workspaceId,
         name: input.fileName,
+        originalFileName: input.originalFileName,
         sourceType: input.sourceType,
         storagePath: input.storagePath,
         topicHint: input.topicHint,
