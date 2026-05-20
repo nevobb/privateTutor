@@ -70,13 +70,15 @@ export async function replaceDocumentPages(
   pages: Array<Omit<DocumentPageRecord, "createdAt" | "updatedAt">>
 ): Promise<void> {
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
-    await deleteDocumentPages(userId, workspaceId, fileId);
+    const pagesCollectionPath = resolveDocumentPagesPath(userId, workspaceId, fileId).join("/");
+    const existing = await db.collection(pagesCollectionPath).get();
+    await Promise.all(existing.docs.map((item) => item.ref.delete()));
     const now = new Date();
 
     await Promise.all(
       pages.map((page, index) => {
         const pageId = page.id || `page_${String(index + 1).padStart(4, "0")}`;
-        return db.doc(`${resolveDocumentPagesPath(userId, workspaceId, fileId).join("/")}/${pageId}`).set({
+        return db.doc(`${pagesCollectionPath}/${pageId}`).set({
           pageNumber: page.pageNumber,
           extractedText: page.extractedText,
           cleanedText: page.cleanedText ?? null,
@@ -91,4 +93,3 @@ export async function replaceDocumentPages(
     );
   });
 }
-

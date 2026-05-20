@@ -386,16 +386,6 @@ export function createUploadedFileApiService(
         });
 
         const text = extraction.text.trim();
-        const pages = buildExtractionPages({
-          userId: user.userId,
-          workspaceId,
-          fileId,
-          sourceType: current.sourceType,
-          fullText: text,
-          extractionPages: extraction.pages,
-        });
-        await repositories.replaceDocumentPages(user.userId, workspaceId, fileId, pages);
-
         const completed = await repositories.updateUploadedFile(user.userId, fileId, {
           extractionStatus: "completed",
           extractedText: text,
@@ -408,6 +398,31 @@ export function createUploadedFileApiService(
 
         if (!completed) {
           return { ok: false, code: "file_not_found" };
+        }
+
+        const pages = buildExtractionPages({
+          userId: user.userId,
+          workspaceId,
+          fileId,
+          sourceType: current.sourceType,
+          fullText: text,
+          extractionPages: extraction.pages,
+        });
+        try {
+          await repositories.replaceDocumentPages(user.userId, workspaceId, fileId, pages);
+        } catch {
+          try {
+            await repositories.writeDecisionLogEntry(user.userId, {
+              decisionType: "file_extraction",
+              title: "Extraction pages persistence",
+              decision: "extraction_pages_persistence_failed",
+              rationale:
+                "Page-level persistence failed; extractedText was still persisted and extractionStatus remained completed.",
+              workspaceId,
+            });
+          } catch {
+            // Non-fatal: this warning should never break successful extraction persistence.
+          }
         }
 
         await repositories.writeDecisionLogEntry(user.userId, {

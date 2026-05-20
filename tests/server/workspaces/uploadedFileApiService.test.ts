@@ -308,6 +308,37 @@ describe("uploadedFileApiService.runExtractionLifecycleForFile", () => {
     const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
     expect(result).toEqual({ ok: false, code: "missing_storage_path" });
   });
+
+  it("keeps extraction completed when page persistence fails", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        sourceType: "pdf",
+        storagePath: "users/alice/workspaces/ws-1/files/file-1/Mechanics Intro.pdf",
+        extractionStatus: "not_started",
+      })
+    );
+    repos.replaceDocumentPages = vi.fn(async () => {
+      throw new Error("pages_write_failed");
+    });
+
+    const service = createUploadedFileApiService(repos as never);
+    const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.file.extractionStatus).toBe("completed");
+      expect(result.file.extractedText).toContain("Extraction boundary placeholder");
+    }
+    expect(repos.updateUploadedFile).toHaveBeenCalledWith(
+      "alice",
+      "file-1",
+      expect.objectContaining({
+        extractionStatus: "completed",
+        extractedText: expect.any(String),
+      })
+    );
+  });
 });
 
 describe("uploadedFileApiService.runChunkingLifecycleForFile", () => {
