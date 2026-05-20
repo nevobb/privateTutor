@@ -1,6 +1,10 @@
 import type { FileChunkRecord, UploadedFileRecord } from "./workspaceTypes";
 import { listUploadedFiles as defaultListUploadedFiles } from "./uploadedFileRepository";
 import { listFileChunks as defaultListFileChunks } from "./fileChunkRepository";
+import {
+  retrieveRelevantFileChunksSemantically,
+  type SemanticChunkRetrievalResult,
+} from "./fileChunkSemanticRetrievalService";
 
 export type FileChunkRetrievalInput = {
   userId: string;
@@ -18,7 +22,11 @@ export type RetrievedFileChunk = {
   chunkIndex: number;
   tokenEstimate: number;
   score: number;
+  semanticScore?: number;
+  keywordScore?: number;
+  finalScore?: number;
   sourceLabel: string;
+  retrievalMethod?: "semantic" | "keyword_fallback" | "keyword_only";
 };
 
 export type FileChunkRetrievalResult = {
@@ -29,6 +37,7 @@ export type FileChunkRetrievalResult = {
 interface RetrievalDeps {
   listUploadedFiles: (userId: string, workspaceId: string) => Promise<UploadedFileRecord[]>;
   listFileChunks: (userId: string, workspaceId: string, fileId: string) => Promise<FileChunkRecord[]>;
+  retrieveSemantically?: typeof retrieveRelevantFileChunksSemantically;
 }
 
 function tokenize(text: string): Set<string> {
@@ -50,11 +59,24 @@ function scoreChunk(queryTokens: Set<string>, chunkText: string): number {
   return matches;
 }
 
+function selectByBudget(chunks: RetrievedFileChunk[], maxChunks: number, maxTokens: number): RetrievedFileChunk[] {
+  const result: RetrievedFileChunk[] = [];
+  let remainingTokens = maxTokens;
+  for (const chunk of chunks) {
+    if (result.length >= maxChunks) break;
+    if (chunk.tokenEstimate > remainingTokens) break;
+    result.push(chunk);
+    remainingTokens -= chunk.tokenEstimate;
+  }
+  return result;
+}
+
 export async function retrieveRelevantFileChunks(
   input: FileChunkRetrievalInput,
   deps: RetrievalDeps = {
     listUploadedFiles: defaultListUploadedFiles,
     listFileChunks: defaultListFileChunks,
+    retrieveSemantically: retrieveRelevantFileChunksSemantically,
   }
 ): Promise<FileChunkRetrievalResult> {
   const { userId, workspaceId, query, maxChunks, maxTokens } = input;
@@ -71,8 +93,6 @@ export async function retrieveRelevantFileChunks(
     return { chunks: [], eligibleFileCount: 0 };
   }
 
-  const queryTokens = tokenize(query);
-
   const allPairs: Array<{ file: UploadedFileRecord; chunk: FileChunkRecord }> = [];
   await Promise.all(
     eligible.map(async (file) => {
@@ -87,6 +107,50 @@ export async function retrieveRelevantFileChunks(
     return { chunks: [], eligibleFileCount: eligible.length };
   }
 
+  let semanticResult: SemanticChunkRetrievalResult = { attempted: false, chunks: [] };
+  if (deps.retrieveSemantically) {
+    try {
+      semanticResult = await deps.retrieveSemantically({
+        userId,
+        workspaceId,
+        query,
+        maxChunks,
+        maxTokens,
+        candidates: allPairs.map(({ file, chunk }) => ({
+          fileId: file.id,
+          sourceLabel: file.name,
+          chunk,
+        })),
+      });
+    } catch {
+      semanticResult = { attempted: true, chunks: [] };
+    }
+  }
+
+  if (semanticResult.chunks.length > 0) {
+    return {
+      chunks: semanticResult.chunks.map((chunk) => ({
+        chunkId: chunk.chunkId,
+        fileId: chunk.fileId,
+        workspaceId: chunk.workspaceId,
+        text: chunk.text,
+        chunkIndex: chunk.chunkIndex,
+        tokenEstimate: chunk.tokenEstimate,
+        score: chunk.finalScore,
+        semanticScore: chunk.semanticScore,
+        keywordScore: chunk.keywordScore,
+        finalScore: chunk.finalScore,
+        sourceLabel: chunk.sourceLabel,
+        retrievalMethod: "semantic",
+      })),
+      eligibleFileCount: eligible.length,
+    };
+  }
+
+  const queryTokens = tokenize(query);
+  const fallbackMethod: RetrievedFileChunk["retrievalMethod"] = semanticResult.attempted
+    ? "keyword_fallback"
+    : "keyword_only";
   const scored: RetrievedFileChunk[] = allPairs
     .map(({ file, chunk }) => ({
       chunkId: chunk.chunkId,
@@ -96,21 +160,16 @@ export async function retrieveRelevantFileChunks(
       chunkIndex: chunk.chunkIndex,
       tokenEstimate: chunk.tokenEstimate,
       score: scoreChunk(queryTokens, chunk.text),
+      keywordScore: scoreChunk(queryTokens, chunk.text),
+      finalScore: scoreChunk(queryTokens, chunk.text),
       sourceLabel: file.name,
+      retrievalMethod: fallbackMethod,
     }))
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       return a.chunkIndex - b.chunkIndex;
     });
 
-  const result: RetrievedFileChunk[] = [];
-  let remainingTokens = maxTokens;
-  for (const chunk of scored) {
-    if (result.length >= maxChunks) break;
-    if (chunk.tokenEstimate > remainingTokens) break;
-    result.push(chunk);
-    remainingTokens -= chunk.tokenEstimate;
-  }
-
+  const result = selectByBudget(scored, maxChunks, maxTokens);
   return { chunks: result, eligibleFileCount: eligible.length };
 }

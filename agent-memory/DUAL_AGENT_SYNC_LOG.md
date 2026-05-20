@@ -912,3 +912,37 @@ Copy this block and fill all fields:
   - Current state: in_progress
   - Next recommended step: run full Step 24 + parser regression validation and push updated PR branch.
   - Blockers/Risks: none.
+
+## 2026-05-20 12:00 (Asia/Jerusalem) — Codex
+- Step/Task ID: Step 25
+- Task summary: Implement semantic retrieval execution over chunk embeddings with keyword fallback.
+- What I changed:
+  - Added semantic retrieval service with deterministic cosine ranking and stale/missing embedding filtering.
+  - Integrated hybrid semantic-first + keyword fallback behavior into chunk retrieval pipeline without changing response shape.
+  - Updated session retrieval decision-log details to include semantic attempt/use/fallback metadata.
+  - Added focused tests for semantic service and updated retrieval/session regressions.
+- Files touched:
+  - `src/server/workspaces/fileChunkSemanticRetrievalService.ts`
+  - `src/server/workspaces/fileChunkRetrievalService.ts`
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `tests/server/workspaces/fileChunkSemanticRetrievalService.test.ts`
+  - `tests/server/workspaces/fileChunkRetrievalService.test.ts`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/AGENT_HANDOFF.md`
+  - `agent-memory/TASK_LOG.md`
+  - `agent-memory/PROJECT_STATE.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git diff --check` — passed
+  - `npm run build` — passed
+  - `npx vitest run tests/server/workspaces/fileChunkSemanticRetrievalService.test.ts tests/server/workspaces/fileChunkRetrievalService.test.ts tests/server/workspaces/sessionMessageApiService.test.ts` — passed (46/46)
+  - `npx vitest run tests/server/workspaces/fileChunkEmbeddingProvider.test.ts tests/server/workspaces/fileChunkEmbeddingRepository.test.ts tests/server/workspaces/fileChunkEmbeddingService.test.ts tests/server/workspaces/workspaceFileEmbeddingsApiRoute.test.ts` — passed (8 passed, 1 skipped)
+- Git status:
+  - Branch: `codex/phase25-semantic-retrieval-execution`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: open PR for Step 25 and evaluate quality before real provider integration.
+  - Blockers/Risks: none.

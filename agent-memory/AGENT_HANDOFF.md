@@ -10,22 +10,21 @@
 7. `agent-memory/OPEN_QUESTIONS.md`
 
 ## Current status
-- Step 24 embedding lifecycle boundary is completed on branch `codex/phase24-embedding-lifecycle-boundary`.
-- Runtime retrieval behavior is unchanged.
+- Step 25 semantic retrieval execution completed on branch `codex/phase25-semantic-retrieval-execution`.
+- Hybrid semantic + keyword fallback behavior is active.
 
-## What Step 24 added
-- Embedding lifecycle metadata fields on file chunks.
-- Deterministic mock embedding provider boundary.
-- Embedding storage/repository boundary under chunk embedding subdocument path.
-- Embedding lifecycle service and route:
-  - `POST /api/workspaces/[workspaceId]/files/[fileId]/embeddings`
-- Focused tests for provider/repository/service/route.
+## What Step 25 added
+- Semantic chunk retrieval service with deterministic cosine ranking.
+- Hybrid retrieval integration in existing retrieval service.
+- Retrieval method metadata (`semantic`, `keyword_fallback`, `keyword_only`).
+- Decision-log detail enrichment for semantic attempt/use/fallback reason.
+- Focused tests for semantic ranking and fallback behavior.
 
 ## What is still out of scope
 - Real embedding provider integration.
-- Vector DB.
-- Semantic retrieval execution.
-- Parser or extraction runtime changes.
+- External vector DB.
+- Parser changes.
+- Gemini/Genkit.
 
 ## Next recommended step
-- Step 25: semantic retrieval execution with hybrid ranking and keyword fallback.
+- Evaluate retrieval quality with real learning materials and decide on real embedding provider integration.

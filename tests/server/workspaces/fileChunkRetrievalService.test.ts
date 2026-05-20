@@ -266,4 +266,55 @@ describeService("retrieveRelevantFileChunks", () => {
 
     expect(result.chunks[0].sourceLabel).toBe("Mechanics Lecture.pdf");
   });
+
+  it("uses semantic retrieval when embeddings are available", async () => {
+    const deps = {
+      listUploadedFiles: vi.fn(async () => [makeEligibleFile("f1", "notes.pdf")]),
+      listFileChunks: vi.fn(async () => [makeChunk("c1", "f1", 0, "mechanics force acceleration")]),
+      retrieveSemantically: vi.fn(async () => ({
+        attempted: true,
+        chunks: [
+          {
+            chunkId: "c1",
+            fileId: "f1",
+            workspaceId: "ws-1",
+            text: "mechanics force acceleration",
+            chunkIndex: 0,
+            tokenEstimate: 20,
+            semanticScore: 0.91,
+            finalScore: 0.91,
+            sourceLabel: "notes.pdf",
+            retrievalMethod: "semantic",
+          },
+        ],
+      })),
+    };
+
+    const result = await mod.retrieveRelevantFileChunks(
+      { userId: "alice", workspaceId: "ws-1", query: "force", maxChunks: 3, maxTokens: 1000 },
+      deps as never
+    );
+
+    expect(result.chunks[0].retrievalMethod).toBe("semantic");
+    expect(result.chunks[0].semanticScore).toBe(0.91);
+  });
+
+  it("falls back to keyword retrieval when semantic is unavailable", async () => {
+    const deps = {
+      listUploadedFiles: vi.fn(async () => [makeEligibleFile("f1", "notes.pdf")]),
+      listFileChunks: vi.fn(async () => [
+        makeChunk("c1", "f1", 0, "newton force law"),
+        makeChunk("c2", "f1", 1, "thermodynamics entropy"),
+      ]),
+      retrieveSemantically: vi.fn(async () => ({ attempted: true, chunks: [] })),
+    };
+
+    const result = await mod.retrieveRelevantFileChunks(
+      { userId: "alice", workspaceId: "ws-1", query: "newton force", maxChunks: 3, maxTokens: 1000 },
+      deps as never
+    );
+
+    expect(result.chunks[0].chunkId).toBe("c1");
+    expect(result.chunks[0].retrievalMethod).toBe("keyword_fallback");
+  });
 });
