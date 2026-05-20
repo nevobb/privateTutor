@@ -10,6 +10,11 @@ export type FileExtractionInput = {
 
 export type FileExtractionResult = {
   text: string;
+  pages?: Array<{
+    pageNumber: number;
+    text: string;
+    textQuality?: "good" | "partial" | "poor" | "unknown";
+  }>;
   source:
     | "deterministic_test_parser"
     | "manual_placeholder"

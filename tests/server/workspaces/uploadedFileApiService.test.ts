@@ -128,6 +128,7 @@ function makeRepositories() {
     },
     listFileChunks: vi.fn(async () => []),
     replaceFileChunks: vi.fn(async () => {}),
+    replaceDocumentPages: vi.fn(async () => {}),
     listUploadedFiles: vi.fn(async () => [createRecord({ indexingStatus: "indexed" })]),
     writeDecisionLogEntry,
   };
@@ -198,6 +199,52 @@ describe("uploadedFileApiService.runExtractionLifecycleForFile", () => {
 
     const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
     expect(result.ok).toBe(true);
+    expect(repos.replaceDocumentPages).toHaveBeenCalledWith(
+      "alice",
+      "ws-1",
+      "file-1",
+      expect.arrayContaining([
+        expect.objectContaining({
+          pageNumber: 1,
+          extractedText: expect.any(String),
+          textQuality: "unknown",
+        }),
+      ])
+    );
+  });
+
+  it("persists real page records when extraction provider returns page-level text", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        sourceType: "pdf",
+        storagePath: "users/alice/workspaces/ws-1/files/file-1/Mechanics Intro.pdf",
+        extractionStatus: "not_started",
+      })
+    );
+    repos.fileExtractionProvider = {
+      extractText: vi.fn(async () => ({
+        text: "Page 1 text\n\nPage 2 text",
+        pages: [
+          { pageNumber: 1, text: "Page 1 text", textQuality: "good" as const },
+          { pageNumber: 2, text: "Page 2 text", textQuality: "partial" as const },
+        ],
+        source: "deterministic_test_parser" as const,
+      })),
+    };
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
+    expect(result.ok).toBe(true);
+    expect(repos.replaceDocumentPages).toHaveBeenCalledWith(
+      "alice",
+      "ws-1",
+      "file-1",
+      [
+        expect.objectContaining({ pageNumber: 1, extractedText: "Page 1 text", textQuality: "good" }),
+        expect.objectContaining({ pageNumber: 2, extractedText: "Page 2 text", textQuality: "partial" }),
+      ]
+    );
   });
 
   it("rejects extraction when status is already completed", async () => {
@@ -260,6 +307,37 @@ describe("uploadedFileApiService.runExtractionLifecycleForFile", () => {
 
     const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
     expect(result).toEqual({ ok: false, code: "missing_storage_path" });
+  });
+
+  it("keeps extraction completed when page persistence fails", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        sourceType: "pdf",
+        storagePath: "users/alice/workspaces/ws-1/files/file-1/Mechanics Intro.pdf",
+        extractionStatus: "not_started",
+      })
+    );
+    repos.replaceDocumentPages = vi.fn(async () => {
+      throw new Error("pages_write_failed");
+    });
+
+    const service = createUploadedFileApiService(repos as never);
+    const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.file.extractionStatus).toBe("completed");
+      expect(result.file.extractedText).toContain("Extraction boundary placeholder");
+    }
+    expect(repos.updateUploadedFile).toHaveBeenCalledWith(
+      "alice",
+      "file-1",
+      expect.objectContaining({
+        extractionStatus: "completed",
+        extractedText: expect.any(String),
+      })
+    );
   });
 });
 

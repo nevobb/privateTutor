@@ -15,8 +15,10 @@ import {
   listFileChunks as defaultListFileChunks,
   replaceFileChunks as defaultReplaceFileChunks,
 } from "./fileChunkRepository";
+import { replaceDocumentPages as defaultReplaceDocumentPages } from "./documentPageRepository";
 import type { CreateUploadedFileApiRequest } from "./uploadedFileApiSchemas";
 import type { UploadedFileRecord } from "./workspaceTypes";
+import type { DocumentPage } from "../../types";
 
 const LOW_CONFIDENCE_THRESHOLD = 0.7;
 const SUMMARY_PLACEHOLDER_TEXT = "Summary placeholder; content extraction not enabled yet.";
@@ -95,6 +97,7 @@ interface Repositories {
   fileExtractionProvider: typeof defaultFileExtractionProvider;
   listFileChunks: typeof defaultListFileChunks;
   replaceFileChunks: typeof defaultReplaceFileChunks;
+  replaceDocumentPages: typeof defaultReplaceDocumentPages;
 }
 
 function getDefaultExtractionProvider(fileBuffer?: Buffer): FileExtractionProvider {
@@ -115,6 +118,7 @@ function defaultRepositories(): Repositories {
     fileExtractionProvider: defaultFileExtractionProvider,
     listFileChunks: defaultListFileChunks,
     replaceFileChunks: defaultReplaceFileChunks,
+    replaceDocumentPages: defaultReplaceDocumentPages,
   };
 }
 
@@ -396,6 +400,31 @@ export function createUploadedFileApiService(
           return { ok: false, code: "file_not_found" };
         }
 
+        const pages = buildExtractionPages({
+          userId: user.userId,
+          workspaceId,
+          fileId,
+          sourceType: current.sourceType,
+          fullText: text,
+          extractionPages: extraction.pages,
+        });
+        try {
+          await repositories.replaceDocumentPages(user.userId, workspaceId, fileId, pages);
+        } catch {
+          try {
+            await repositories.writeDecisionLogEntry(user.userId, {
+              decisionType: "file_extraction",
+              title: "Extraction pages persistence",
+              decision: "extraction_pages_persistence_failed",
+              rationale:
+                "Page-level persistence failed; extractedText was still persisted and extractionStatus remained completed.",
+              workspaceId,
+            });
+          } catch {
+            // Non-fatal: this warning should never break successful extraction persistence.
+          }
+        }
+
         await repositories.writeDecisionLogEntry(user.userId, {
           decisionType: "file_extraction",
           title: "Extraction lifecycle",
@@ -527,6 +556,47 @@ export function createUploadedFileApiService(
       }
     },
   };
+}
+
+function buildExtractionPages(input: {
+  userId: string;
+  workspaceId: string;
+  fileId: string;
+  sourceType: "pdf" | "docx" | "note" | "other";
+  fullText: string;
+  extractionPages?: Array<{ pageNumber: number; text: string; textQuality?: "good" | "partial" | "poor" | "unknown" }>;
+}): Array<Omit<DocumentPage, "createdAt" | "updatedAt">> {
+  const normalizedPages = input.extractionPages
+    ?.filter((page) => page && typeof page.pageNumber === "number" && typeof page.text === "string")
+    .map((page) => ({
+      id: `page_${String(page.pageNumber).padStart(4, "0")}`,
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+      fileId: input.fileId,
+      pageNumber: page.pageNumber,
+      extractedText: page.text,
+      cleanedText: page.text.trim(),
+      textQuality: page.textQuality ?? "unknown",
+    }));
+
+  if (normalizedPages && normalizedPages.length > 0) {
+    return normalizedPages;
+  }
+
+  // Current parser integration extracts a full text blob without stable page boundaries.
+  // Until per-page extraction is available, persist a synthetic page-1 record explicitly.
+  return [
+    {
+      id: "page_0001",
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+      fileId: input.fileId,
+      pageNumber: 1,
+      extractedText: input.fullText,
+      cleanedText: input.fullText.trim(),
+      textQuality: "unknown",
+    },
+  ];
 }
 
 export const uploadedFileApiService: UploadedFileApiService = createUploadedFileApiService();
