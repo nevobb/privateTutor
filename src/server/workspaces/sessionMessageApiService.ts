@@ -25,6 +25,10 @@ import {
   retrieveRelevantFileChunks as defaultRetrieveFileChunks,
 } from "./fileChunkRetrievalService";
 import type { FileChunkRetrievalInput, FileChunkRetrievalResult, RetrievedFileChunk } from "./fileChunkRetrievalService";
+import {
+  documentTutorContextService as defaultDocumentTutorContextService,
+  type DocumentTutorContextService,
+} from "./documentTutorContextService";
 
 // Maximum number of previous turns to include as context for the AI provider.
 // Each "turn" is one message (user or tutor). 20 = 10 exchanges.
@@ -54,6 +58,7 @@ interface Repositories {
   processMemoryCandidate: typeof defaultLearnerMemoryApiService.processMemoryCandidate;
   webSearchProvider: typeof defaultWebSearchProvider;
   retrieveFileChunks: (input: FileChunkRetrievalInput) => Promise<FileChunkRetrievalResult>;
+  documentTutorContextService: DocumentTutorContextService;
   getMockTutorResponse: (
     message: string,
     workMode: Parameters<typeof defaultGetMockTutorResponse>[1],
@@ -93,43 +98,49 @@ function defaultRepositories(): Repositories {
     processMemoryCandidate: defaultLearnerMemoryApiService.processMemoryCandidate,
     webSearchProvider: defaultWebSearchProvider,
     retrieveFileChunks: defaultRetrieveFileChunks,
+    documentTutorContextService: defaultDocumentTutorContextService,
     getMockTutorResponse: defaultGetTutorResponse,
   };
 }
 
 export function createSessionMessageApiService(
-  repositories: Repositories = defaultRepositories()
+  repositories: Partial<Repositories> = {}
 ): SessionMessageApiService {
+  const resolvedRepositories: Repositories = {
+    ...defaultRepositories(),
+    ...repositories,
+  };
+
   return {
     async listMessagesForUser(user, workspaceId, sessionId) {
       const userId = resolveTrustedUserId(user);
 
-      const workspace = await repositories.getWorkspace(userId, workspaceId);
+      const workspace = await resolvedRepositories.getWorkspace(userId, workspaceId);
       if (!workspace) throw new Error("Workspace not found.");
 
-      const session = await repositories.getSession(userId, workspaceId, sessionId);
+      const session = await resolvedRepositories.getSession(userId, workspaceId, sessionId);
       if (!session) throw new Error("Session not found.");
 
-      return repositories.listSessionMessages(userId, workspaceId, sessionId);
+      return resolvedRepositories.listSessionMessages(userId, workspaceId, sessionId);
     },
 
     async sendMessageForUser(user, sessionId, input) {
       const userId = resolveTrustedUserId(user);
 
-      const workspace = await repositories.getWorkspace(userId, input.workspaceId);
+      const workspace = await resolvedRepositories.getWorkspace(userId, input.workspaceId);
       if (!workspace) throw new Error("Workspace not found.");
 
-      const session = await repositories.getSession(userId, input.workspaceId, sessionId);
+      const session = await resolvedRepositories.getSession(userId, input.workspaceId, sessionId);
       if (!session) throw new Error("Session not found.");
 
       // Fetch existing messages BEFORE appending the current user message,
       // so history only includes previous turns.
-      const existingMessages = await repositories.listSessionMessages(userId, input.workspaceId, sessionId);
+      const existingMessages = await resolvedRepositories.listSessionMessages(userId, input.workspaceId, sessionId);
       const conversationHistory: ConversationTurn[] = existingMessages
         .slice(-MAX_HISTORY_TURNS)
         .map((m) => ({ role: m.role, content: m.content }));
 
-      const userRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
+      const userRecord = await resolvedRepositories.appendMessage(userId, input.workspaceId, sessionId, {
         role: "user",
         content: input.userMessage,
       });
@@ -137,7 +148,7 @@ export function createSessionMessageApiService(
       // Deterministic instruction-awareness: if the user asks how the tutor is supposed to teach,
       // return the public teaching contract summary without calling the LLM provider.
       if (isInstructionAwarenessQuestion(input.userMessage)) {
-        const assistantRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
+        const assistantRecord = await resolvedRepositories.appendMessage(userId, input.workspaceId, sessionId, {
           role: "tutor",
           content: PUBLIC_TEACHING_CONTRACT_SUMMARY,
         });
@@ -158,7 +169,149 @@ export function createSessionMessageApiService(
         };
       }
 
-      const tutorResponse = await repositories.getMockTutorResponse(
+      const documentIntent = resolvedRepositories.documentTutorContextService.classifyIntent(input.userMessage);
+      if (documentIntent.intent === "visual_reference_request") {
+        const assistantRecord = await resolvedRepositories.appendMessage(userId, input.workspaceId, sessionId, {
+          role: "tutor",
+          content: resolvedRepositories.documentTutorContextService.buildVisualNotSupportedAnswer(),
+        });
+
+        return {
+          userMessage: serializeMessage(userRecord),
+          assistantMessage: serializeMessage(assistantRecord),
+          internalUpdate: createDirectInternalUpdate("visual_reference_request", "none", false),
+        };
+      }
+
+      if (
+        documentIntent.intent === "document_inventory_request" ||
+        documentIntent.intent === "specific_detected_question_request"
+      ) {
+        const resolvedFileResult = await resolvedRepositories.documentTutorContextService.resolveRelevantFileForDocumentIntent(
+          typeof user === "string" ? { userId, email: `${userId}@local` } : user,
+          input.workspaceId,
+          { allowOnDemandUnderstanding: true }
+        );
+
+        if (!resolvedFileResult.ok) {
+          const fallbackMessage =
+            resolvedFileResult.code === "ambiguous_files"
+              ? resolvedRepositories.documentTutorContextService.buildAmbiguousFilesAnswer(resolvedFileResult.files)
+              : `לא הצלחתי לענות כרגע מתוך מבנה המסמך: ${resolvedFileResult.reason}`;
+
+          const assistantRecord = await resolvedRepositories.appendMessage(userId, input.workspaceId, sessionId, {
+            role: "tutor",
+            content: fallbackMessage,
+          });
+
+          return {
+            userMessage: serializeMessage(userRecord),
+            assistantMessage: serializeMessage(assistantRecord),
+            internalUpdate: createDirectInternalUpdate(documentIntent.intent, "workspace", false),
+          };
+        }
+
+        const { resolved } = resolvedFileResult;
+
+        if (documentIntent.intent === "document_inventory_request") {
+          const inventoryMessage = resolvedRepositories.documentTutorContextService.buildInventoryAnswer(
+            resolved.file,
+            resolved
+          );
+
+          const assistantRecord = await resolvedRepositories.appendMessage(userId, input.workspaceId, sessionId, {
+            role: "tutor",
+            content: inventoryMessage,
+          });
+
+          return {
+            userMessage: serializeMessage(userRecord),
+            assistantMessage: serializeMessage(assistantRecord),
+            internalUpdate: createDirectInternalUpdate("document_inventory_request", "workspace", true),
+          };
+        }
+
+        const requestedNumber = documentIntent.requestedQuestionNumber;
+        if (!requestedNumber) {
+          const assistantRecord = await resolvedRepositories.appendMessage(userId, input.workspaceId, sessionId, {
+            role: "tutor",
+            content: "לא הצלחתי לזהות מספר שאלה בבקשה. כתוב למשל: 'תסביר לי שאלה 3'.",
+          });
+
+          return {
+            userMessage: serializeMessage(userRecord),
+            assistantMessage: serializeMessage(assistantRecord),
+            internalUpdate: createDirectInternalUpdate("specific_detected_question_request", "workspace", false),
+          };
+        }
+
+        const resolvedQuestion = resolvedRepositories.documentTutorContextService.resolveDetectedQuestionReference(
+          resolved,
+          requestedNumber
+        );
+
+        if (!resolvedQuestion.ok) {
+          const assistantRecord = await resolvedRepositories.appendMessage(userId, input.workspaceId, sessionId, {
+            role: "tutor",
+            content: resolvedQuestion.message,
+          });
+
+          return {
+            userMessage: serializeMessage(userRecord),
+            assistantMessage: serializeMessage(assistantRecord),
+            internalUpdate: createDirectInternalUpdate("specific_detected_question_request", "workspace", false),
+          };
+        }
+
+        const questionGrounding = resolvedRepositories.documentTutorContextService.buildQuestionGrounding(
+          resolved,
+          resolvedQuestion.question
+        );
+
+        const documentChunks: RetrievedFileChunk[] = questionGrounding.sourcePages.map((page) => {
+          const text = (page.cleanedText ?? page.extractedText).slice(0, 3000);
+          return {
+            chunkId: `page_${String(page.pageNumber).padStart(4, "0")}`,
+            fileId: resolved.file.id,
+            workspaceId: input.workspaceId,
+            text,
+            chunkIndex: page.pageNumber,
+            tokenEstimate: Math.ceil(text.length / 4),
+            score: 1,
+            sourceLabel: resolved.file.originalFileName ?? resolved.file.name,
+            retrievalMethod: "keyword_only",
+          };
+        });
+
+        const groundingContext = buildGroundingContextFromChunks(documentChunks);
+        const groundedResponse = await resolvedRepositories.getMockTutorResponse(
+          `${input.userMessage}\n\n${questionGrounding.contextText}`,
+          input.workMode,
+          input.costMode,
+          conversationHistory,
+          groundingContext
+        );
+
+        const citations = documentChunks.map((chunk) => ({
+          id: chunk.chunkId,
+          sourceId: `${chunk.fileId}:${chunk.chunkId}`,
+          referenceText: chunk.text.length > 200 ? `${chunk.text.slice(0, 200)}…` : chunk.text,
+        }));
+
+        const assistantRecord = await resolvedRepositories.appendMessage(userId, input.workspaceId, sessionId, {
+          role: "tutor",
+          content: groundedResponse.message.content,
+          citations,
+        });
+
+        return {
+          userMessage: serializeMessage(userRecord),
+          assistantMessage: serializeMessage(assistantRecord),
+          internalUpdate: createDirectInternalUpdate("specific_detected_question_request", "workspace", true),
+        };
+      }
+
+      const tutorResponse = await resolvedRepositories.getMockTutorResponse(
         input.userMessage,
         input.workMode,
         input.costMode,
@@ -180,7 +333,7 @@ export function createSessionMessageApiService(
       );
 
       const retrievalExecution = await executeRetrievalForTutorResponse(
-        repositories,
+        resolvedRepositories,
         userId,
         input.workspaceId,
         input.userMessage,
@@ -192,7 +345,7 @@ export function createSessionMessageApiService(
 
       if (retrievalExecution.retrievedChunks.length > 0) {
         const groundingContext = buildGroundingContextFromChunks(retrievalExecution.retrievedChunks);
-        const groundedResponse = await repositories.getMockTutorResponse(
+        const groundedResponse = await resolvedRepositories.getMockTutorResponse(
           input.userMessage,
           input.workMode,
           input.costMode,
@@ -227,7 +380,7 @@ export function createSessionMessageApiService(
           },
         ];
       } else {
-        await repositories.processMemoryCandidate({
+        await resolvedRepositories.processMemoryCandidate({
           user: typeof user === "string" ? { userId, email: `${userId}@local` } : user,
           workspaceId: input.workspaceId,
           userMessage: input.userMessage,
@@ -236,14 +389,14 @@ export function createSessionMessageApiService(
         });
       }
 
-      const assistantRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
+      const assistantRecord = await resolvedRepositories.appendMessage(userId, input.workspaceId, sessionId, {
         role: "tutor",
         content: tutorResponse.message.content,
         citations: retrievalExecution.citations,
       });
 
       await persistDecisionLogEvents(
-        repositories,
+        resolvedRepositories,
         userId,
         input.workspaceId,
         sessionId,
@@ -256,6 +409,46 @@ export function createSessionMessageApiService(
         internalUpdate: tutorResponse.internalUpdate,
       };
     },
+  };
+}
+
+function createDirectInternalUpdate(
+  detectedIntent: string,
+  scope: RetrievalScope,
+  used: boolean
+): PostMessageApiResponse["internalUpdate"] {
+  return {
+    detected_intent: detectedIntent,
+    confidence: 1,
+    should_stop_progression: false,
+    local_question: { detected: false, reason: "" },
+    retrieval: {
+      used,
+      scope,
+      source_ids: [],
+      why: used ? "document_model_context" : "document_model_direct_response",
+    },
+    retrieval_decision: {
+      needs_retrieval: used,
+      retrieval_scope: scope,
+      max_chunks: 4,
+      max_tokens: 4000,
+      should_ask_clarification_first: false,
+    },
+    learner_memory_update: {
+      needed: false,
+      update_type: "none",
+      memory_type: "none",
+      content: "",
+      confidence: 0,
+    },
+    knowledge_base_action: {
+      needed: false,
+      action: "none",
+      confidence: 0,
+      requires_user_confirmation: false,
+    },
+    decision_log_entries: [],
   };
 }
 
