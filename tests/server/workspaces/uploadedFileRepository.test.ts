@@ -123,6 +123,34 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
     expect(summaryReady?.summarySource).toBe("placeholder");
   });
 
+  it("allows explicitly clearing understanding nullable fields with null", async () => {
+    const alice = nextUser("alice");
+    const workspace = await createWorkspace(alice, { name: "Physics" });
+
+    const created = await createUploadedFile(alice, {
+      workspaceId: workspace.id,
+      name: "Understanding.pdf",
+      sourceType: "pdf",
+      assignmentStatus: "assigned",
+      indexingStatus: "uploaded",
+      summaryStatus: "not_requested",
+      summarySource: "none",
+      understandingStatus: "failed",
+      understandingErrorCode: "old_error",
+      understandingUpdatedAt: new Date(),
+    });
+
+    const updated = await updateUploadedFile(alice, created.id, {
+      understandingStatus: "processing",
+      understandingErrorCode: null,
+      understandingUpdatedAt: null,
+    });
+
+    expect(updated?.understandingStatus).toBe("processing");
+    expect(updated?.understandingErrorCode).toBeNull();
+    expect(updated?.understandingUpdatedAt).toBeNull();
+  });
+
   it("blocks cross-user access to another user's uploaded file metadata", async () => {
     const alice = nextUser("alice");
     const bob = nextUser("bob");

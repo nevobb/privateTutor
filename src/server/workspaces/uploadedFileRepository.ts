@@ -48,6 +48,13 @@ export async function createUploadedFile(
       chunkCount: input.chunkCount,
       chunkingErrorCode: input.chunkingErrorCode,
       chunkingUpdatedAt: input.chunkingUpdatedAt,
+      understandingStatus: input.understandingStatus ?? "not_started",
+      understandingUpdatedAt: input.understandingUpdatedAt ?? null,
+      understandingErrorCode: input.understandingErrorCode ?? null,
+      visualStatus: input.visualStatus ?? "not_started",
+      visualUpdatedAt: input.visualUpdatedAt ?? null,
+      visualErrorCode: input.visualErrorCode ?? null,
+      materialType: input.materialType ?? "unknown",
       createdAt: now,
       updatedAt: now,
     };
@@ -115,6 +122,13 @@ export async function updateUploadedFile(
       | "chunkingUpdatedAt"
       | "embeddingStatus"
       | "embeddingUpdatedAt"
+      | "understandingStatus"
+      | "understandingUpdatedAt"
+      | "understandingErrorCode"
+      | "visualStatus"
+      | "visualUpdatedAt"
+      | "visualErrorCode"
+      | "materialType"
     >
   >
 ): Promise<UploadedFileRecord | null> {
@@ -132,6 +146,9 @@ export async function updateUploadedFile(
     }
 
     const current = mapUploadedFileRecord(snapshot.id, data);
+    const hasOwn = <K extends keyof typeof updates>(key: K): boolean =>
+      Object.prototype.hasOwnProperty.call(updates, key);
+
     const next: UploadedFileRecord = {
       ...current,
       assignmentStatus: updates.assignmentStatus ?? current.assignmentStatus,
@@ -156,6 +173,17 @@ export async function updateUploadedFile(
       chunkingUpdatedAt: updates.chunkingUpdatedAt ?? current.chunkingUpdatedAt,
       embeddingStatus: updates.embeddingStatus ?? current.embeddingStatus,
       embeddingUpdatedAt: updates.embeddingUpdatedAt ?? current.embeddingUpdatedAt,
+      understandingStatus: updates.understandingStatus ?? current.understandingStatus,
+      understandingUpdatedAt: hasOwn("understandingUpdatedAt")
+        ? updates.understandingUpdatedAt
+        : current.understandingUpdatedAt,
+      understandingErrorCode: hasOwn("understandingErrorCode")
+        ? updates.understandingErrorCode
+        : current.understandingErrorCode,
+      visualStatus: updates.visualStatus ?? current.visualStatus,
+      visualUpdatedAt: hasOwn("visualUpdatedAt") ? updates.visualUpdatedAt : current.visualUpdatedAt,
+      visualErrorCode: hasOwn("visualErrorCode") ? updates.visualErrorCode : current.visualErrorCode,
+      materialType: hasOwn("materialType") ? updates.materialType : current.materialType,
       updatedAt: new Date(),
     };
 
@@ -204,6 +232,13 @@ function mapUploadedFileRecord(id: string, data: Record<string, unknown>): Uploa
     chunkingUpdatedAt: data.chunkingUpdatedAt ? toDate(data.chunkingUpdatedAt) : null,
     embeddingStatus: mapFileEmbeddingStatus(data.embeddingStatus),
     embeddingUpdatedAt: data.embeddingUpdatedAt ? toDate(data.embeddingUpdatedAt) : null,
+    understandingStatus: mapUnderstandingStatus(data.understandingStatus),
+    understandingUpdatedAt: data.understandingUpdatedAt ? toDate(data.understandingUpdatedAt) : null,
+    understandingErrorCode: typeof data.understandingErrorCode === "string" ? data.understandingErrorCode : null,
+    visualStatus: mapVisualStatus(data.visualStatus),
+    visualUpdatedAt: data.visualUpdatedAt ? toDate(data.visualUpdatedAt) : null,
+    visualErrorCode: typeof data.visualErrorCode === "string" ? data.visualErrorCode : null,
+    materialType: mapMaterialType(data.materialType),
     createdAt: toDate(data.createdAt),
     updatedAt: toDate(data.updatedAt),
   };
@@ -294,6 +329,38 @@ function mapFileEmbeddingStatus(value: unknown): UploadedFileRecord["embeddingSt
     return value;
   }
   return "not_started";
+}
+
+function mapUnderstandingStatus(value: unknown): UploadedFileRecord["understandingStatus"] {
+  if (value === "not_started" || value === "processing" || value === "completed" || value === "failed") {
+    return value;
+  }
+  return "not_started";
+}
+
+function mapVisualStatus(value: unknown): UploadedFileRecord["visualStatus"] {
+  if (value === "not_started" || value === "available" || value === "processing" || value === "completed" || value === "failed") {
+    return value;
+  }
+  return "not_started";
+}
+
+function mapMaterialType(value: unknown): UploadedFileRecord["materialType"] {
+  if (
+    value === "assignment" ||
+    value === "exam" ||
+    value === "summary" ||
+    value === "lecture_notes" ||
+    value === "slides" ||
+    value === "formula_sheet" ||
+    value === "book_chapter" ||
+    value === "lab_sheet" ||
+    value === "solutions" ||
+    value === "unknown"
+  ) {
+    return value;
+  }
+  return "unknown";
 }
 
 function compactRecord(record: object): Record<string, unknown> {
