@@ -131,6 +131,22 @@ function makeIndexedFiles(count: number) {
 function makeRepos(
   overrides: Partial<Parameters<ServiceModule["createSessionMessageApiService"]>[0]> = {}
 ) {
+  const documentTutorContextService = {
+    classifyIntent: vi.fn(() => ({ intent: "general_tutor_question" as const })),
+    buildVisualNotSupportedAnswer: vi.fn(
+      () => "הבנת תוכן חזותי (כמו גרפים/דיאגרמות) עדיין לא פעילה."
+    ),
+    resolveRelevantFileForDocumentIntent: vi.fn(async () => ({
+      ok: false as const,
+      code: "unsupported_state" as const,
+      reason: "not-ready",
+    })),
+    buildAmbiguousFilesAnswer: vi.fn(() => "ambiguous"),
+    buildInventoryAnswer: vi.fn(() => "inventory"),
+    resolveDetectedQuestionReference: vi.fn(() => ({ ok: false as const, message: "not found" })),
+    buildQuestionGrounding: vi.fn(() => ({ contextText: "", sourcePages: [] })),
+  };
+
   return {
     getWorkspace: vi.fn(async (uid: string, wsId: string) =>
       uid === "alice" && wsId === "ws-1" ? { id: "ws-1", userId: "alice" } : null
@@ -172,6 +188,7 @@ function makeRepos(
       })),
     },
     retrieveFileChunks: vi.fn(async () => ({ chunks: [], eligibleFileCount: 0 })),
+    documentTutorContextService,
     getMockTutorResponse: vi.fn(async () => tutorResponse),
     ...overrides,
   };
@@ -220,6 +237,117 @@ describeService("sessionMessageApiService", () => {
   });
 
   describe("sendMessageForUser", () => {
+    it("routes inventory requests to document model answer", async () => {
+      const repos = makeRepos({
+        documentTutorContextService: {
+          classifyIntent: vi.fn(() => ({ intent: "document_inventory_request" })),
+          resolveRelevantFileForDocumentIntent: vi.fn(async () => ({
+            ok: true,
+            resolved: {
+              file: { id: "file-1", name: "Exam.pdf", originalFileName: "Exam.pdf" },
+              pages: [],
+              detectedQuestions: [],
+              outline: null,
+            },
+          })),
+          buildInventoryAnswer: vi.fn(() => "1. שאלה 1\n2. שאלה 2"),
+        } as never,
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "איזה שאלות יש בקובץ?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect(repos.appendMessage).toHaveBeenLastCalledWith(
+        "alice",
+        "ws-1",
+        "s-1",
+        expect.objectContaining({ role: "tutor", content: expect.stringContaining("שאלה") })
+      );
+      expect(result.internalUpdate).toMatchObject({
+        detected_intent: "document_inventory_request",
+      });
+    });
+
+    it("routes specific question request and uses grounded tutor call", async () => {
+      const repos = makeRepos({
+        documentTutorContextService: {
+          classifyIntent: vi.fn(() => ({
+            intent: "specific_detected_question_request",
+            requestedQuestionNumber: 3,
+          })),
+          resolveRelevantFileForDocumentIntent: vi.fn(async () => ({
+            ok: true,
+            resolved: {
+              file: { id: "file-1", name: "Exam.pdf", originalFileName: "Exam.pdf" },
+              pages: [{ pageNumber: 2, extractedText: "שאלה 3: חשב", cleanedText: "שאלה 3: חשב" }],
+              detectedQuestions: [{ id: "q3", labelRaw: "שאלה 3", questionNumber: 3, pageStart: 2, pageEnd: 2 }],
+              outline: null,
+            },
+          })),
+          resolveDetectedQuestionReference: vi.fn(() => ({
+            ok: true,
+            question: { id: "q3", labelRaw: "שאלה 3", questionNumber: 3, pageStart: 2, pageEnd: 2 },
+          })),
+          buildQuestionGrounding: vi.fn(() => ({
+            contextText: "התמקד בשאלה 3",
+            sourcePages: [{ pageNumber: 2, extractedText: "שאלה 3: חשב", cleanedText: "שאלה 3: חשב" }],
+          })),
+        } as never,
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "תסביר לי שאלה 3",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).toHaveBeenCalledTimes(1);
+      expect(repos.appendMessage).toHaveBeenLastCalledWith(
+        "alice",
+        "ws-1",
+        "s-1",
+        expect.objectContaining({
+          role: "tutor",
+          citations: expect.arrayContaining([expect.objectContaining({ id: "page_0002" })]),
+        })
+      );
+      expect(result.internalUpdate).toMatchObject({
+        detected_intent: "specific_detected_question_request",
+      });
+    });
+
+    it("returns visual limitation response for visual reference intent", async () => {
+      const repos = makeRepos({
+        documentTutorContextService: {
+          classifyIntent: vi.fn(() => ({ intent: "visual_reference_request" })),
+          buildVisualNotSupportedAnswer: vi.fn(() => "Visual understanding is not active yet."),
+        } as never,
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "מה רואים בגרף?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.appendMessage).toHaveBeenLastCalledWith(
+        "alice",
+        "ws-1",
+        "s-1",
+        expect.objectContaining({ role: "tutor", content: expect.stringContaining("Visual understanding") })
+      );
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+    });
+
     it("appends user message, calls mock tutor, appends assistant message", async () => {
       const repos = makeRepos();
       const service = mod.createSessionMessageApiService(repos);
