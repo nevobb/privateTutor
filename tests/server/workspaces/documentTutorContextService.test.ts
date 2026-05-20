@@ -9,6 +9,11 @@ describe("DocumentTutorContextService.classifyIntent", () => {
   it("classifies inventory requests", () => {
     expect(service.classifyIntent("איזה שאלות יש בקובץ?").intent).toBe("document_inventory_request");
     expect(service.classifyIntent("תן לי רשימת תרגילים במטלה").intent).toBe("document_inventory_request");
+    expect(service.classifyIntent("איזה תרגילים יש במטלה?").intent).toBe("document_inventory_request");
+    expect(service.classifyIntent("איזה תרגילים יש בקובץ?").intent).toBe("document_inventory_request");
+    expect(service.classifyIntent("תן לי רשימת שאלות מהקובץ").intent).toBe("document_inventory_request");
+    expect(service.classifyIntent("תציג לי את השאלות בקובץ").intent).toBe("document_inventory_request");
+    expect(service.classifyIntent("מה השאלות במטלה?").intent).toBe("document_inventory_request");
   });
 
   it("classifies specific detected question requests", () => {
@@ -19,10 +24,18 @@ describe("DocumentTutorContextService.classifyIntent", () => {
 
   it("classifies visual reference requests", () => {
     expect(service.classifyIntent("מה רואים בגרף?").intent).toBe("visual_reference_request");
+    expect(service.classifyIntent("מה רואים בגרף בשאלה 3?").intent).toBe("visual_reference_request");
+    expect(service.classifyIntent("מה מופיע באיור?").intent).toBe("visual_reference_request");
+    expect(service.classifyIntent("תסביר את התרשים בשאלה 2").intent).toBe("visual_reference_request");
+    expect(service.classifyIntent("what does the graph show?").intent).toBe("visual_reference_request");
+    expect(service.classifyIntent("explain the diagram in question 4").intent).toBe("visual_reference_request");
   });
 
   it("keeps general tutor questions as general", () => {
     expect(service.classifyIntent("מה זה קיבול?").intent).toBe("general_tutor_question");
+    expect(service.classifyIntent("מה זה גרף של פונקציה?").intent).toBe("general_tutor_question");
+    expect(service.classifyIntent("תסביר לי מהו גרף").intent).toBe("general_tutor_question");
+    expect(service.classifyIntent("how do graphs work in calculus?").intent).toBe("general_tutor_question");
   });
 });
 

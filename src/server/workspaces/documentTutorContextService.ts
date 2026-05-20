@@ -55,11 +55,22 @@ function defaultDeps(): Deps {
 const INVENTORY_PATTERNS = [
   /איזה\s+שאלות\s+יש\s+בקובץ/i,
   /איזה\s+שאלות\s+אתה\s+יכול\s+לראות\s+בקובץ/i,
+  /איזה\s+תרגילים\s+יש\s+במטלה/i,
+  /איזה\s+תרגילים\s+יש\s+בקובץ/i,
+  /תן\s+לי\s+רשימת\s+שאלות\s+מהקובץ/i,
+  /תציג\s+לי\s+את\s+השאלות\s+בקובץ/i,
+  /מה\s+השאלות\s+במטלה/i,
   /רשימת\s+תרגילים/i,
   /questions\s+are\s+in\s+the\s+file/i,
   /list\s+the\s+exercises\s+in\s+the\s+document/i,
 ];
-const VISUAL_PATTERNS = [/(גרף|תרשים|איור|דיאגרמה|table|diagram|graph|figure)/i];
+const VISUAL_PATTERNS = [
+  /מה\s+רואים\s+ב(?:גרף|תרשים|איור|דיאגרמה)/i,
+  /מה\s+מופיע\s+ב(?:גרף|תרשים|איור|דיאגרמה)/i,
+  /תסביר(?:י)?\s+את\s+(?:הגרף|התרשים|האיור|הדיאגרמה)(?:\s+בשאלה\s*\d+)?/i,
+  /what\s+does\s+the\s+(?:graph|diagram|figure)\s+show/i,
+  /explain\s+the\s+(?:graph|diagram|figure)(?:\s+in\s+question\s*\d+)?/i,
+];
 const SPECIFIC_QUESTION_PATTERNS = [/(?:שאלה|question|exercise)\s*(\d{1,3})/i];
 
 export class DocumentTutorContextService {
@@ -67,6 +78,12 @@ export class DocumentTutorContextService {
 
   classifyIntent(message: string): DocumentTutorIntentResult {
     const normalized = message.trim();
+
+    for (const pattern of VISUAL_PATTERNS) {
+      if (pattern.test(normalized)) {
+        return { intent: "visual_reference_request" };
+      }
+    }
 
     for (const pattern of INVENTORY_PATTERNS) {
       if (pattern.test(normalized)) {
@@ -81,12 +98,6 @@ export class DocumentTutorContextService {
           intent: "specific_detected_question_request",
           requestedQuestionNumber: Number(match[1]),
         };
-      }
-    }
-
-    for (const pattern of VISUAL_PATTERNS) {
-      if (pattern.test(normalized)) {
-        return { intent: "visual_reference_request" };
       }
     }
 
