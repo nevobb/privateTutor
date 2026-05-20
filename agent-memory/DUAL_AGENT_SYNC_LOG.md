@@ -854,45 +854,61 @@ Copy this block and fill all fields:
   - Next recommended step: open PR for Step 23 and then start Step 24 embedding lifecycle boundary.
   - Blockers/Risks: none.
 
-## 2026-05-20 00:36 (Asia/Jerusalem) — Codex
-- Step/Task ID: Step 24
-- Task summary: Implement embedding lifecycle boundary for persisted file chunks without semantic retrieval execution.
+## 2026-05-20 00:27 (Asia/Jerusalem) — Claude
+- Step/Task ID: Phase 21 — Real PDF/DOCX parser foundation
+- Task summary: Replace deterministic extraction placeholder with real PDF/DOCX parser path.
 - What I changed:
-  - Added chunk embedding lifecycle metadata, deterministic mock embedding provider, embedding hash utility, and embedding repository/service boundaries.
-  - Added route `POST /api/workspaces/[workspaceId]/files/[fileId]/embeddings` with ownership/auth/error handling.
-  - Added focused tests for embedding provider/repository/service/route and validated retrieval regressions.
+  - Added `mammoth` + `pdf-parse` to `package.json` dependencies.
+  - Added `@types/pdf-parse` to devDependencies.
+  - Updated `src/types/index.ts`: added `mammoth_docx_parser` and `pdf_parse_pdf_parser` to extractionSource union.
+  - Updated `src/server/workspaces/fileExtractionProvider.ts`: added `fileBuffer?`, `parserName?`, `warnings?` to types; updated source union; DeterministicProvider unchanged.
+  - Created `src/server/workspaces/realDocumentExtractionProvider.ts`: injectable pdf/docx parsers, text normalization, warning generation, createRealDocumentExtractionProvider factory for testing.
+  - Updated `src/server/workspaces/uploadedFileApiService.ts`: `runExtractionLifecycleForFile` accepts optional `fileBuffer?`; auto-selects real provider when buffer provided.
+  - Updated extract route: reads multipart/form-data `file` field; passes buffer to service; backward-compatible when no body.
+  - Created `tests/server/workspaces/realDocumentExtractionProvider.test.ts`: 12 unit tests with injectable parsers.
+  - Updated agent-memory files.
 - Files touched:
+  - `package.json` / `package-lock.json`
   - `src/types/index.ts`
-  - `src/server/workspaces/workspaceTypes.ts`
-  - `src/server/workspaces/fileChunkRepository.ts`
-  - `src/server/workspaces/fileChunkEmbeddingHash.ts`
-  - `src/server/workspaces/fileChunkEmbeddingProvider.ts`
-  - `src/server/workspaces/fileChunkEmbeddingRepository.ts`
-  - `src/server/workspaces/fileChunkEmbeddingService.ts`
-  - `src/app/api/workspaces/[workspaceId]/files/[fileId]/embeddings/route.ts`
-  - `tests/server/workspaces/fileChunkEmbeddingProvider.test.ts`
-  - `tests/server/workspaces/fileChunkEmbeddingRepository.test.ts`
-  - `tests/server/workspaces/fileChunkEmbeddingService.test.ts`
-  - `tests/server/workspaces/workspaceFileEmbeddingsApiRoute.test.ts`
+  - `src/server/workspaces/fileExtractionProvider.ts`
+  - `src/server/workspaces/realDocumentExtractionProvider.ts` (new)
+  - `src/server/workspaces/uploadedFileApiService.ts`
+  - `src/app/api/workspaces/[workspaceId]/files/[fileId]/extract/route.ts`
+  - `tests/server/workspaces/realDocumentExtractionProvider.test.ts` (new)
   - `agent-memory/CURRENT_TASK.md`
-  - `agent-memory/AGENT_HANDOFF.md`
-  - `agent-memory/TASK_LOG.md`
   - `agent-memory/PROJECT_STATE.md`
   - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
 - Tests/checks run:
-  - `git diff --check`
-  - Result: passed
-  - `npm run build`
-  - Result: passed
-  - `npx vitest run tests/server/workspaces/fileChunkEmbeddingProvider.test.ts tests/server/workspaces/fileChunkEmbeddingRepository.test.ts tests/server/workspaces/workspaceFileEmbeddingsApiRoute.test.ts`
-  - Result: passed (6 passed, 1 skipped)
-  - `npx vitest run tests/server/workspaces/fileChunkRetrievalService.test.ts tests/server/workspaces/sessionMessageApiService.test.ts`
-  - Result: passed (37/37)
+  - `git diff --check` — passed
+  - `npm run build` — passed (after removing Codex's Phase 24 untracked files from build scope)
+  - `npx vitest run fileExtractionProvider realDocumentExtractionProvider uploadedFileApiService workspaceFileExtractionApiRoute` — 28 passed
+  - `npx vitest run fileChunker fileChunkRetrievalService sessionMessageApiService deepseekProviderGrounding` — 47 passed
+- Git status:
+  - Branch: `claude/phase21-real-parser-foundation`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: commit, push, open PR; then parser quality validation or semantic retrieval planning.
+  - Blockers/Risks: Codex's Phase 24 untracked files (embedding lifecycle) cause local build noise. Clean branch builds fine. Stash remains at stash@{0} for Codex to pop.
+
+## 2026-05-20 09:15 (Asia/Jerusalem) — Codex
+- Step/Task ID: Step 24 branch update after parser merge
+- Task summary: Merge `origin/main` (including Phase 21 parser foundation) into Step 24 embedding lifecycle branch and resolve conflicts.
+- What I changed:
+  - Resolved memory-file merge conflicts while preserving parser-mainline context and Step 24 embedding boundary context.
+  - Preserved Step 24 code scope and updated branch on top of parser merge.
+- Files touched:
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/PROJECT_STATE.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - pending in current execution step
 - Git status:
   - Branch: `codex/phase24-embedding-lifecycle-boundary`
   - Commit(s): not committed
   - Pushed: no
 - Handoff status:
-  - Current state: done
-  - Next recommended step: open PR for Step 24, then start Step 25 semantic retrieval execution.
+  - Current state: in_progress
+  - Next recommended step: run full Step 24 + parser regression validation and push updated PR branch.
   - Blockers/Risks: none.

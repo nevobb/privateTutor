@@ -4,7 +4,7 @@
 Step 24 — Embedding lifecycle boundary.
 
 ## Status
-Completed on branch `codex/phase24-embedding-lifecycle-boundary`.
+Implemented on branch `codex/phase24-embedding-lifecycle-boundary`.
 
 ## What was implemented
 - Added chunk embedding lifecycle fields on `FileChunk` metadata:
@@ -22,20 +22,19 @@ Completed on branch `codex/phase24-embedding-lifecycle-boundary`.
   - `POST /api/workspaces/[workspaceId]/files/[fileId]/embeddings`
 - Added focused tests for provider/repository/service/route.
 
+## Mainline context preserved
+- Phase 21 parser foundation from `main` remains intact:
+  - real DOCX/PDF parser path (`mammoth`, `pdf-parse`)
+  - extraction route multipart file handling
+  - extraction provider/type extensions
+
 ## Explicit boundaries preserved
 - No real embedding provider calls.
 - No vector DB.
 - No semantic retrieval execution.
 - No runtime retrieval behavior changes.
-- No parser/extraction changes.
+- No parser behavior changes in this branch update.
 - No provider prompt grounding changes.
-- No package or Firebase rules changes.
-
-## Validation executed
-- `git diff --check` ✅
-- `npm run build` ✅
-- `npx vitest run tests/server/workspaces/fileChunkEmbeddingProvider.test.ts tests/server/workspaces/fileChunkEmbeddingRepository.test.ts tests/server/workspaces/workspaceFileEmbeddingsApiRoute.test.ts` ✅
-- `npx vitest run tests/server/workspaces/fileChunkRetrievalService.test.ts tests/server/workspaces/sessionMessageApiService.test.ts` ✅
 
 ## Recommended next phase
 Step 25 — Semantic retrieval execution (hybrid semantic+keyword), with keyword fallback retained.

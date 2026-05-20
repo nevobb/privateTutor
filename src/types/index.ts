@@ -131,7 +131,7 @@ export interface UploadedFile {
   extractedText?: string;
   extractedTextPreview?: string;
   extractedTextCharCount?: number;
-  extractionSource?: "deterministic_test_parser" | "manual_placeholder" | "future_real_parser";
+  extractionSource?: "deterministic_test_parser" | "manual_placeholder" | "future_real_parser" | "mammoth_docx_parser" | "pdf_parse_pdf_parser";
   extractionErrorCode?: string | null;
   extractionUpdatedAt?: Date | null;
   chunkingStatus?: FileChunkingStatus;
