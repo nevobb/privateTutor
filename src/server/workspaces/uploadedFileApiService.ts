@@ -8,6 +8,8 @@ import {
   updateUploadedFile,
 } from "./uploadedFileRepository";
 import { fileExtractionProvider as defaultFileExtractionProvider } from "./fileExtractionProvider";
+import { realDocumentExtractionProvider } from "./realDocumentExtractionProvider";
+import type { FileExtractionProvider } from "./fileExtractionProvider";
 import { chunkExtractedText } from "./fileChunker";
 import {
   listFileChunks as defaultListFileChunks,
@@ -66,7 +68,8 @@ export interface UploadedFileApiService {
   runExtractionLifecycleForFile(
     user: AuthenticatedUser,
     workspaceId: string,
-    fileId: string
+    fileId: string,
+    fileBuffer?: Buffer
   ): Promise<ExtractionRunResult>;
   runChunkingLifecycleForFile(
     user: AuthenticatedUser,
@@ -92,6 +95,13 @@ interface Repositories {
   fileExtractionProvider: typeof defaultFileExtractionProvider;
   listFileChunks: typeof defaultListFileChunks;
   replaceFileChunks: typeof defaultReplaceFileChunks;
+}
+
+function getDefaultExtractionProvider(fileBuffer?: Buffer): FileExtractionProvider {
+  if (fileBuffer && process.env.REAL_DOCUMENT_PARSER !== "0") {
+    return realDocumentExtractionProvider;
+  }
+  return defaultFileExtractionProvider;
 }
 
 function defaultRepositories(): Repositories {
@@ -315,7 +325,7 @@ export function createUploadedFileApiService(
       }
     },
 
-    async runExtractionLifecycleForFile(user, workspaceId, fileId) {
+    async runExtractionLifecycleForFile(user, workspaceId, fileId, fileBuffer?: Buffer) {
       const workspace = await repositories.getWorkspace(user.userId, workspaceId);
       if (!workspace) {
         return { ok: false, code: "workspace_not_found" };
@@ -356,13 +366,18 @@ export function createUploadedFileApiService(
           return { ok: false, code: "file_not_found" };
         }
 
-        const extraction = await repositories.fileExtractionProvider.extractText({
+        const effectiveProvider = fileBuffer
+          ? realDocumentExtractionProvider
+          : repositories.fileExtractionProvider;
+
+        const extraction = await effectiveProvider.extractText({
           userId: user.userId,
           workspaceId,
           fileId,
           fileName: current.name,
           sourceType: current.sourceType,
           storagePath: current.storagePath,
+          fileBuffer: fileBuffer ?? null,
         });
 
         const text = extraction.text.trim();
@@ -384,7 +399,9 @@ export function createUploadedFileApiService(
           decisionType: "file_extraction",
           title: "Extraction lifecycle",
           decision: "extraction_completed",
-          rationale: "Extraction completed with deterministic placeholder provider boundary.",
+          rationale: extraction.parserName
+            ? `Extraction completed with real parser: ${extraction.parserName}.${extraction.warnings?.length ? ` Warnings: ${extraction.warnings.join(", ")}.` : ""}`
+            : "Extraction completed with deterministic placeholder provider boundary.",
           workspaceId,
         });
 
