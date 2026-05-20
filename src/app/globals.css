@@ -107,3 +107,67 @@ body {
 .nav-state-empty {
   font-style: italic;
 }
+
+/* ── Math / LaTeX rendering ──────────────────────────────────────── */
+.message-content {
+  overflow-wrap: anywhere;
+  direction: rtl;
+  text-align: right;
+  unicode-bidi: plaintext;
+}
+
+.message-content .katex {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.message-content .katex-display {
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
+
+.message-content .math-ltr-isolate,
+.message-content .math-ltr-isolate * {
+  direction: ltr !important;
+  unicode-bidi: isolate !important;
+}
+
+.message-content pre {
+  overflow-x: auto;
+  direction: ltr;
+  text-align: left;
+}
+
+/* Ensure markdown paragraphs within message bubbles inherit font */
+.message-content p {
+  margin-bottom: 0.4em;
+}
+
+.message-content p:last-child {
+  margin-bottom: 0;
+}
+
+.message-content ul,
+.message-content ol {
+  padding-inline-start: 1.4em;
+  margin-bottom: 0.4em;
+}
+
+.message-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  background: var(--tutor-border-subtle, rgba(0,0,0,0.08));
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.message-content pre code {
+  background: transparent;
+  padding: 0;
+}

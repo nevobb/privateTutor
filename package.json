@@ -12,15 +12,20 @@
     "test:firebase:workspace": "FIREBASE_WORKSPACE_EMULATOR_TEST=1 vitest run --fileParallelism=false tests/firebase/workspacePersistence.emulator.test.ts tests/firebase/workspaceRoutePersistence.emulator.test.ts tests/server/workspaces/workspaceRepository.test.ts tests/server/workspaces/messageRepository.test.ts tests/server/workspaces/decisionLogRepository.test.ts",
     "test:firebase:workspace:emulators": "firebase emulators:exec --only firestore --project demo-private-tutor \"npm run test:firebase:workspace\"",
     "test:firebase:rules": "FIREBASE_RULES_TEST=1 vitest run tests/firebase",
-    "test:firebase:rules:emulators": "FIREBASE_RULES_TEST=1 firebase emulators:exec --only auth,firestore,storage --project demo-private-tutor \"vitest run tests/firebase\""
+    "test:firebase:rules:emulators": "FIREBASE_RULES_TEST=1 firebase emulators:exec --only auth,firestore,storage --project demo-private-tutor \"vitest run tests/firebase\"",
+    "tutor:local": "bash scripts/start-local-tutor.sh"
   },
   "dependencies": {
     "firebase": "^12.13.0",
+    "katex": "^0.16.47",
     "mammoth": "^1.12.0",
     "next": "16.2.6",
     "pdf-parse": "^2.4.5",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
+    "remark-math": "^6.0.0",
     "uuid": "^14.0.0"
   },
   "devDependencies": {

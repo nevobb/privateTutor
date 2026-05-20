@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { MessageContent } from "../chat/MessageContent";
 import { TutorMessage, WorkMode, CostMode } from "../../types";
 import WorkModeSelector from "../workModes/WorkModeSelector";
 import CostModeSelector from "../costModes/CostModeSelector";
@@ -491,14 +492,12 @@ function MessageBubble({ msg }: { msg: TutorMessage }) {
               }
         }
       >
-        <p
-          className="whitespace-pre-wrap"
-          dir="auto"
+        <MessageContent
+          content={msg.content}
+          dir={isUser ? "auto" : "rtl"}
           lang={isUser ? undefined : "he"}
           style={{ fontFamily: isUser ? undefined : "'Lora', Georgia, serif" }}
-        >
-          {msg.content}
-        </p>
+        />
 
         {msg.citations && msg.citations.length > 0 && (
           <div
