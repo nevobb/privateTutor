@@ -148,6 +148,13 @@ export interface CreateUploadedFileInput {
   chunkingUpdatedAt?: UploadedFileRecord["chunkingUpdatedAt"];
   embeddingStatus?: UploadedFileRecord["embeddingStatus"];
   embeddingUpdatedAt?: UploadedFileRecord["embeddingUpdatedAt"];
+  understandingStatus?: UploadedFileRecord["understandingStatus"];
+  understandingUpdatedAt?: UploadedFileRecord["understandingUpdatedAt"];
+  understandingErrorCode?: UploadedFileRecord["understandingErrorCode"];
+  visualStatus?: UploadedFileRecord["visualStatus"];
+  visualUpdatedAt?: UploadedFileRecord["visualUpdatedAt"];
+  visualErrorCode?: UploadedFileRecord["visualErrorCode"];
+  materialType?: UploadedFileRecord["materialType"];
 }
 
 export function toDate(value: unknown): Date {

@@ -40,6 +40,13 @@ export interface UploadedFileApiResponse {
   chunkingUpdatedAt: string | null;
   embeddingStatus: UploadedFileRecord["embeddingStatus"];
   embeddingUpdatedAt: string | null;
+  understandingStatus?: UploadedFileRecord["understandingStatus"];
+  understandingUpdatedAt?: string | null;
+  understandingErrorCode?: string | null;
+  visualStatus?: UploadedFileRecord["visualStatus"];
+  visualUpdatedAt?: string | null;
+  visualErrorCode?: string | null;
+  materialType?: UploadedFileRecord["materialType"];
   uploadedAt: string;
   createdAt: string;
   updatedAt: string;
@@ -127,6 +134,13 @@ export function toUploadedFileApiResponse(record: UploadedFileRecord): UploadedF
     chunkingUpdatedAt: record.chunkingUpdatedAt ? record.chunkingUpdatedAt.toISOString() : null,
     embeddingStatus: record.embeddingStatus ?? "not_started",
     embeddingUpdatedAt: record.embeddingUpdatedAt ? record.embeddingUpdatedAt.toISOString() : null,
+    understandingStatus: record.understandingStatus,
+    understandingUpdatedAt: record.understandingUpdatedAt ? record.understandingUpdatedAt.toISOString() : null,
+    understandingErrorCode: record.understandingErrorCode ?? null,
+    visualStatus: record.visualStatus,
+    visualUpdatedAt: record.visualUpdatedAt ? record.visualUpdatedAt.toISOString() : null,
+    visualErrorCode: record.visualErrorCode ?? null,
+    materialType: record.materialType,
     uploadedAt: record.uploadedAt.toISOString(),
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),

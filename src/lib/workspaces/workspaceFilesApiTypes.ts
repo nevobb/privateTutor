@@ -35,6 +35,23 @@ export interface WorkspaceFileItem {
   chunkingUpdatedAt: string | null;
   embeddingStatus: "not_started" | "completed" | "failed";
   embeddingUpdatedAt: string | null;
+  understandingStatus?: "not_started" | "processing" | "completed" | "failed";
+  understandingUpdatedAt?: string | null;
+  understandingErrorCode?: string | null;
+  visualStatus?: "not_started" | "available" | "processing" | "completed" | "failed";
+  visualUpdatedAt?: string | null;
+  visualErrorCode?: string | null;
+  materialType?:
+    | "assignment"
+    | "exam"
+    | "summary"
+    | "lecture_notes"
+    | "slides"
+    | "formula_sheet"
+    | "book_chapter"
+    | "lab_sheet"
+    | "solutions"
+    | "unknown";
   uploadedAt: string;
   createdAt: string;
   updatedAt: string;

@@ -15,12 +15,38 @@ export type FileIndexingStatus =
 export type FileSummaryStatus = "not_requested" | "pending" | "ready" | "failed";
 export type FileExtractionStatus = "not_started" | "pending" | "completed" | "failed";
 export type FileChunkingStatus = "not_started" | "pending" | "completed" | "failed";
+export type FileUnderstandingStatus = "not_started" | "processing" | "completed" | "failed";
+export type FileVisualStatus = "not_started" | "available" | "processing" | "completed" | "failed";
+export type FileMaterialType =
+  | "assignment"
+  | "exam"
+  | "summary"
+  | "lecture_notes"
+  | "slides"
+  | "formula_sheet"
+  | "book_chapter"
+  | "lab_sheet"
+  | "solutions"
+  | "unknown";
 export type FileChunkEmbeddingStatus =
   | "not_started"
   | "pending"
   | "completed"
   | "failed"
   | "stale";
+export type DocumentTextQuality = "good" | "partial" | "poor" | "unknown";
+export type DocumentBlockType =
+  | "paragraph"
+  | "heading"
+  | "question"
+  | "subsection"
+  | "formula"
+  | "table_text"
+  | "definition"
+  | "example"
+  | "unknown";
+export type ExtractionConfidence = "high" | "medium" | "low";
+export type VisualElementType = "graph" | "diagram" | "circuit" | "table" | "figure" | "image" | "unknown";
 
 // Extended to include spec lifecycle values alongside legacy "candidate"
 export type MemoryObservationState =
@@ -141,8 +167,118 @@ export interface UploadedFile {
   chunkingUpdatedAt?: Date | null;
   embeddingStatus?: "not_started" | "completed" | "failed";
   embeddingUpdatedAt?: Date | null;
+  understandingStatus?: FileUnderstandingStatus;
+  understandingUpdatedAt?: Date | null;
+  understandingErrorCode?: string | null;
+  visualStatus?: FileVisualStatus;
+  visualUpdatedAt?: Date | null;
+  visualErrorCode?: string | null;
+  materialType?: FileMaterialType;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+export interface SourceAnchor {
+  fileId: string;
+  pageNumber?: number;
+  blockId?: string;
+  questionId?: string;
+  chunkId?: string;
+  charStart?: number;
+  charEnd?: number;
+}
+
+export interface DocumentPage {
+  id: string;
+  userId: string;
+  workspaceId: string;
+  fileId: string;
+  pageNumber: number;
+  extractedText: string;
+  cleanedText?: string;
+  charStart?: number;
+  charEnd?: number;
+  textQuality?: DocumentTextQuality;
+  sourceChunkIds?: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DocumentBlock {
+  id: string;
+  userId: string;
+  workspaceId: string;
+  fileId: string;
+  pageNumber: number;
+  blockType: DocumentBlockType;
+  text: string;
+  orderIndex: number;
+  charStart?: number;
+  charEnd?: number;
+  sourceChunkIds?: string[];
+  confidence?: ExtractionConfidence;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DetectedQuestion {
+  id: string;
+  userId: string;
+  workspaceId: string;
+  fileId: string;
+  labelRaw: string;
+  normalizedLabel?: string;
+  questionNumber?: number;
+  topic?: string;
+  summary?: string;
+  pageStart?: number;
+  pageEnd?: number;
+  blockIds?: string[];
+  sourceChunkIds?: string[];
+  subsections?: string[];
+  confidence: ExtractionConfidence;
+  extractionNotes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DocumentOutlineSection {
+  sectionId: string;
+  label?: string;
+  title?: string;
+  sectionType?: string;
+  pageStart?: number;
+  pageEnd?: number;
+  blockIds?: string[];
+  sourceChunkIds?: string[];
+  confidence?: ExtractionConfidence;
+}
+
+export interface DocumentOutline {
+  id: string;
+  userId: string;
+  workspaceId: string;
+  fileId: string;
+  title?: string;
+  sections: DocumentOutlineSection[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface VisualElement {
+  id: string;
+  userId: string;
+  workspaceId: string;
+  fileId: string;
+  pageNumber: number;
+  visualType: VisualElementType;
+  nearQuestionId?: string;
+  descriptionFromText?: string;
+  requiresVision: boolean;
+  visualStatus?: FileVisualStatus;
+  confidence?: ExtractionConfidence;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface FileChunk {
