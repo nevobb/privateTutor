@@ -11,34 +11,31 @@
 - Phase 18 merged (#51): deterministic retrieval over persisted file chunks.
 - Phase 19 merged (#52): provider prompt-context injection / grounded tutor answer.
 - Phase 20 merged (#53): MVP validation and behavior regression.
-- Phase 21 implemented on branch: real PDF/DOCX parser foundation.
+- Phase 21 merged (#55): real PDF/DOCX parser foundation.
+- Step 23 merged (#54): semantic/vector architecture decision.
+- Step 24 implemented on branch: embedding lifecycle boundary.
 
 ## Current capabilities
-- Auth emulator flow works.
-- Workspace and session APIs/UI work.
-- Uploaded file metadata lifecycle exists.
-- Extraction lifecycle exists with real parser support:
-  - DOCX: mammoth extractRawText
-  - PDF: pdf-parse
-  - Falls back to deterministic placeholder if no file bytes provided
-- Chunking lifecycle: deterministic persisted chunks.
-- Retrieval: keyword/token matching over persisted chunks.
-- Grounded provider call: SOURCE blocks injected into provider prompt.
-- API routes exist:
-  - `POST /api/workspaces/[workspaceId]/files/[fileId]/extract` (now accepts multipart/form-data with `file` field)
-  - `POST /api/workspaces/[workspaceId]/files/[fileId]/chunks`
+- Upload → extraction → chunking → keyword retrieval → grounded provider answer.
+- Extraction supports real parser path:
+  - DOCX via mammoth
+  - PDF via pdf-parse
+  - fallback to deterministic provider when file bytes are absent.
+- Embedding lifecycle boundary exists on Step 24 branch:
+  - deterministic mock embeddings
+  - embedding metadata lifecycle on chunks
+  - embedding storage under chunk embedding subdocument path
 
 ## Still not implemented
-- OCR (image-based PDFs still produce empty/short extraction with warnings).
-- Image/diagram extraction.
-- Formula reconstruction.
-- Summaries based on extracted content.
-- Embeddings/vector indexing over chunks.
-- Semantic/vector retrieval.
+- Real embedding provider calls.
+- Vector DB integration.
+- Semantic retrieval execution/hybrid ranking.
 - Gemini/Genkit.
 - Production Firebase deployment.
 
+## Boundary note
+- Step 24 does not change runtime retrieval behavior.
+- Retrieval remains deterministic keyword-based until Step 25.
+
 ## Recommended next phase
-1. Real parser quality validation with real PDF/DOCX fixture files.
-2. UI: surface extraction warnings and status to learner.
-3. Semantic/vector retrieval planning.
+- Step 25: semantic retrieval execution with hybrid semantic+keyword strategy and fallback.

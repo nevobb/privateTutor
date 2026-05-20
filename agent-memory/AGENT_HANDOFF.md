@@ -10,23 +10,22 @@
 7. `agent-memory/OPEN_QUESTIONS.md`
 
 ## Current status
-- Step 23 semantic/vector retrieval architecture decision is completed on branch `codex/phase23-semantic-retrieval-decision`.
-- Runtime behavior is unchanged.
+- Step 24 embedding lifecycle boundary is completed on branch `codex/phase24-embedding-lifecycle-boundary`.
+- Runtime retrieval behavior is unchanged.
 
-## What Step 23 added
-- `docs/SEMANTIC_RETRIEVAL_DECISION.md` with:
-  - recommended staged hybrid approach
-  - embedding lifecycle design
-  - vector storage strategy
-  - hybrid retrieval strategy + keyword fallback
-  - cost-mode and failure behavior
-  - migration path and next phases
+## What Step 24 added
+- Embedding lifecycle metadata fields on file chunks.
+- Deterministic mock embedding provider boundary.
+- Embedding storage/repository boundary under chunk embedding subdocument path.
+- Embedding lifecycle service and route:
+  - `POST /api/workspaces/[workspaceId]/files/[fileId]/embeddings`
+- Focused tests for provider/repository/service/route.
 
 ## What is still out of scope
-- Embedding generation/runtime calls.
-- Vector DB integration.
+- Real embedding provider integration.
+- Vector DB.
 - Semantic retrieval execution.
-- Parser changes.
+- Parser or extraction runtime changes.
 
 ## Next recommended step
-- Implement Step 24: Embedding Lifecycle Boundary only (no semantic retrieval execution).
+- Step 25: semantic retrieval execution with hybrid ranking and keyword fallback.

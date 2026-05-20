@@ -2,25 +2,22 @@
 
 ## Recent tasks
 
-### Step 23 — Semantic/Vector retrieval architecture decision
-- Branch: `codex/phase23-semantic-retrieval-decision`
+### Step 24 — Embedding lifecycle boundary
+- Branch: `codex/phase24-embedding-lifecycle-boundary`
 - Status: completed on branch
 - Result:
-  - Added `docs/SEMANTIC_RETRIEVAL_DECISION.md`
-  - Recommended staged hybrid architecture (embedding lifecycle first, semantic execution second)
-  - Defined embedding lifecycle fields/statuses and stale rules
-  - Defined Firestore-neutral embedding storage strategy and migration path
-  - Defined hybrid semantic+keyword retrieval approach with fallback and cost-mode behavior
-- Notes:
-  - Planning-only scope. No runtime behavior changed.
-  - No embeddings/vector DB/semantic execution implemented.
+  - Added embedding lifecycle fields to chunk metadata.
+  - Added deterministic embedding provider + source hash utility.
+  - Added embedding repository at chunk embedding subdocument path.
+  - Added embedding lifecycle service.
+  - Added `POST /api/workspaces/[workspaceId]/files/[fileId]/embeddings`.
+  - Added focused tests and kept retrieval runtime behavior unchanged.
 
-### Phase 20 — MVP validation and behavior regression
-- Branch: `codex/phase20-mvp-validation`
-- PR: #53
+### Step 23 — Semantic/vector retrieval architecture decision
+- Branch: `codex/phase23-semantic-retrieval-decision`
+- PR: #54
 - Status: merged
 
-### Phase 19 — Grounded tutor answer
-- Branch: `codex/phase19-grounded-tutor-answer`
-- PR: #52
+### Phase 20 — MVP validation
+- PR: #53
 - Status: merged

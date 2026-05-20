@@ -891,3 +891,24 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: commit, push, open PR; then parser quality validation or semantic retrieval planning.
   - Blockers/Risks: Codex's Phase 24 untracked files (embedding lifecycle) cause local build noise. Clean branch builds fine. Stash remains at stash@{0} for Codex to pop.
+
+## 2026-05-20 09:15 (Asia/Jerusalem) — Codex
+- Step/Task ID: Step 24 branch update after parser merge
+- Task summary: Merge `origin/main` (including Phase 21 parser foundation) into Step 24 embedding lifecycle branch and resolve conflicts.
+- What I changed:
+  - Resolved memory-file merge conflicts while preserving parser-mainline context and Step 24 embedding boundary context.
+  - Preserved Step 24 code scope and updated branch on top of parser merge.
+- Files touched:
+  - `agent-memory/CURRENT_TASK.md`
+  - `agent-memory/PROJECT_STATE.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - pending in current execution step
+- Git status:
+  - Branch: `codex/phase24-embedding-lifecycle-boundary`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: in_progress
+  - Next recommended step: run full Step 24 + parser regression validation and push updated PR branch.
+  - Blockers/Risks: none.

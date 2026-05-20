@@ -68,6 +68,21 @@ export interface FileChunkRecord extends Omit<FileChunk, "createdAt"> {
   createdAt: Date;
 }
 
+export interface FileChunkEmbeddingRecord {
+  userId: string;
+  workspaceId: string;
+  fileId: string;
+  chunkId: string;
+  vector: number[];
+  embeddingStatus: "completed";
+  embeddingProvider: string;
+  embeddingModel: string;
+  embeddingDimension: number;
+  embeddingUpdatedAt: Date;
+  embeddingErrorCode: null;
+  embeddingSourceTextHash: string;
+}
+
 export interface CreateWorkspaceInput {
   name: string;
   description?: string;

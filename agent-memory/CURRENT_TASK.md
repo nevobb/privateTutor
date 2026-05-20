@@ -1,58 +1,40 @@
 # Current Task
 
 ## Active task
-Phase 21 — Real PDF/DOCX parser foundation.
+Step 24 — Embedding lifecycle boundary.
 
 ## Status
-Implemented on branch `claude/phase21-real-parser-foundation`.
+Implemented on branch `codex/phase24-embedding-lifecycle-boundary`.
 
 ## What was implemented
-- Added packages: `mammoth` (DOCX) and `pdf-parse` (PDF) to dependencies.
-- Added `@types/pdf-parse` to devDependencies.
-- Updated `src/types/index.ts`:
-  - Added `"mammoth_docx_parser"` and `"pdf_parse_pdf_parser"` to `extractionSource` union.
-- Updated `src/server/workspaces/fileExtractionProvider.ts`:
-  - Added `fileBuffer?: Buffer | null` to `FileExtractionInput`.
-  - Added `parserName?: string` and `warnings?: string[]` to `FileExtractionResult`.
-  - Updated `source` union to include new real parser values.
-  - Kept `DeterministicFileExtractionProvider` unchanged (ignores fileBuffer).
-- Created `src/server/workspaces/realDocumentExtractionProvider.ts`:
-  - `RealDocumentExtractionProvider` class with injectable `PdfParserFn` / `DocxParserFn` for testing.
-  - DOCX: uses mammoth `extractRawText({ buffer })`.
-  - PDF: uses pdf-parse `(buffer)`.
-  - Text normalization: CRLF → LF, tab → space, multi-space collapse, multi-newline collapse, trim.
-  - Warnings: `empty_extracted_text`, `very_short_extracted_text`, `possible_scanned_pdf`.
-  - No warnings when text is sufficient.
-  - Export `createRealDocumentExtractionProvider(pdfParser?, docxParser?)` for test injection.
-  - Export `realDocumentExtractionProvider` singleton.
-- Updated `src/server/workspaces/uploadedFileApiService.ts`:
-  - `runExtractionLifecycleForFile` now accepts optional `fileBuffer?: Buffer`.
-  - When `fileBuffer` is provided, uses `realDocumentExtractionProvider` automatically.
-  - When `fileBuffer` is absent, falls back to `repositories.fileExtractionProvider` (deterministic).
-  - Decision log rationale updated to include parserName and warnings when real parser used.
-- Updated `src/app/api/workspaces/[workspaceId]/files/[fileId]/extract/route.ts`:
-  - Reads optional `file` field from `multipart/form-data` POST body.
-  - If file bytes provided, passes `Buffer` to service (real parsing path).
-  - If no file bytes, calls service without buffer (deterministic fallback — backward compat).
-  - `readFileBufferFromRequest` helper is safe: catches parse failures and falls back gracefully.
+- Added chunk embedding lifecycle fields on `FileChunk` metadata:
+  - `embeddingStatus`, `embeddingProvider`, `embeddingModel`, `embeddingDimension`, `embeddingUpdatedAt`, `embeddingErrorCode`, `embeddingSourceTextHash`
+- Added deterministic mock embedding provider boundary:
+  - `src/server/workspaces/fileChunkEmbeddingProvider.ts`
+- Added embedding hash utility:
+  - `src/server/workspaces/fileChunkEmbeddingHash.ts`
+- Added embedding repository for storage path:
+  - `users/{userId}/workspaces/{workspaceId}/files/{fileId}/chunks/{chunkId}/embedding/current`
+  - file: `src/server/workspaces/fileChunkEmbeddingRepository.ts`
+- Added embedding lifecycle service:
+  - `src/server/workspaces/fileChunkEmbeddingService.ts`
+- Added endpoint:
+  - `POST /api/workspaces/[workspaceId]/files/[fileId]/embeddings`
+- Added focused tests for provider/repository/service/route.
+
+## Mainline context preserved
+- Phase 21 parser foundation from `main` remains intact:
+  - real DOCX/PDF parser path (`mammoth`, `pdf-parse`)
+  - extraction route multipart file handling
+  - extraction provider/type extensions
 
 ## Explicit boundaries preserved
-- No OCR.
-- No image/diagram extraction.
-- No formula reconstruction.
-- No embeddings/vector search/semantic retrieval (untouched).
-- No Gemini/Genkit.
-- No Firebase rules changes.
-- No changes to retrieval, chunking, or grounding provider files.
-- Deterministic test provider preserved and backward compatible.
-
-## Validation executed
-- `git diff --check` ✅
-- `npm run build` ✅ (note: Codex's Phase 24 untracked files cause local build noise, but branch-clean build passes)
-- `npx vitest run tests/server/workspaces/fileExtractionProvider.test.ts tests/server/workspaces/realDocumentExtractionProvider.test.ts tests/server/workspaces/uploadedFileApiService.test.ts tests/server/workspaces/workspaceFileExtractionApiRoute.test.ts` — 28 passed ✅
-- `npx vitest run tests/server/workspaces/fileChunker.test.ts tests/server/workspaces/fileChunkRetrievalService.test.ts tests/server/workspaces/sessionMessageApiService.test.ts tests/server/tutor/deepseekProviderGrounding.test.ts` — 47 passed ✅
+- No real embedding provider calls.
+- No vector DB.
+- No semantic retrieval execution.
+- No runtime retrieval behavior changes.
+- No parser behavior changes in this branch update.
+- No provider prompt grounding changes.
 
 ## Recommended next phase
-1. Parser quality validation with real PDF/DOCX fixtures.
-2. UI: surface extraction status and warnings to learner.
-3. Semantic/vector retrieval planning (if keyword retrieval is insufficient).
+Step 25 — Semantic retrieval execution (hybrid semantic+keyword), with keyword fallback retained.
