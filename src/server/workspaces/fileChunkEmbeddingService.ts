@@ -8,6 +8,7 @@ import {
 import { setCurrentChunkEmbedding as defaultSetCurrentChunkEmbedding } from "./fileChunkEmbeddingRepository";
 import { fileChunkEmbeddingProvider as defaultEmbeddingProvider } from "./fileChunkEmbeddingProvider";
 import type { FileChunkRecord, FileChunkEmbeddingRecord } from "./workspaceTypes";
+import { computeEmbeddingSourceTextHash } from "./fileChunkEmbeddingHash";
 
 export type EmbeddingRunFailureCode =
   | "workspace_not_found"
@@ -99,6 +100,11 @@ async function embedSingleChunk(
   chunk: FileChunkRecord,
   deps: Deps
 ): Promise<boolean> {
+  const currentHash = computeEmbeddingSourceTextHash(chunk.text);
+  if (chunk.embeddingStatus === "completed" && chunk.embeddingSourceTextHash === currentHash) {
+    return true;
+  }
+
   await deps.updateChunkEmbeddingLifecycle(user.userId, workspaceId, fileId, chunk.chunkId, {
     embeddingStatus: "pending",
     embeddingErrorCode: null,
@@ -112,6 +118,7 @@ async function embedSingleChunk(
       fileId,
       chunkId: chunk.chunkId,
       text: chunk.text,
+      embeddingPurpose: "document",
     });
 
     const now = new Date();

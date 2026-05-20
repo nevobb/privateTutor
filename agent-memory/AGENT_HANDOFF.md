@@ -10,21 +10,23 @@
 7. `agent-memory/OPEN_QUESTIONS.md`
 
 ## Current status
-- Step 25 semantic retrieval execution completed on branch `codex/phase25-semantic-retrieval-execution`.
-- Hybrid semantic + keyword fallback behavior is active.
+- Step 26 Gemini embedding provider integration completed on branch `codex/phase26-gemini-embedding-provider`.
+- Semantic retrieval can use real Gemini embeddings when configured.
 
-## What Step 25 added
-- Semantic chunk retrieval service with deterministic cosine ranking.
-- Hybrid retrieval integration in existing retrieval service.
-- Retrieval method metadata (`semantic`, `keyword_fallback`, `keyword_only`).
-- Decision-log detail enrichment for semantic attempt/use/fallback reason.
-- Focused tests for semantic ranking and fallback behavior.
+## What Step 26 added
+- Server-only Gemini embeddings provider (`gemini-embedding-001`).
+- Env-based provider selection (`EMBEDDING_PROVIDER`, `GEMINI_API_KEY`).
+- Task-type separation:
+  - `RETRIEVAL_DOCUMENT` for chunk/document embeddings
+  - `QUESTION_ANSWERING` for query embeddings
+- Unchanged-hash chunk embedding skip optimization.
+- Semantic failure path remains keyword fallback.
 
 ## What is still out of scope
-- Real embedding provider integration.
-- External vector DB.
+- Vector DB.
+- Gemini chat/Genkit migration.
 - Parser changes.
-- Gemini/Genkit.
+- OCR/summaries.
 
 ## Next recommended step
-- Evaluate retrieval quality with real learning materials and decide on real embedding provider integration.
+- Retrieval quality evaluation and provider tuning before broader rollout.

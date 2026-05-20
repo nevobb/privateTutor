@@ -2,23 +2,23 @@
 
 ## Recent tasks
 
-### Step 25 — Semantic retrieval execution
-- Branch: `codex/phase25-semantic-retrieval-execution`
+### Step 26 — Gemini embeddings provider integration
+- Branch: `codex/phase26-gemini-embedding-provider`
 - Status: completed on branch
 - Result:
-  - Added semantic retrieval service over existing deterministic/mock embeddings.
-  - Added cosine similarity ranking and safe tie-breakers.
-  - Added hybrid semantic-first flow with keyword fallback.
-  - Preserved existing grounding and citation behavior.
-  - Added focused semantic + regression tests.
+  - Added Gemini embedding provider using `gemini-embedding-001`.
+  - Added server-only env configuration for provider selection and key usage.
+  - Added query/document task handling.
+  - Preserved semantic->keyword fallback behavior.
+  - Added focused provider tests and ran regressions.
 - Notes:
-  - No real embedding provider or vector DB added.
-  - Retrieval remains cost-bound and policy-bound through existing flow.
+  - No vector DB added.
+  - No parser/runtime extraction changes.
+
+### Step 25 — Semantic retrieval execution
+- PR: #57
+- Status: merged
 
 ### Step 24 — Embedding lifecycle boundary
 - PR: #56
-- Status: merged
-
-### Phase 21 — Real parser foundation
-- PR: #55
 - Status: merged

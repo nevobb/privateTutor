@@ -75,6 +75,9 @@ describe("retrieveRelevantFileChunksSemantically", () => {
     );
 
     expect(result.chunks.map((c) => c.chunkId)).toEqual(["c1", "c2", "c3"]);
+    expect(deps.embeddingProvider.embedText).toHaveBeenCalledWith(
+      expect.objectContaining({ embeddingPurpose: "query" })
+    );
   });
 
   it("respects maxChunks and maxTokens", async () => {

@@ -70,6 +70,10 @@ cp .env.local.example .env.local
 Notes:
 - Keep secrets in `.env.local` only.
 - Do not commit `.env*` files with real credentials.
+- Embedding provider config (server-side only):
+  - `EMBEDDING_PROVIDER=deterministic` (default) or `EMBEDDING_PROVIDER=gemini`
+  - `GEMINI_API_KEY=...` required only when `EMBEDDING_PROVIDER=gemini`
+  - Never use `NEXT_PUBLIC_GEMINI_API_KEY`
 
 ## Testing
 

@@ -317,4 +317,21 @@ describeService("retrieveRelevantFileChunks", () => {
     expect(result.chunks[0].chunkId).toBe("c1");
     expect(result.chunks[0].retrievalMethod).toBe("keyword_fallback");
   });
+
+  it("falls back to keyword retrieval when semantic provider throws", async () => {
+    const deps = {
+      listUploadedFiles: vi.fn(async () => [makeEligibleFile("f1", "notes.pdf")]),
+      listFileChunks: vi.fn(async () => [makeChunk("c1", "f1", 0, "newton force law")]),
+      retrieveSemantically: vi.fn(async () => {
+        throw new Error("gemini_unavailable");
+      }),
+    };
+
+    const result = await mod.retrieveRelevantFileChunks(
+      { userId: "alice", workspaceId: "ws-1", query: "newton force", maxChunks: 3, maxTokens: 1000 },
+      deps as never
+    );
+
+    expect(result.chunks[0].retrievalMethod).toBe("keyword_fallback");
+  });
 });

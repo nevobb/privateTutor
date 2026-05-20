@@ -61,6 +61,7 @@ export async function retrieveRelevantFileChunksSemantically(
     fileId: "semantic-query",
     chunkId: "semantic-query",
     text: input.query,
+    embeddingPurpose: "query",
   });
 
   const scored: SemanticRetrievedChunk[] = [];
