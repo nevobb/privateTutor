@@ -20,7 +20,10 @@ export async function createUploadedFile(
       id: fileId,
       userId,
       name: input.name,
+      originalFileName: input.originalFileName,
       url: "",
+      embeddingStatus: input.embeddingStatus ?? "not_started",
+      embeddingUpdatedAt: input.embeddingUpdatedAt ?? null,
       uploadedAt: now,
       workspaceId: input.workspaceId,
       assignmentStatus: input.assignmentStatus,
@@ -110,6 +113,8 @@ export async function updateUploadedFile(
       | "chunkCount"
       | "chunkingErrorCode"
       | "chunkingUpdatedAt"
+      | "embeddingStatus"
+      | "embeddingUpdatedAt"
     >
   >
 ): Promise<UploadedFileRecord | null> {
@@ -149,6 +154,8 @@ export async function updateUploadedFile(
       chunkCount: updates.chunkCount ?? current.chunkCount,
       chunkingErrorCode: updates.chunkingErrorCode ?? current.chunkingErrorCode,
       chunkingUpdatedAt: updates.chunkingUpdatedAt ?? current.chunkingUpdatedAt,
+      embeddingStatus: updates.embeddingStatus ?? current.embeddingStatus,
+      embeddingUpdatedAt: updates.embeddingUpdatedAt ?? current.embeddingUpdatedAt,
       updatedAt: new Date(),
     };
 
@@ -162,6 +169,7 @@ function mapUploadedFileRecord(id: string, data: Record<string, unknown>): Uploa
     id,
     userId: getOwnerUserId(data),
     name: String(data.name ?? ""),
+    originalFileName: typeof data.originalFileName === "string" ? data.originalFileName : undefined,
     url: typeof data.url === "string" ? data.url : "",
     uploadedAt: toDate(data.uploadedAt),
     workspaceId: typeof data.workspaceId === "string" ? data.workspaceId : undefined,
@@ -194,6 +202,8 @@ function mapUploadedFileRecord(id: string, data: Record<string, unknown>): Uploa
     chunkCount: typeof data.chunkCount === "number" ? data.chunkCount : undefined,
     chunkingErrorCode: typeof data.chunkingErrorCode === "string" ? data.chunkingErrorCode : null,
     chunkingUpdatedAt: data.chunkingUpdatedAt ? toDate(data.chunkingUpdatedAt) : null,
+    embeddingStatus: mapFileEmbeddingStatus(data.embeddingStatus),
+    embeddingUpdatedAt: data.embeddingUpdatedAt ? toDate(data.embeddingUpdatedAt) : null,
     createdAt: toDate(data.createdAt),
     updatedAt: toDate(data.updatedAt),
   };
@@ -274,6 +284,13 @@ function mapExtractionSource(value: unknown): UploadedFileRecord["extractionSour
 
 function mapChunkingStatus(value: unknown): UploadedFileRecord["chunkingStatus"] {
   if (value === "not_started" || value === "pending" || value === "completed" || value === "failed") {
+    return value;
+  }
+  return "not_started";
+}
+
+function mapFileEmbeddingStatus(value: unknown): UploadedFileRecord["embeddingStatus"] {
+  if (value === "not_started" || value === "completed" || value === "failed") {
     return value;
   }
   return "not_started";

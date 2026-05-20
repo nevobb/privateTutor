@@ -238,7 +238,8 @@ export default function Home() {
       setUploadedFiles(
         files.map((item) => ({
           id: item.id,
-          name: item.fileName,
+          name: item.originalFileName ?? item.fileName,
+          originalFileName: item.originalFileName,
           url: "",
           uploadedAt: new Date(item.uploadedAt),
           workspaceId: item.workspaceId,
@@ -264,6 +265,8 @@ export default function Home() {
           chunkCount: item.chunkCount,
           chunkingErrorCode: item.chunkingErrorCode,
           chunkingUpdatedAt: item.chunkingUpdatedAt ? new Date(item.chunkingUpdatedAt) : null,
+          embeddingStatus: item.embeddingStatus,
+          embeddingUpdatedAt: item.embeddingUpdatedAt ? new Date(item.embeddingUpdatedAt) : null,
           createdAt: new Date(item.createdAt),
           updatedAt: new Date(item.updatedAt),
         }))
@@ -312,6 +315,7 @@ export default function Home() {
           workspaceId: activeWorkspaceId,
           idToken: token,
           fileName: uploaded.fileName,
+          originalFileName: uploaded.originalFileName,
           sourceType: uploaded.sourceType,
           storagePath: uploaded.storagePath,
         });

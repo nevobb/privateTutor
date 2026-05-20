@@ -39,6 +39,7 @@ export function validateLearningFile(
 export async function uploadLearningFileToStorage(input: UploadableLearningFile): Promise<{
   storagePath: string;
   fileName: string;
+  originalFileName: string;
   sizeBytes: number;
   contentType: string;
   sourceType: LearningFileSourceType;
@@ -70,6 +71,7 @@ export async function uploadLearningFileToStorage(input: UploadableLearningFile)
   return {
     storagePath,
     fileName: safeFileName,
+    originalFileName: input.file.name,
     sizeBytes: input.file.size,
     contentType,
     sourceType,

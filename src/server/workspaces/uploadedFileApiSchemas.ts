@@ -4,6 +4,7 @@ const VALID_SOURCE_TYPES = ["pdf", "docx"] as const;
 
 export interface CreateUploadedFileApiRequest {
   fileName: string;
+  originalFileName?: string;
   sourceType: (typeof VALID_SOURCE_TYPES)[number];
   storagePath?: string;
   topicHint?: string;
@@ -14,6 +15,7 @@ export interface UploadedFileApiResponse {
   userId: string;
   workspaceId?: string;
   fileName: string;
+  originalFileName?: string;
   sourceType: "pdf" | "docx" | "note" | "other";
   storagePath?: string;
   topic?: string;
@@ -36,6 +38,8 @@ export interface UploadedFileApiResponse {
   chunkCount?: number;
   chunkingErrorCode: string | null;
   chunkingUpdatedAt: string | null;
+  embeddingStatus: UploadedFileRecord["embeddingStatus"];
+  embeddingUpdatedAt: string | null;
   uploadedAt: string;
   createdAt: string;
   updatedAt: string;
@@ -84,6 +88,7 @@ export function parseCreateUploadedFileRequest(body: unknown): CreateUploadedFil
     ok: true,
     input: {
       fileName,
+      originalFileName: asTrimmedString(raw.originalFileName),
       sourceType: raw.sourceType,
       storagePath: asTrimmedString(raw.storagePath),
       topicHint: asTrimmedString(raw.topicHint),
@@ -97,6 +102,7 @@ export function toUploadedFileApiResponse(record: UploadedFileRecord): UploadedF
     userId: record.userId,
     workspaceId: record.workspaceId,
     fileName: record.name,
+    originalFileName: record.originalFileName,
     sourceType: record.sourceType,
     storagePath: record.storagePath,
     topic: record.topic,
@@ -119,6 +125,8 @@ export function toUploadedFileApiResponse(record: UploadedFileRecord): UploadedF
     chunkCount: record.chunkCount,
     chunkingErrorCode: record.chunkingErrorCode ?? null,
     chunkingUpdatedAt: record.chunkingUpdatedAt ? record.chunkingUpdatedAt.toISOString() : null,
+    embeddingStatus: record.embeddingStatus ?? "not_started",
+    embeddingUpdatedAt: record.embeddingUpdatedAt ? record.embeddingUpdatedAt.toISOString() : null,
     uploadedAt: record.uploadedAt.toISOString(),
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),

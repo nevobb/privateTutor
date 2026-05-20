@@ -3,8 +3,13 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import TutorConversation, {
   DecisionLogPanelBody,
+  hasNewAssistantMessage,
+  isTimeoutError,
+  normalizeCitations,
+  SourcesSection,
   shouldSubmitOnKeyDown,
 } from "../../../src/components/tutor/TutorConversation";
+import { SessionMessagesApiError } from "../../../src/lib/sessions/sessionMessagesApiClient";
 
 describe("TutorConversation composer layout", () => {
   it("renders send button outside textarea and without overlay padding", () => {
@@ -92,5 +97,67 @@ describe("shouldSubmitOnKeyDown", () => {
 
   it("does not submit on Shift+Enter", () => {
     expect(shouldSubmitOnKeyDown("Enter", true)).toBe(false);
+  });
+});
+
+describe("source rendering", () => {
+  it("deduplicates identical citations and keeps distinct duplicates", () => {
+    const result = normalizeCitations([
+      { id: "chunk_0001", sourceId: "fileA:chunk_0001", referenceText: "same text" },
+      { id: "chunk_0001", sourceId: "fileA:chunk_0001", referenceText: "same text" },
+      { id: "chunk_0001", sourceId: "fileA:chunk_0001", referenceText: "different text" },
+    ]);
+
+    expect(result).toHaveLength(2);
+    expect(new Set(result.map((item) => item.renderKey)).size).toBe(2);
+  });
+
+  it("renders sources in a collapsible section (closed by default)", () => {
+    const normalized = normalizeCitations([
+      { id: "chunk_0001", sourceId: "fileA:chunk_0001", referenceText: "example snippet" },
+    ]);
+
+    const html = renderToStaticMarkup(
+      <SourcesSection citations={normalized} />
+    );
+    expect(html).toContain("<details");
+    expect(html).toContain("Sources (1)");
+    expect(html).not.toContain("<details open");
+  });
+});
+
+describe("timeout recovery helpers", () => {
+  it("detects timeout errors from SessionMessagesApiError", () => {
+    const error = new SessionMessagesApiError("שירות ההודעות לא הגיב בזמן. נסה שוב.", 503);
+    expect(isTimeoutError(error)).toBe(true);
+  });
+
+  it("does not treat non-timeout errors as timeout", () => {
+    const error = new SessionMessagesApiError("Unauthorized.", 401);
+    expect(isTimeoutError(error)).toBe(false);
+  });
+
+  it("detects new tutor message beyond baseline ids", () => {
+    const baseline = new Set(["u1"]);
+    const found = hasNewAssistantMessage(
+      [
+        { id: "u1", role: "user", content: "Q" },
+        { id: "t2", role: "tutor", content: "A" },
+      ],
+      baseline
+    );
+    expect(found).toBe(true);
+  });
+
+  it("does not report recovery when no new tutor message exists", () => {
+    const baseline = new Set(["u1", "t1"]);
+    const found = hasNewAssistantMessage(
+      [
+        { id: "u1", role: "user", content: "Q" },
+        { id: "t1", role: "tutor", content: "A old" },
+      ],
+      baseline
+    );
+    expect(found).toBe(false);
   });
 });

@@ -122,6 +122,7 @@ export interface WriteDecisionLogEntryInput {
 export interface CreateUploadedFileInput {
   workspaceId: string;
   name: string;
+  originalFileName?: string;
   sourceType: "pdf" | "docx";
   storagePath?: string;
   topicHint?: string;
@@ -145,6 +146,8 @@ export interface CreateUploadedFileInput {
   chunkCount?: UploadedFileRecord["chunkCount"];
   chunkingErrorCode?: UploadedFileRecord["chunkingErrorCode"];
   chunkingUpdatedAt?: UploadedFileRecord["chunkingUpdatedAt"];
+  embeddingStatus?: UploadedFileRecord["embeddingStatus"];
+  embeddingUpdatedAt?: UploadedFileRecord["embeddingUpdatedAt"];
 }
 
 export function toDate(value: unknown): Date {
