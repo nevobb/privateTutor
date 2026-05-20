@@ -262,7 +262,13 @@ function mapExtractionStatus(value: unknown): UploadedFileRecord["extractionStat
 }
 
 function mapExtractionSource(value: unknown): UploadedFileRecord["extractionSource"] {
-  if (value === "deterministic_test_parser" || value === "manual_placeholder" || value === "future_real_parser") {
+  if (
+    value === "deterministic_test_parser" ||
+    value === "manual_placeholder" ||
+    value === "future_real_parser" ||
+    value === "mammoth_docx_parser" ||
+    value === "pdf_parse_pdf_parser"
+  ) {
     return value;
   }
   return undefined;

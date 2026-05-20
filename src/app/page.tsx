@@ -37,6 +37,9 @@ import type { UploadedFile } from "../types";
 import {
   createWorkspaceFileMetadata,
   fetchWorkspaceFiles,
+  runWorkspaceFileChunking,
+  runWorkspaceFileEmbeddings,
+  runWorkspaceFileExtraction,
   WorkspaceFilesApiError,
 } from "../lib/workspaces/workspaceFilesApiClient";
 import { uploadLearningFileToStorage, validateLearningFile } from "../lib/firebase/storageUploadClient";
@@ -102,6 +105,10 @@ export default function Home() {
   const [memoryLoading, setMemoryLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [fileUploadStatus, setFileUploadStatus] = useState<FileUploadStatus>({ state: "idle" });
+  const [fileProcessingStatusById, setFileProcessingStatusById] = useState<
+    Record<string, string | undefined>
+  >({});
+  const [pendingFilesByFileId, setPendingFilesByFileId] = useState<Record<string, File | undefined>>({});
 
   useEffect(() => {
     try {
@@ -245,6 +252,17 @@ export default function Home() {
           summarySource: item.summarySource,
           summaryErrorCode: item.summaryErrorCode,
           summaryUpdatedAt: item.summaryUpdatedAt ? new Date(item.summaryUpdatedAt) : null,
+          extractionStatus: item.extractionStatus,
+          extractedText: item.extractedText,
+          extractedTextPreview: item.extractedTextPreview,
+          extractedTextCharCount: item.extractedTextCharCount,
+          extractionSource: item.extractionSource,
+          extractionErrorCode: item.extractionErrorCode,
+          extractionUpdatedAt: item.extractionUpdatedAt ? new Date(item.extractionUpdatedAt) : null,
+          chunkingStatus: item.chunkingStatus,
+          chunkCount: item.chunkCount,
+          chunkingErrorCode: item.chunkingErrorCode,
+          chunkingUpdatedAt: item.chunkingUpdatedAt ? new Date(item.chunkingUpdatedAt) : null,
           createdAt: new Date(item.createdAt),
           updatedAt: new Date(item.updatedAt),
         }))
@@ -289,7 +307,7 @@ export default function Home() {
         }
 
         setFileUploadStatus({ state: "saving_metadata" });
-        await createWorkspaceFileMetadata({
+        const createdFile = await createWorkspaceFileMetadata({
           workspaceId: activeWorkspaceId,
           idToken: token,
           fileName: uploaded.fileName,
@@ -297,10 +315,11 @@ export default function Home() {
           storagePath: uploaded.storagePath,
         });
 
+        setPendingFilesByFileId((prev) => ({ ...prev, [createdFile.id]: file }));
         await reloadWorkspaceFiles();
         setFileUploadStatus({
           state: "done",
-          message: "File uploaded. Content extraction is not implemented yet.",
+          message: "File uploaded. Next step: Extract -> Chunk -> Embed.",
         });
       } catch (error: unknown) {
         const message =
@@ -313,6 +332,97 @@ export default function Home() {
       }
     },
     [activeWorkspaceId, authState, getToken, reloadWorkspaceFiles]
+  );
+
+  const handleExtractFile = useCallback(
+    async (fileId: string): Promise<void> => {
+      if (authState.status !== "signed-in" || !activeWorkspaceId) return;
+      const token = await getToken();
+      if (!token) return;
+
+      const fileForExtraction = pendingFilesByFileId[fileId];
+      if (!fileForExtraction) {
+        setFileProcessingStatusById((prev) => ({
+          ...prev,
+          [fileId]: "File bytes not available. Re-upload the file to extract content.",
+        }));
+        return;
+      }
+
+      setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: "Extracting content..." }));
+      try {
+        await runWorkspaceFileExtraction({
+          workspaceId: activeWorkspaceId,
+          fileId,
+          idToken: token,
+          file: fileForExtraction,
+        });
+        setPendingFilesByFileId((prev) => {
+          const next = { ...prev };
+          delete next[fileId];
+          return next;
+        });
+        await reloadWorkspaceFiles();
+        setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: "Extraction completed." }));
+      } catch (error: unknown) {
+        const message =
+          error instanceof WorkspaceFilesApiError ? error.message : "Extraction failed.";
+        setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: message }));
+      }
+    },
+    [activeWorkspaceId, authState.status, getToken, pendingFilesByFileId, reloadWorkspaceFiles]
+  );
+
+  const handleChunkFile = useCallback(
+    async (fileId: string): Promise<void> => {
+      if (authState.status !== "signed-in" || !activeWorkspaceId) return;
+      const token = await getToken();
+      if (!token) return;
+
+      setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: "Creating chunks..." }));
+      try {
+        const result = await runWorkspaceFileChunking({
+          workspaceId: activeWorkspaceId,
+          fileId,
+          idToken: token,
+        });
+        await reloadWorkspaceFiles();
+        setFileProcessingStatusById((prev) => ({
+          ...prev,
+          [fileId]: `Chunking completed (${result.chunkCount} chunks).`,
+        }));
+      } catch (error: unknown) {
+        const message = error instanceof WorkspaceFilesApiError ? error.message : "Chunking failed.";
+        setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: message }));
+      }
+    },
+    [activeWorkspaceId, authState.status, getToken, reloadWorkspaceFiles]
+  );
+
+  const handleEmbedFile = useCallback(
+    async (fileId: string): Promise<void> => {
+      if (authState.status !== "signed-in" || !activeWorkspaceId) return;
+      const token = await getToken();
+      if (!token) return;
+
+      setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: "Generating embeddings..." }));
+      try {
+        const result = await runWorkspaceFileEmbeddings({
+          workspaceId: activeWorkspaceId,
+          fileId,
+          idToken: token,
+        });
+        await reloadWorkspaceFiles();
+        setFileProcessingStatusById((prev) => ({
+          ...prev,
+          [fileId]: `Embeddings done (${result.embeddedChunkCount} ok, ${result.failedChunkCount} failed).`,
+        }));
+      } catch (error: unknown) {
+        const message = error instanceof WorkspaceFilesApiError ? error.message : "Embedding failed.";
+        setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: message }));
+      }
+    },
+    [activeWorkspaceId, authState.status, getToken, reloadWorkspaceFiles]
   );
 
   const handleCreateWorkspace = useCallback(
@@ -463,6 +573,10 @@ export default function Home() {
             disabled={!activeWorkspaceId || authState.status !== "signed-in"}
             onFileSelected={handleFileSelected}
             uploadStatus={fileUploadStatus}
+            onExtractFile={handleExtractFile}
+            onChunkFile={handleChunkFile}
+            onEmbedFile={handleEmbedFile}
+            processingStatusByFileId={fileProcessingStatusById}
           />
         </CollapsiblePanel>
         <CollapsiblePanel

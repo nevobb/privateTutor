@@ -62,6 +62,80 @@ export async function createWorkspaceFileMetadata(input: {
   return (await res.json()) as WorkspaceFileItem;
 }
 
+export async function runWorkspaceFileExtraction(input: {
+  workspaceId: string;
+  fileId: string;
+  idToken: string;
+  file: File;
+}): Promise<WorkspaceFileItem> {
+  const formData = new FormData();
+  formData.append("file", input.file, input.file.name);
+
+  const res = await runWorkspaceFilesRequest(
+    `/api/workspaces/${input.workspaceId}/files/${input.fileId}/extract`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.idToken}`,
+      },
+      body: formData,
+    }
+  );
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new WorkspaceFilesApiError(body.error ?? "Failed to extract file content.", res.status);
+  }
+
+  return (await res.json()) as WorkspaceFileItem;
+}
+
+export async function runWorkspaceFileChunking(input: {
+  workspaceId: string;
+  fileId: string;
+  idToken: string;
+}): Promise<{ file: WorkspaceFileItem; chunkCount: number }> {
+  const res = await runWorkspaceFilesRequest(
+    `/api/workspaces/${input.workspaceId}/files/${input.fileId}/chunks`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.idToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new WorkspaceFilesApiError(body.error ?? "Failed to create file chunks.", res.status);
+  }
+
+  return (await res.json()) as { file: WorkspaceFileItem; chunkCount: number };
+}
+
+export async function runWorkspaceFileEmbeddings(input: {
+  workspaceId: string;
+  fileId: string;
+  idToken: string;
+}): Promise<{ embeddedChunkCount: number; failedChunkCount: number }> {
+  const res = await runWorkspaceFilesRequest(
+    `/api/workspaces/${input.workspaceId}/files/${input.fileId}/embeddings`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.idToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new WorkspaceFilesApiError(body.error ?? "Failed to generate embeddings.", res.status);
+  }
+
+  return (await res.json()) as { embeddedChunkCount: number; failedChunkCount: number };
+}
+
 async function runWorkspaceFilesRequest(input: string, init: RequestInit): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
