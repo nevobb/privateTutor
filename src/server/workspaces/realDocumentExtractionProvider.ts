@@ -4,7 +4,7 @@ const VERY_SHORT_TEXT_THRESHOLD = 100;
 
 type PdfParseResult = {
   text: string;
-  numpages: number;
+  numpages?: number;
 };
 
 type DocxParseResult = {
@@ -17,8 +17,13 @@ type DocxParserFn = (buffer: Buffer) => Promise<DocxParseResult>;
 
 async function defaultPdfParser(buffer: Buffer): Promise<PdfParseResult> {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const pdfParse = require("pdf-parse") as (b: Buffer) => Promise<PdfParseResult>;
-  return pdfParse(buffer);
+  const { PDFParse } = require("pdf-parse") as { PDFParse: new (opts: { data: Buffer }) => { getText(): Promise<{ text: string; pages?: number; total?: number }> } };
+  const parser = new PDFParse({ data: buffer });
+  const result = await parser.getText();
+  return {
+    text: result.text ?? "",
+    numpages: result.pages ?? result.total,
+  };
 }
 
 async function defaultDocxParser(buffer: Buffer): Promise<DocxParseResult> {
