@@ -21,6 +21,9 @@ export function getClientFirebaseApp(): FirebaseApp {
       apiKey: "demo-key",
       projectId: "demo-private-tutor",
       authDomain: "demo-private-tutor.firebaseapp.com",
+      storageBucket:
+        process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ??
+        "demo-private-tutor.appspot.com",
     },
     CLIENT_APP_NAME
   );

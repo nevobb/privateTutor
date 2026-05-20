@@ -199,6 +199,68 @@ describe("uploadedFileApiService.runExtractionLifecycleForFile", () => {
     const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
     expect(result.ok).toBe(true);
   });
+
+  it("rejects extraction when status is already completed", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        sourceType: "pdf",
+        storagePath: "users/alice/workspaces/ws-1/files/file-1/Mechanics Intro.pdf",
+        extractionStatus: "completed",
+        extractedText: "Some extracted text.",
+      })
+    );
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
+    expect(result).toEqual({ ok: false, code: "invalid_transition" });
+  });
+
+  it("rejects extraction when status is pending", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        sourceType: "pdf",
+        storagePath: "users/alice/workspaces/ws-1/files/file-1/Mechanics Intro.pdf",
+        extractionStatus: "pending",
+      })
+    );
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
+    expect(result).toEqual({ ok: false, code: "invalid_transition" });
+  });
+
+  it("allows retry when status is failed", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        sourceType: "pdf",
+        storagePath: "users/alice/workspaces/ws-1/files/file-1/Mechanics Intro.pdf",
+        extractionStatus: "failed",
+        extractionErrorCode: "extraction_lifecycle_failed",
+      })
+    );
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects when file has no storagePath", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        sourceType: "pdf",
+        storagePath: undefined,
+        extractionStatus: "not_started",
+      })
+    );
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runExtractionLifecycleForFile(user, "ws-1", "file-1");
+    expect(result).toEqual({ ok: false, code: "missing_storage_path" });
+  });
 });
 
 describe("uploadedFileApiService.runChunkingLifecycleForFile", () => {
@@ -252,5 +314,51 @@ describe("uploadedFileApiService.runChunkingLifecycleForFile", () => {
       expect(result.file.chunkingStatus).toBe("failed");
       expect(result.file.chunkingErrorCode).toBe("chunking_lifecycle_failed");
     }
+  });
+
+  it("blocks chunking when chunkingStatus is pending", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        extractionStatus: "completed",
+        extractedText: "Some text.",
+        chunkingStatus: "pending",
+      })
+    );
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
+    expect(result).toEqual({ ok: false, code: "invalid_transition" });
+  });
+
+  it("allows re-chunking when chunkingStatus is completed", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        extractionStatus: "completed",
+        extractedText: "Paragraph one. ".repeat(200),
+        chunkingStatus: "completed",
+        chunkCount: 3,
+      })
+    );
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.file.chunkingStatus).toBe("completed");
+      expect(result.chunkCount).toBeGreaterThan(0);
+    }
+  });
+
+  it("blocks chunking when extraction is not_started", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({ extractionStatus: "not_started", extractedText: undefined })
+    );
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
+    expect(result).toEqual({ ok: false, code: "extraction_not_completed" });
   });
 });

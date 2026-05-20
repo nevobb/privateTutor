@@ -78,14 +78,18 @@ export async function uploadLearningFileToStorage(input: UploadableLearningFile)
 
 export function sanitizeFileName(fileName: string): string {
   const trimmed = fileName.trim();
-  const normalized = trimmed
+  const extension = getLowercaseExtension(trimmed);
+  const baseName = extension ? trimmed.slice(0, -(extension.length + 1)) : trimmed;
+
+  const normalizedBase = baseName
     .replace(/[\\/]+/g, SAFE_NAME_REPLACEMENT)
     .replace(/\.{2,}/g, ".")
     .replace(/[^a-zA-Z0-9._-]+/g, SAFE_NAME_REPLACEMENT)
     .replace(/_+/g, "_")
     .replace(/^[_\.]+|[_\.]+$/g, "");
 
-  return normalized.length > 0 ? normalized : "uploaded-file";
+  const safeBase = normalizedBase.length > 0 ? normalizedBase : "uploaded-file";
+  return extension ? `${safeBase}.${extension}` : safeBase;
 }
 
 function detectSourceType(fileName: string, mimeType: string): LearningFileSourceType | null {
