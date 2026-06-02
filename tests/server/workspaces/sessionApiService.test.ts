@@ -23,7 +23,7 @@ let sessionApiServiceModule: SessionApiServiceModule;
 
 describeSessionApiService("sessionApiService", () => {
   beforeAll(async () => {
-    sessionApiServiceModule = (await import("../../../src/server/workspaces/sessionApiService")) as SessionApiServiceModule;
+    sessionApiServiceModule = (await import("../../../src/server/workspaces/sessionApiService")) as unknown as SessionApiServiceModule;
   });
 
   it("createSessionForUser uses trusted userId and checks ownership before creating", async () => {

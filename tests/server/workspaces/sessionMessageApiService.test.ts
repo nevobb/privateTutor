@@ -168,7 +168,7 @@ function makeRepos(
             title: "Fresh source",
             snippet: "Latest update from public source",
             url: "https://example.com/latest",
-            stance: "supports",
+            stance: "supports" as const,
           },
         ],
       })),
@@ -181,7 +181,7 @@ function makeRepos(
 
 describeService("sessionMessageApiService", () => {
   beforeAll(async () => {
-    mod = (await import("../../../src/server/workspaces/sessionMessageApiService")) as ServiceModule;
+    mod = (await import("../../../src/server/workspaces/sessionMessageApiService")) as unknown as ServiceModule;
   });
 
   describe("listMessagesForUser", () => {

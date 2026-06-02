@@ -41,6 +41,8 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       confidence: 0.88,
       summaryStatus: "not_requested",
       summarySource: "none",
+      extractionStatus: "not_started",
+      chunkingStatus: "not_started",
     });
 
     const loaded = await getUploadedFile(alice, created.id);
@@ -74,6 +76,8 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       indexingStatus: "uploaded",
       summaryStatus: "not_requested",
       summarySource: "none",
+      extractionStatus: "not_started",
+      chunkingStatus: "not_started",
     });
 
     await createUploadedFile(alice, {
@@ -84,6 +88,8 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       indexingStatus: "uploaded",
       summaryStatus: "not_requested",
       summarySource: "none",
+      extractionStatus: "not_started",
+      chunkingStatus: "not_started",
     });
 
     const files = await listUploadedFiles(alice, wsA.id);
@@ -104,6 +110,8 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       indexingStatus: "uploaded",
       summaryStatus: "not_requested",
       summarySource: "none",
+      extractionStatus: "not_started",
+      chunkingStatus: "not_started",
     });
 
     const indexing = await updateUploadedFile(alice, created.id, { indexingStatus: "indexing" });
@@ -136,6 +144,8 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       indexingStatus: "uploaded",
       summaryStatus: "not_requested",
       summarySource: "none",
+      extractionStatus: "not_started",
+      chunkingStatus: "not_started",
     });
 
     await expect(getUploadedFile(bob, created.id)).resolves.toBeNull();
@@ -150,7 +160,7 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
     const now = new Date();
 
     await withFirestoreEmulatorClient(alice, async ({ db }) => {
-      await setDoc(doc(db, ...uploadedFilePath(alice, fileId)), {
+      await setDoc(doc(db as never, ...uploadedFilePath(alice, fileId)), {
         id: fileId,
         userId: alice,
         workspaceId: workspace.id,

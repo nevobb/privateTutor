@@ -85,9 +85,8 @@ function makeAuth(userId: string) {
 describeEmulator("sessionMessagesApi emulator", () => {
   beforeAll(async () => {
     assertFirestoreEmulatorRunning();
-    const env = await createWorkspaceEmulatorTestEnvironment("session-messages-api");
-    testEnv = env.testEnv;
-    activeFirestore = env.firestore;
+    testEnv = await createWorkspaceEmulatorTestEnvironment();
+    activeFirestore = testEnv.authenticatedContext("system").firestore() as WorkspaceEmulatorFirestore;
 
     const workspaceRepo = await import("../../src/server/workspaces/workspaceRepository");
     const sessionRepo = await import("../../src/server/workspaces/sessionRepository");

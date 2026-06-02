@@ -28,7 +28,7 @@ describe("GeminiFileChunkEmbeddingProvider", () => {
 
     expect(result.model).toBe("gemini-embedding-001");
     expect(result.provider).toBe("gemini");
-    const [, init] = fetchMock.mock.calls[0];
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     const body = JSON.parse(String(init?.body));
     expect(body.taskType).toBe("RETRIEVAL_DOCUMENT");
   });
@@ -46,7 +46,7 @@ describe("GeminiFileChunkEmbeddingProvider", () => {
       embeddingPurpose: "query",
     });
 
-    const [, init] = fetchMock.mock.calls[0];
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     const body = JSON.parse(String(init?.body));
     expect(body.taskType).toBe("QUESTION_ANSWERING");
   });

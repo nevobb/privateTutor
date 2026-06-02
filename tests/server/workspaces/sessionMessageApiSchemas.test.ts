@@ -16,7 +16,7 @@ let mod: SchemasModule;
 
 describeSchemas("sessionMessageApiSchemas", () => {
   beforeAll(async () => {
-    mod = (await import("../../../src/server/workspaces/sessionMessageApiSchemas")) as SchemasModule;
+    mod = (await import("../../../src/server/workspaces/sessionMessageApiSchemas")) as unknown as SchemasModule;
   });
 
   describe("parsePostMessageRequest", () => {

@@ -18,7 +18,7 @@ let schemas: SessionApiSchemasModule;
 
 describeSessionApiSchemas("sessionApiSchemas", () => {
   beforeAll(async () => {
-    schemas = (await import("../../../src/server/workspaces/sessionApiSchemas")) as SessionApiSchemasModule;
+    schemas = (await import("../../../src/server/workspaces/sessionApiSchemas")) as unknown as SessionApiSchemasModule;
   });
 
   describe("parseCreateSessionRequest", () => {

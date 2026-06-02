@@ -161,7 +161,7 @@ function makeRepos(overrides: Record<string, unknown> = {}) {
             title: "Web result",
             snippet: "some web info",
             url: "https://example.com/result",
-            stance: "neutral",
+            stance: "neutral" as const,
           },
         ],
       })),
@@ -176,7 +176,7 @@ describeMvp("MVP File Learning Pipeline", () => {
   beforeAll(async () => {
     mod = (await import(
       "../../src/server/workspaces/sessionMessageApiService"
-    )) as ServiceModule;
+    )) as unknown as ServiceModule;
   });
 
   describe("happy path: extraction + chunking completed, matching chunks", () => {

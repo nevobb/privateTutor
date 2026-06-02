@@ -4,6 +4,7 @@ import {
   createSessionsPostHandler,
 } from "../../../src/app/api/sessions/route";
 import type { AuthResult } from "../../../src/server/auth/authTypes";
+import type { WorkMode, CostMode } from "../../../src/types";
 
 vi.mock("../../../src/server/workspaces/sessionApiService", () => ({
   sessionApiService: {
@@ -41,9 +42,9 @@ const baseSession = {
   id: "sess-1",
   workspaceId: "ws-1",
   title: "My Session",
-  workMode: "Learning",
-  costMode: "Normal Learning",
-  status: "active",
+  workMode: "Learning" as WorkMode,
+  costMode: "Normal Learning" as CostMode,
+  status: "active" as const,
   startedAt: new Date("2026-05-13T12:00:00.000Z"),
   lastActiveAt: new Date("2026-05-13T12:00:00.000Z"),
 };
@@ -154,7 +155,6 @@ describe("POST /api/sessions", () => {
       input: {
         workspaceId: "ws-1",
         title: "Trusted User Session",
-        userId: "attacker",
       },
     });
     mockCreateSession.mockResolvedValue(baseSession as never);
@@ -245,7 +245,7 @@ describe("GET /api/sessions", () => {
   it("ignores client userId query and uses trusted auth user", async () => {
     mockParseListSessionsQuery.mockReturnValue({
       ok: true,
-      input: { workspaceId: "ws-1", userId: "attacker" },
+      input: { workspaceId: "ws-1" },
     });
     mockListSessions.mockResolvedValue([] as never);
 

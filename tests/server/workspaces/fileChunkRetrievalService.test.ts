@@ -32,6 +32,8 @@ type RetrievalModule = {
       tokenEstimate: number;
       score: number;
       sourceLabel: string;
+      retrievalMethod?: string;
+      semanticScore?: number;
     }>;
     eligibleFileCount: number;
   }>;

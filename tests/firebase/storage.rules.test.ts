@@ -11,14 +11,14 @@ function storageFor(userId?: string) {
 async function expectOwnFileAccess(path: string) {
   const ref = storageFor("alice").ref(path);
 
-  await expectAllowed(ref.putString("sample file content", "raw"));
+  await expectAllowed(ref.putString("sample file content", "raw").then(() => undefined));
   await expectAllowed(ref.getMetadata());
 }
 
 async function expectDeniedFileReadWrite(userId: string | undefined, path: string) {
   const ref = storageFor(userId).ref(path);
 
-  await expectDenied(ref.putString("sample file content", "raw"));
+  await expectDenied(ref.putString("sample file content", "raw").then(() => undefined));
   await expectDenied(ref.getMetadata());
 }
 
