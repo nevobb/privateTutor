@@ -1106,3 +1106,79 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: review the additive artifact model, then implement provider-boundary work in a separate batch without changing current tutor behavior.
   - Blockers/Risks: future runtime integration still needs deliberate coordination between uploaded-file-owned artifacts and workspace/file chunk retrieval paths.
+
+---
+
+## Entry: Batch 3 — Document Understanding Provider Boundary
+
+- Agent: Claude
+- Date: 2026-06-02
+- Branch: `repair/pdf-document-understanding-provider-boundary`
+- Task summary: Introduce clean provider boundary for document understanding before any live Gemini or Deep PDF implementation.
+- What I changed:
+  - Added `DocumentUnderstandingProvider` interface with typed input/output shapes (`DocumentUnderstandingInput`, `DocumentUnderstandingOutput`, `DocumentQualitySignals`, `DocumentUnderstandingMode`).
+  - Implemented `PdfParseOutlineProvider` — deterministic text-only provider using regex-based question detection. Detects Hebrew (`שאלה N`, `תרגיל N`) and English (`Question N`, `Exercise N`, `Problem N`, `N. text`) patterns. Builds page artifact, outline (outlineId = "v1"), and detected-question artifacts from extracted text.
+  - Implemented `GeminiPdfUnderstandingProvider` as a placeholder/stub only. Returns `not_implemented` error, no network calls.
+  - Added `DocumentUnderstandingOrchestrationService` with `runTextOnlyUnderstanding()` — handles pending/completed/failed lifecycle transitions, persists artifacts via `documentArtifactRepository`, updates uploaded file metadata.
+  - Added provider contract tests, PdfParseOutlineProvider tests, GeminiPdfUnderstandingProvider tests, orchestration lifecycle tests, and regression tests.
+  - Wrote `agent-memory/PDF_READING_BATCH_3_PROVIDER_BOUNDARY_REPORT.md`.
+- Files touched:
+  - `src/server/workspaces/documentUnderstandingProvider.ts` (new)
+  - `src/server/workspaces/documentUnderstandingOrchestrationService.ts` (new)
+  - `tests/server/workspaces/documentUnderstandingProvider.test.ts` (new)
+  - `tests/server/workspaces/documentUnderstandingOrchestrationService.test.ts` (new)
+  - `agent-memory/PDF_READING_BATCH_3_PROVIDER_BOUNDARY_REPORT.md` (new)
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md` (this entry)
+- Tests/checks run:
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed (62 files, 648 tests)
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — passed (3671 nodes, 5082 edges)
+- Git status:
+  - Branch: `repair/pdf-document-understanding-provider-boundary`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: Batch 4 — add quality gate logic that reads `qualitySignals` from PdfParseOutlineProvider output and decides whether to escalate to `GeminiPdfUnderstandingProvider`. The interface already carries `costMode`, `extractionQuality`, `likelyHasMath`, and `likelyHasVisualContent` signals needed for the gate.
+  - Blockers/Risks: GeminiPdfUnderstandingProvider is still a placeholder; Batch 4 must implement actual Firebase Storage → Gemini deep PDF calling. The orchestration service does not yet require `extractionStatus === "completed"` before running — a Batch 4 guard is recommended.
+
+---
+
+## Entry: Batch 4 — Automatic Document Quality Gate
+
+- Agent: Claude
+- Date: 2026-06-02
+- Branch: `repair/pdf-document-quality-gate`
+- Task summary: Add deterministic quality gate that evaluates document signals and produces a recommendation (text_only vs deep_pdf) without triggering any provider.
+- What I changed:
+  - Added `evaluateDocumentQualityGate()` pure function in `src/server/workspaces/documentQualityGate.ts`.
+  - Input accepts: `extractionQuality`, `extractedTextCharCount`, `qualitySignals`, `costMode`, `sourceType`, `pageCount`, `detectedQuestionCount`, `hasVisualContentRequest`.
+  - Output produces: `decision`, `recommendedProviderMode`, `reasons`, `confidence`, `extractionQuality`, `shouldRunAutomatically`, `shouldShowUserNoticeLater`, `safeFallbackProviderMode`.
+  - Decision policy: `use_text_only` / `recommend_advanced_understanding` / `requires_user_confirmation_or_higher_cost_mode` / `insufficient_input`.
+  - Cost mode policy: Cheap Practice blocks auto-run and produces `requires_user_confirmation`. Normal Learning and Deep Research produce `recommend_advanced_understanding`. No mode auto-runs (Batch 4 constraint — `costModeAllowsAutoRun` returns false as a named placeholder).
+  - Scanned-like detection: PDF + charCount < 50 → `scanned_like` reason.
+  - Math/visual detection: reads `likelyHasMath`, `likelyHasVisualContent`, `hasVisualContentRequest`.
+  - All fields optional — old files without new metadata produce valid output without crashing.
+  - Wrote 35 tests covering all required scenarios.
+  - Wrote `agent-memory/PDF_READING_BATCH_4_QUALITY_GATE_REPORT.md`.
+- Files touched:
+  - `src/server/workspaces/documentQualityGate.ts` (new)
+  - `tests/server/workspaces/documentQualityGate.test.ts` (new)
+  - `agent-memory/PDF_READING_BATCH_4_QUALITY_GATE_REPORT.md` (new)
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md` (this entry)
+- Tests/checks run:
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed (63 files, 683 tests)
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — passed (3715 nodes, 5147 edges)
+- Git status:
+  - Branch: `repair/pdf-document-quality-gate`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: Batch 5 — wire the quality gate to the orchestration service so it runs after text-only understanding completes. Replace `costModeAllowsAutoRun()` return value to enable actual auto-run for Normal Learning (small files) and Deep Research. Integrate `hasVisualContentRequest` from tutor request classifier.
+  - Blockers/Risks: `likelyHasVisualContent` from PdfParseOutlineProvider is always false; gate relies on `hasVisualContentRequest` from callers for visual escalation. `detectedQuestionCount`/`pageCount` inputs are not yet evaluated by gate logic — available for Batch 5 heuristics.
