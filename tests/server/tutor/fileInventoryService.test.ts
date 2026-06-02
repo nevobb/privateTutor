@@ -364,4 +364,99 @@ describe("artifact-aware inventory", () => {
     expect(text).toContain("המסמך כנראה דורש עיבוד מתקדם יותר כדי להבין נוסחאות/תרשימים בצורה אמינה.");
     expect(text).not.toMatch(/Gemini|נותח כבר|נותח באמצעות/);
   });
+
+  it("suppresses broken Hebrew artifact snippets instead of presenting them as useful sections", () => {
+    const inventory = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      pageCount: 4,
+      detectedQuestionCount: 1,
+      extractionQuality: "poor",
+      outline: makeOutline(),
+      detectedQuestions: [
+        makeDetectedQuestion({
+          label: "מקטע ג׳",
+          summary: "א ת השטף המגנטי",
+          confidence: 0.52,
+          extractionNotes: "spacing_corruption",
+        }),
+      ],
+    });
+
+    const text = formatArtifactAwareFileInventoryResponse(inventory!);
+    expect(text).not.toContain("א ת השטף המגנטי");
+    expect(text).toMatch(/איכות החילוץ לא מספיקה כדי להציג אותם כסיכום אמין/);
+  });
+
+  it("de-duplicates duplicate low-quality labels like 'מקטע ג׳'", () => {
+    const inventory = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      pageCount: 4,
+      detectedQuestionCount: 2,
+      extractionQuality: "partial",
+      outline: makeOutline(),
+      detectedQuestions: [
+        makeDetectedQuestion({
+          questionId: "q-1",
+          label: "מקטע ג׳",
+          summary: "א ת השטף המגנטי",
+          confidence: 0.5,
+          extractionNotes: "spacing_corruption",
+        }),
+        makeDetectedQuestion({
+          questionId: "q-2",
+          label: "מקטע ג׳",
+          summary: "פרמטרים,,, a b R I",
+          confidence: 0.48,
+          extractionNotes: "punctuation_corruption",
+        }),
+      ],
+    });
+
+    expect(inventory?.items).toHaveLength(0);
+    const text = formatArtifactAwareFileInventoryResponse(inventory!);
+    expect(text.match(/מקטע ג׳/g)?.length ?? 0).toBeLessThanOrEqual(1);
+  });
+
+  it("suppresses corrupted parameter-list artifacts with repeated punctuation", () => {
+    const inventory = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      pageCount: 4,
+      detectedQuestionCount: 1,
+      extractionQuality: "partial",
+      outline: makeOutline(),
+      detectedQuestions: [
+        makeDetectedQuestion({
+          label: "שאלה 4",
+          summary: "פרמטרים,,, a b R I",
+          confidence: 0.61,
+          extractionNotes: "punctuation_corruption",
+        }),
+      ],
+    });
+
+    const text = formatArtifactAwareFileInventoryResponse(inventory!);
+    expect(text).not.toContain("פרמטרים,,, a b R I");
+    expect(text).toMatch(/איכות החילוץ לא מספיקה כדי להציג אותם כסיכום אמין/);
+  });
+
+  it("keeps clean artifacts visible normally", () => {
+    const inventory = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      pageCount: 3,
+      detectedQuestionCount: 1,
+      extractionQuality: "good",
+      outline: makeOutline(),
+      detectedQuestions: [
+        makeDetectedQuestion({
+          label: "שאלה 3",
+          summary: "חשב את השטף המגנטי דרך הלולאה.",
+          confidence: 0.93,
+        }),
+      ],
+    });
+
+    const text = formatArtifactAwareFileInventoryResponse(inventory!);
+    expect(text).toContain("חשב את השטף המגנטי דרך הלולאה");
+    expect(text).not.toMatch(/איכות החילוץ לא מספיקה/);
+  });
 });

@@ -1330,3 +1330,36 @@ Copy this block and fill all fields:
   - Current state: Batch 6C complete and validation-clean; inventory now prefers persisted document artifacts when they are present and useful, with chunk fallback preserved.
   - Next recommended step: Batch 6D should make specific file-question resolution artifact-aware with strict fallback to the current chunk retrieval path.
   - Blockers/Risks: inventory still targets one ready file at a time and source/page citations are not yet surfaced in the tutor-visible UI.
+
+## 2026-06-03 00:41 (IDT) — Codex
+- Step/Task ID: Batch 6C.1 — artifact inventory quality tightening
+- Task summary: Tighten artifact-aware file inventory so weak/garbled document artifacts are not presented as useful clean sections.
+- What I changed:
+  - Hardened artifact-detail usefulness checks in `fileInventoryService.ts` to reject broken Hebrew spacing fragments, repeated punctuation artifacts, parameter-list corruption, and other weak snippet patterns.
+  - Added duplicate-label suppression so repeated weak entries like duplicated `מקטע ג׳` do not produce multiple noisy inventory rows.
+  - Changed weak-artifact formatting so low-quality artifact cases now return a conservative warning-style summary rather than fake-clean section snippets.
+  - Added regression tests at the formatter and session-service levels for broken Hebrew snippets, duplicate weak labels, and corrupted parameter-list artifacts.
+  - Wrote `agent-memory/PDF_READING_BATCH_6C1_ARTIFACT_INVENTORY_QUALITY_TIGHTENING_REPORT.md` and refreshed Graphify.
+- Files touched:
+  - `src/server/tutor/fileInventoryService.ts`
+  - `tests/server/tutor/fileInventoryService.test.ts`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `agent-memory/PDF_READING_BATCH_6C1_ARTIFACT_INVENTORY_QUALITY_TIGHTENING_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/tutor/fileInventoryService.test.ts` — passed
+  - `npx vitest run tests/server/workspaces/sessionMessageApiService.test.ts` — passed
+  - `npx vitest run tests/behavior/mvpFileLearningPipeline.test.ts` — passed
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — passed
+- Git status:
+  - Branch: `repair/artifact-aware-file-inventory`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: Batch 6C.1 complete and validation-clean; weak artifact snippets are now filtered or suppressed instead of being shown as if they were clean section summaries.
+  - Next recommended step: manual smoke on the specific physics/math PDFs that produced duplicated `מקטע ג׳` and parameter-list noise, then Batch 6D can focus on artifact-aware specific-question resolution.
+  - Blockers/Risks: artifact quality filtering is still heuristic and may need another small pass after real-PDF smoke, but the current behavior is now much safer and less misleading.

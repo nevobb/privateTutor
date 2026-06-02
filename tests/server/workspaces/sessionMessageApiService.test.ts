@@ -1580,6 +1580,82 @@ describeService("sessionMessageApiService", () => {
       expect(assistant.content).not.toMatch(/Gemini|נותח כבר|נותח באמצעות/);
     });
 
+    it("suppresses weak duplicate artifact sections and returns a general warning instead of fake summaries", async () => {
+      const repos = makeInventoryRepos({
+        listUploadedFiles: vi.fn(async () => [
+          {
+            ...readyFileWithChunks,
+            understandingStatus: "completed",
+            pageCount: 4,
+            detectedQuestionCount: 2,
+            extractionQuality: "poor",
+            deepPdfStatus: "not_started",
+          },
+        ]),
+        getDocumentOutline: vi.fn(async () => ({
+          outlineId: "v1",
+          userId: "alice",
+          fileId: "file-inv",
+          title: "פיזיקה",
+          sections: [],
+          confidence: "medium",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })),
+        listDetectedQuestions: vi.fn(async () => [
+          {
+            questionId: "q-1",
+            userId: "alice",
+            fileId: "file-inv",
+            label: "מקטע ג׳",
+            summary: "א ת השטף המגנטי",
+            pageStart: 2,
+            pageEnd: 2,
+            charStart: 0,
+            charEnd: 20,
+            sourceChunkIds: [],
+            subsections: [],
+            confidence: 0.51,
+            extractionNotes: "spacing_corruption",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            questionId: "q-2",
+            userId: "alice",
+            fileId: "file-inv",
+            label: "מקטע ג׳",
+            summary: "פרמטרים,,, a b R I",
+            pageStart: 3,
+            pageEnd: 3,
+            charStart: 21,
+            charEnd: 40,
+            sourceChunkIds: [],
+            subsections: [],
+            confidence: 0.49,
+            extractionNotes: "punctuation_corruption",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "איזה קבצים העליתי לסביבת העבודה הזאת ומה יש בהם?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect(repos.listFileChunks).not.toHaveBeenCalled();
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toMatch(/איכות החילוץ לא מספיקה כדי להציג אותם כסיכום אמין/);
+      expect(assistant.content).not.toContain("א ת השטף המגנטי");
+      expect(assistant.content).not.toContain("פרמטרים,,, a b R I");
+      expect(assistant.content?.match(/מקטע ג׳/g)?.length ?? 0).toBeLessThanOrEqual(1);
+    });
+
     it("when files exist but not processed, inventory lists them with status", async () => {
       const processingFile = {
         id: "file-proc",

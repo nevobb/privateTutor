@@ -42,6 +42,7 @@ export interface ArtifactAwareFileInventoryResult {
   deepPdfStatus?: DeepPdfStatus;
   items: ArtifactInventoryItem[];
   isPartial: boolean;
+  weakArtifactsSuppressed?: boolean;
 }
 
 const MAX_SECTIONS = 30;
@@ -205,6 +206,61 @@ function truncateArtifactDetail(text: string): string {
   return truncateDisplayText(text, 90);
 }
 
+function isLowQualityArtifactText(text: string | undefined): boolean {
+  if (!text) {
+    return true;
+  }
+
+  const normalized = normalizeDisplayText(text);
+  if (normalized.length === 0) {
+    return true;
+  }
+
+  if (isLowQualityMathExtractionPreview(normalized)) {
+    return true;
+  }
+
+  if (/[,.;:!?]{2,}/.test(normalized)) {
+    return true;
+  }
+
+  if (/(?:\b[a-zA-Z]\b[\s,]*){3,}/.test(normalized)) {
+    return true;
+  }
+
+  const hebrewTokens = normalized.match(/[א-ת]+/g) ?? [];
+  const singleHebrewTokenCount = hebrewTokens.filter((token) => token.length === 1).length;
+  const multiCharHebrewTokenCount = hebrewTokens.filter((token) => token.length > 1).length;
+  if (singleHebrewTokenCount >= 2 && multiCharHebrewTokenCount <= 1) {
+    return true;
+  }
+
+  if (/(?:^|\s)[א-ת](?:\s+[א-ת]){1,}\s+[א-ת]{2,}(?:\s|$)/.test(normalized)) {
+    return true;
+  }
+
+  if (singleHebrewTokenCount >= 2 && singleHebrewTokenCount >= multiCharHebrewTokenCount) {
+    return true;
+  }
+
+  const longWordCount = normalized
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3).length;
+  if (normalized.length < 24 && longWordCount < 2) {
+    return true;
+  }
+
+  return false;
+}
+
+function isArtifactDetailUseful(detail: string | undefined): boolean {
+  if (!detail) {
+    return false;
+  }
+  return !isLowQualityArtifactText(detail);
+}
+
 function buildArtifactItemDetail(question: DetectedQuestionArtifactRecord): {
   detail?: string;
   isPartial: boolean;
@@ -215,20 +271,28 @@ function buildArtifactItemDetail(question: DetectedQuestionArtifactRecord): {
     (!question.summary && !question.topic);
 
   if (question.summary) {
+    const summary = truncateArtifactDetail(question.summary);
+    const summaryUseful = isArtifactDetailUseful(summary);
     return {
-      detail: isPartial
-        ? `${truncateArtifactDetail(question.summary)} (זוהה חלקית)`
-        : truncateArtifactDetail(question.summary),
-      isPartial,
+      detail: summaryUseful
+        ? isPartial
+          ? `${summary} (זוהה חלקית)`
+          : summary
+        : undefined,
+      isPartial: isPartial || !summaryUseful,
     };
   }
 
   if (question.topic) {
+    const topic = truncateArtifactDetail(question.topic);
+    const topicUseful = isArtifactDetailUseful(topic);
     return {
-      detail: isPartial
-        ? `כנראה עוסק ב-${truncateArtifactDetail(question.topic)} (זוהה חלקית)`
-        : `כנראה עוסק ב-${truncateArtifactDetail(question.topic)}`,
-      isPartial,
+      detail: topicUseful
+        ? isPartial
+          ? `כנראה עוסק ב-${topic} (זוהה חלקית)`
+          : `כנראה עוסק ב-${topic}`
+        : undefined,
+      isPartial: isPartial || !topicUseful,
     };
   }
 
@@ -247,10 +311,57 @@ function buildArtifactOutlineItems(
 ): ArtifactInventoryItem[] {
   return outline.sections.slice(0, MAX_SECTIONS).map((section) => ({
     label: section.label,
-    detail: section.title ? truncateArtifactDetail(section.title) : undefined,
+    detail:
+      section.title && isArtifactDetailUseful(section.title)
+        ? truncateArtifactDetail(section.title)
+        : undefined,
     pageLabel: buildPageLabel(section.pageStart, section.pageEnd),
-    isPartial: section.confidence < 0.75,
+    isPartial: section.confidence < 0.75 || (section.title ? isLowQualityArtifactText(section.title) : false),
   }));
+}
+
+function dedupeArtifactItems(items: ArtifactInventoryItem[]): {
+  items: ArtifactInventoryItem[];
+  suppressedCount: number;
+} {
+  const kept: ArtifactInventoryItem[] = [];
+  let suppressedCount = 0;
+
+  const scoreItem = (item: ArtifactInventoryItem): number => {
+    let score = 0;
+    if (item.detail && !isLowQualityArtifactText(item.detail)) score += 4;
+    if (item.pageLabel) score += 1;
+    if (!item.isPartial) score += 2;
+    return score;
+  };
+
+  for (const item of items) {
+    const existingIndex = kept.findIndex((candidate) => candidate.label === item.label);
+    if (existingIndex === -1) {
+      kept.push(item);
+      continue;
+    }
+
+    const existing = kept[existingIndex];
+    const candidateCleanDistinct =
+      Boolean(item.detail) &&
+      Boolean(existing.detail) &&
+      !isLowQualityArtifactText(item.detail) &&
+      !isLowQualityArtifactText(existing.detail) &&
+      item.detail !== existing.detail;
+
+    if (candidateCleanDistinct) {
+      kept.push(item);
+      continue;
+    }
+
+    if (scoreItem(item) > scoreItem(existing)) {
+      kept[existingIndex] = item;
+    }
+    suppressedCount += 1;
+  }
+
+  return { items: kept, suppressedCount };
 }
 
 export function buildArtifactAwareFileInventory(params: {
@@ -263,7 +374,7 @@ export function buildArtifactAwareFileInventory(params: {
   outline: DocumentOutlineArtifactRecord | null;
   detectedQuestions: DetectedQuestionArtifactRecord[];
 }): ArtifactAwareFileInventoryResult | null {
-  const items =
+  const rawItems =
     params.detectedQuestions.length > 0
       ? params.detectedQuestions.slice(0, MAX_SECTIONS).map((question) => {
           const built = buildArtifactItemDetail(question);
@@ -277,6 +388,10 @@ export function buildArtifactAwareFileInventory(params: {
       : params.outline && params.outline.sections.length > 0
         ? buildArtifactOutlineItems(params.outline)
         : [];
+  const filteredItems = rawItems.filter(
+    (item) => !item.isPartial || Boolean(item.detail && !isLowQualityArtifactText(item.detail))
+  );
+  const { items, suppressedCount } = dedupeArtifactItems(filteredItems);
 
   const pageCount = params.pageCount;
   const detectedQuestionCount = params.detectedQuestionCount ?? params.detectedQuestions.length;
@@ -293,7 +408,8 @@ export function buildArtifactAwareFileInventory(params: {
   const isPartial =
     params.extractionQuality === "partial" ||
     params.extractionQuality === "poor" ||
-    items.some((item) => item.isPartial);
+    items.some((item) => item.isPartial) ||
+    suppressedCount > 0;
 
   return {
     fileName: params.fileName,
@@ -304,6 +420,7 @@ export function buildArtifactAwareFileInventory(params: {
     deepPdfStatus: params.deepPdfStatus,
     items,
     isPartial,
+    weakArtifactsSuppressed: rawItems.length > 0 && items.length === 0,
   };
 }
 
@@ -378,8 +495,15 @@ export function formatArtifactAwareFileInventoryResponse(
       ...(facts.length > 0 ? [""] : []),
       ...(hasExtractionWarning ? [extractionWarning, ""] : []),
       ...(result.deepPdfStatus === "recommended" ? [deepPdfRecommendation, ""] : []),
-      "זוהו פרטי מסמך בסיסיים, אבל עדיין אין מספיק מקטעים מובנים כדי להציג רשימה טובה.",
-      "אפשר לבחור שאלה, עמוד, או נושא ספציפי ונמשיך משם.",
+      ...(result.weakArtifactsSuppressed
+        ? [
+            "זוהו מקטעים/שאלות בקובץ, אבל איכות החילוץ לא מספיקה כדי להציג אותם כסיכום אמין.",
+            "בחר שאלה, עמוד, או שלח ציטוט קצר מהקובץ ואמשיך משם בזהירות.",
+          ]
+        : [
+            "זוהו פרטי מסמך בסיסיים, אבל עדיין אין מספיק מקטעים מובנים כדי להציג רשימה טובה.",
+            "אפשר לבחור שאלה, עמוד, או נושא ספציפי ונמשיך משם.",
+          ]),
     ].join("\n");
   }
 
