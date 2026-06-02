@@ -1182,3 +1182,34 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: Batch 5 — wire the quality gate to the orchestration service so it runs after text-only understanding completes. Replace `costModeAllowsAutoRun()` return value to enable actual auto-run for Normal Learning (small files) and Deep Research. Integrate `hasVisualContentRequest` from tutor request classifier.
   - Blockers/Risks: `likelyHasVisualContent` from PdfParseOutlineProvider is always false; gate relies on `hasVisualContentRequest` from callers for visual escalation. `detectedQuestionCount`/`pageCount` inputs are not yet evaluated by gate logic — available for Batch 5 heuristics.
+
+## 2026-06-02 23:00 (IDT) — Codex
+- Step/Task ID: PDF Reading Batch 5 — Gemini Deep PDF provider
+- Task summary: Replace the Gemini deep PDF placeholder with a real isolated Gemini-backed provider behind the existing boundary, without connecting it to runtime/UI flows.
+- What I changed:
+  - Replaced the placeholder `GeminiPdfUnderstandingProvider` with a real provider that accepts inline PDF bytes or an injected `PdfBytesLoader`, calls Gemini through a fetch-based adapter, parses JSON-only document output, and maps it into the existing artifact shapes.
+  - Added `geminiPdfUnderstandingClient.ts` as a narrow Gemini document adapter using `generateContent` with inline PDF bytes and `responseMimeType: "application/json"`.
+  - Added safe failure handling for missing API key, unsupported source type, missing PDF bytes/loader, loader failure, provider failure, and malformed JSON.
+  - Updated provider tests to cover successful mapping, Hebrew preservation, math/visual honesty, malformed JSON, missing config, missing bytes, injected loader behavior, and no-call-on-missing-config behavior.
+  - Wrote `agent-memory/PDF_READING_BATCH_5_GEMINI_PROVIDER_REPORT.md` and refreshed Graphify.
+- Files touched:
+  - `src/server/workspaces/documentUnderstandingProvider.ts`
+  - `src/server/workspaces/geminiPdfUnderstandingClient.ts`
+  - `tests/server/workspaces/documentUnderstandingProvider.test.ts`
+  - `agent-memory/PDF_READING_BATCH_5_GEMINI_PROVIDER_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run tests/server/workspaces/documentUnderstandingProvider.test.ts tests/server/workspaces/documentUnderstandingOrchestrationService.test.ts tests/server/workspaces/documentQualityGate.test.ts tests/server/tutor/fileInventoryService.test.ts` — passed
+  - `npx vitest run` — passed
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — passed
+- Git status:
+  - Branch: `repair/gemini-deep-pdf-provider`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: wire a narrow app-managed Firebase Storage PDF loader into the provider boundary or orchestration layer in a separate batch, still without attaching Deep PDF to tutor runtime until policy/routing is explicitly approved.
+  - Blockers/Risks: current deep-PDF success path depends on inline `pdfBytes` or injected loader; no runtime Storage integration is present yet by design.
