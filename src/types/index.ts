@@ -21,6 +21,15 @@ export type FileChunkEmbeddingStatus =
   | "completed"
   | "failed"
   | "stale";
+export type DocumentUnderstandingStatus = "not_started" | "pending" | "completed" | "failed";
+export type ExtractionQuality = "good" | "partial" | "poor";
+export type DeepPdfStatus =
+  | "not_started"
+  | "recommended"
+  | "pending"
+  | "completed"
+  | "failed"
+  | "skipped";
 
 // Extended to include spec lifecycle values alongside legacy "candidate"
 export type MemoryObservationState =
@@ -135,10 +144,19 @@ export interface UploadedFile {
   extractionSource?: "deterministic_test_parser" | "manual_placeholder" | "future_real_parser" | "mammoth_docx_parser" | "pdf_parse_pdf_parser";
   extractionErrorCode?: string | null;
   extractionUpdatedAt?: Date | null;
+  understandingStatus?: DocumentUnderstandingStatus;
+  understandingErrorCode?: string | null;
+  understandingUpdatedAt?: Date | null;
+  pageCount?: number;
+  outlineTitle?: string;
+  detectedQuestionCount?: number;
+  extractionQuality?: ExtractionQuality;
   chunkingStatus?: FileChunkingStatus;
   chunkCount?: number;
   chunkingErrorCode?: string | null;
   chunkingUpdatedAt?: Date | null;
+  deepPdfStatus?: DeepPdfStatus;
+  deepPdfUpdatedAt?: Date | null;
   embeddingStatus?: "not_started" | "completed" | "failed";
   embeddingUpdatedAt?: Date | null;
   createdAt?: Date;

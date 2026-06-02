@@ -35,11 +35,20 @@ function createRecord(overrides: Partial<UploadedFileRecord> = {}): UploadedFile
     summaryErrorCode: null,
     summaryUpdatedAt: null,
     extractionStatus: "not_started",
+    understandingStatus: "not_started",
+    understandingErrorCode: null,
+    understandingUpdatedAt: null,
+    pageCount: undefined,
+    outlineTitle: undefined,
+    detectedQuestionCount: undefined,
+    extractionQuality: undefined,
     extractionErrorCode: null,
     extractionUpdatedAt: null,
     chunkingStatus: "not_started",
     chunkingErrorCode: null,
     chunkingUpdatedAt: null,
+    deepPdfStatus: "not_started",
+    deepPdfUpdatedAt: null,
     createdAt: baseDate,
     updatedAt: baseDate,
     ...overrides,
@@ -156,8 +165,19 @@ describe("uploadedFileApiService.createFileForWorkspace", () => {
         summaryStatus: "not_requested",
         extractionStatus: "not_started",
         chunkingStatus: "not_started",
+        understandingStatus: "not_started",
+        understandingErrorCode: null,
+        understandingUpdatedAt: null,
+        deepPdfStatus: "not_started",
+        deepPdfUpdatedAt: null,
       })
     );
+    expect(result).toMatchObject({
+      understandingStatus: "not_started",
+      deepPdfStatus: "not_started",
+      understandingErrorCode: null,
+      deepPdfUpdatedAt: null,
+    });
   });
 
   it("returns null when workspace does not exist", async () => {

@@ -142,10 +142,19 @@ export interface CreateUploadedFileInput {
   extractionSource?: UploadedFileRecord["extractionSource"];
   extractionErrorCode?: UploadedFileRecord["extractionErrorCode"];
   extractionUpdatedAt?: UploadedFileRecord["extractionUpdatedAt"];
+  understandingStatus?: UploadedFileRecord["understandingStatus"];
+  understandingErrorCode?: UploadedFileRecord["understandingErrorCode"];
+  understandingUpdatedAt?: UploadedFileRecord["understandingUpdatedAt"];
+  pageCount?: UploadedFileRecord["pageCount"];
+  outlineTitle?: UploadedFileRecord["outlineTitle"];
+  detectedQuestionCount?: UploadedFileRecord["detectedQuestionCount"];
+  extractionQuality?: UploadedFileRecord["extractionQuality"];
   chunkingStatus: UploadedFileRecord["chunkingStatus"];
   chunkCount?: UploadedFileRecord["chunkCount"];
   chunkingErrorCode?: UploadedFileRecord["chunkingErrorCode"];
   chunkingUpdatedAt?: UploadedFileRecord["chunkingUpdatedAt"];
+  deepPdfStatus?: UploadedFileRecord["deepPdfStatus"];
+  deepPdfUpdatedAt?: UploadedFileRecord["deepPdfUpdatedAt"];
   embeddingStatus?: UploadedFileRecord["embeddingStatus"];
   embeddingUpdatedAt?: UploadedFileRecord["embeddingUpdatedAt"];
 }

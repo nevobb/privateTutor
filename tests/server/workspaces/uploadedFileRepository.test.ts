@@ -43,6 +43,8 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       summarySource: "none",
       extractionStatus: "not_started",
       chunkingStatus: "not_started",
+      understandingStatus: "not_started",
+      deepPdfStatus: "not_started",
     });
 
     const loaded = await getUploadedFile(alice, created.id);
@@ -78,6 +80,8 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       summarySource: "none",
       extractionStatus: "not_started",
       chunkingStatus: "not_started",
+      understandingStatus: "not_started",
+      deepPdfStatus: "not_started",
     });
 
     await createUploadedFile(alice, {
@@ -90,6 +94,8 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       summarySource: "none",
       extractionStatus: "not_started",
       chunkingStatus: "not_started",
+      understandingStatus: "not_started",
+      deepPdfStatus: "not_started",
     });
 
     const files = await listUploadedFiles(alice, wsA.id);
@@ -112,6 +118,8 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       summarySource: "none",
       extractionStatus: "not_started",
       chunkingStatus: "not_started",
+      understandingStatus: "not_started",
+      deepPdfStatus: "not_started",
     });
 
     const indexing = await updateUploadedFile(alice, created.id, { indexingStatus: "indexing" });
@@ -146,6 +154,8 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       summarySource: "none",
       extractionStatus: "not_started",
       chunkingStatus: "not_started",
+      understandingStatus: "not_started",
+      deepPdfStatus: "not_started",
     });
 
     await expect(getUploadedFile(bob, created.id)).resolves.toBeNull();
@@ -180,6 +190,59 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
 
     const loaded = await getUploadedFile(alice, fileId);
     expect(loaded?.extractionStatus).toBe("not_started");
+    expect(loaded?.understandingStatus).toBeUndefined();
+    expect(loaded?.deepPdfStatus).toBeUndefined();
+  });
+
+  it("round-trips new document-understanding metadata fields", async () => {
+    const alice = nextUser("alice");
+    const workspace = await createWorkspace(alice, { name: "Physics" });
+    const timestamp = new Date("2026-06-02T10:00:00.000Z");
+
+    const created = await createUploadedFile(alice, {
+      workspaceId: workspace.id,
+      name: "Structured.pdf",
+      sourceType: "pdf",
+      assignmentStatus: "assigned",
+      indexingStatus: "uploaded",
+      summaryStatus: "not_requested",
+      summarySource: "none",
+      extractionStatus: "not_started",
+      understandingStatus: "not_started",
+      understandingErrorCode: null,
+      understandingUpdatedAt: null,
+      pageCount: 12,
+      outlineTitle: "חשמל ומגנטיות",
+      detectedQuestionCount: 6,
+      extractionQuality: "partial",
+      chunkingStatus: "not_started",
+      deepPdfStatus: "recommended",
+      deepPdfUpdatedAt: timestamp,
+    });
+
+    const updated = await updateUploadedFile(alice, created.id, {
+      understandingStatus: "completed",
+      understandingErrorCode: null,
+      understandingUpdatedAt: timestamp,
+      pageCount: 13,
+      outlineTitle: "חשמל ומגנטיות — מטלה 1",
+      detectedQuestionCount: 7,
+      extractionQuality: "good",
+      deepPdfStatus: "completed",
+      deepPdfUpdatedAt: timestamp,
+    });
+
+    expect(updated).not.toBeNull();
+    expect(updated).toMatchObject({
+      understandingStatus: "completed",
+      pageCount: 13,
+      outlineTitle: "חשמל ומגנטיות — מטלה 1",
+      detectedQuestionCount: 7,
+      extractionQuality: "good",
+      deepPdfStatus: "completed",
+    });
+    expect(updated?.understandingUpdatedAt?.toISOString()).toBe(timestamp.toISOString());
+    expect(updated?.deepPdfUpdatedAt?.toISOString()).toBe(timestamp.toISOString());
   });
 });
 

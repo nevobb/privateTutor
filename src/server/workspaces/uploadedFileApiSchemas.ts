@@ -1,6 +1,16 @@
 import type { UploadedFileRecord } from "./workspaceTypes";
 
 const VALID_SOURCE_TYPES = ["pdf", "docx"] as const;
+const VALID_UNDERSTANDING_STATUSES = ["not_started", "pending", "completed", "failed"] as const;
+const VALID_EXTRACTION_QUALITIES = ["good", "partial", "poor"] as const;
+const VALID_DEEP_PDF_STATUSES = [
+  "not_started",
+  "recommended",
+  "pending",
+  "completed",
+  "failed",
+  "skipped",
+] as const;
 
 export interface CreateUploadedFileApiRequest {
   fileName: string;
@@ -34,10 +44,19 @@ export interface UploadedFileApiResponse {
   extractionSource?: UploadedFileRecord["extractionSource"];
   extractionErrorCode: string | null;
   extractionUpdatedAt: string | null;
+  understandingStatus?: UploadedFileRecord["understandingStatus"];
+  understandingErrorCode: string | null;
+  understandingUpdatedAt: string | null;
+  pageCount?: number;
+  outlineTitle?: string;
+  detectedQuestionCount?: number;
+  extractionQuality?: UploadedFileRecord["extractionQuality"];
   chunkingStatus: UploadedFileRecord["chunkingStatus"];
   chunkCount?: number;
   chunkingErrorCode: string | null;
   chunkingUpdatedAt: string | null;
+  deepPdfStatus?: UploadedFileRecord["deepPdfStatus"];
+  deepPdfUpdatedAt: string | null;
   embeddingStatus: UploadedFileRecord["embeddingStatus"];
   embeddingUpdatedAt: string | null;
   uploadedAt: string;
@@ -51,6 +70,10 @@ export interface UploadedFileListApiResponse {
 
 export type CreateUploadedFileValidationResult =
   | { ok: true; input: CreateUploadedFileApiRequest }
+  | { ok: false; error: string };
+
+export type UploadedFileApiResponseValidationResult =
+  | { ok: true; value: UploadedFileApiResponse }
   | { ok: false; error: string };
 
 export function parseCreateUploadedFileRequest(body: unknown): CreateUploadedFileValidationResult {
@@ -121,16 +144,56 @@ export function toUploadedFileApiResponse(record: UploadedFileRecord): UploadedF
     extractionSource: record.extractionSource,
     extractionErrorCode: record.extractionErrorCode ?? null,
     extractionUpdatedAt: record.extractionUpdatedAt ? record.extractionUpdatedAt.toISOString() : null,
+    understandingStatus: record.understandingStatus,
+    understandingErrorCode: record.understandingErrorCode ?? null,
+    understandingUpdatedAt: record.understandingUpdatedAt ? record.understandingUpdatedAt.toISOString() : null,
+    pageCount: record.pageCount,
+    outlineTitle: record.outlineTitle,
+    detectedQuestionCount: record.detectedQuestionCount,
+    extractionQuality: record.extractionQuality,
     chunkingStatus: record.chunkingStatus ?? "not_started",
     chunkCount: record.chunkCount,
     chunkingErrorCode: record.chunkingErrorCode ?? null,
     chunkingUpdatedAt: record.chunkingUpdatedAt ? record.chunkingUpdatedAt.toISOString() : null,
+    deepPdfStatus: record.deepPdfStatus,
+    deepPdfUpdatedAt: record.deepPdfUpdatedAt ? record.deepPdfUpdatedAt.toISOString() : null,
     embeddingStatus: record.embeddingStatus ?? "not_started",
     embeddingUpdatedAt: record.embeddingUpdatedAt ? record.embeddingUpdatedAt.toISOString() : null,
     uploadedAt: record.uploadedAt.toISOString(),
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
   };
+}
+
+export function parseUploadedFileApiResponse(body: unknown): UploadedFileApiResponseValidationResult {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return { ok: false, error: "Uploaded file response must be a JSON object." };
+  }
+
+  const raw = body as Record<string, unknown>;
+
+  if (raw.understandingStatus !== undefined && !isUnderstandingStatus(raw.understandingStatus)) {
+    return {
+      ok: false,
+      error: "understandingStatus must be one of: not_started, pending, completed, failed.",
+    };
+  }
+
+  if (raw.extractionQuality !== undefined && !isExtractionQuality(raw.extractionQuality)) {
+    return {
+      ok: false,
+      error: "extractionQuality must be one of: good, partial, poor.",
+    };
+  }
+
+  if (raw.deepPdfStatus !== undefined && !isDeepPdfStatus(raw.deepPdfStatus)) {
+    return {
+      ok: false,
+      error: "deepPdfStatus must be one of: not_started, recommended, pending, completed, failed, skipped.",
+    };
+  }
+
+  return { ok: true, value: raw as unknown as UploadedFileApiResponse };
 }
 
 function asTrimmedString(value: unknown): string | undefined {
@@ -141,6 +204,18 @@ function asTrimmedString(value: unknown): string | undefined {
 
 function isSourceType(value: unknown): value is (typeof VALID_SOURCE_TYPES)[number] {
   return typeof value === "string" && VALID_SOURCE_TYPES.includes(value as (typeof VALID_SOURCE_TYPES)[number]);
+}
+
+function isUnderstandingStatus(value: unknown): value is UploadedFileRecord["understandingStatus"] {
+  return typeof value === "string" && VALID_UNDERSTANDING_STATUSES.includes(value as (typeof VALID_UNDERSTANDING_STATUSES)[number]);
+}
+
+function isExtractionQuality(value: unknown): value is UploadedFileRecord["extractionQuality"] {
+  return typeof value === "string" && VALID_EXTRACTION_QUALITIES.includes(value as (typeof VALID_EXTRACTION_QUALITIES)[number]);
+}
+
+function isDeepPdfStatus(value: unknown): value is UploadedFileRecord["deepPdfStatus"] {
+  return typeof value === "string" && VALID_DEEP_PDF_STATUSES.includes(value as (typeof VALID_DEEP_PDF_STATUSES)[number]);
 }
 
 function getFileExtension(fileName: string): string | null {

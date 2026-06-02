@@ -44,10 +44,19 @@ export async function createUploadedFile(
       extractionSource: input.extractionSource,
       extractionErrorCode: input.extractionErrorCode,
       extractionUpdatedAt: input.extractionUpdatedAt,
+      understandingStatus: input.understandingStatus,
+      understandingErrorCode: input.understandingErrorCode,
+      understandingUpdatedAt: input.understandingUpdatedAt,
+      pageCount: input.pageCount,
+      outlineTitle: input.outlineTitle,
+      detectedQuestionCount: input.detectedQuestionCount,
+      extractionQuality: input.extractionQuality,
       chunkingStatus: input.chunkingStatus,
       chunkCount: input.chunkCount,
       chunkingErrorCode: input.chunkingErrorCode,
       chunkingUpdatedAt: input.chunkingUpdatedAt,
+      deepPdfStatus: input.deepPdfStatus,
+      deepPdfUpdatedAt: input.deepPdfUpdatedAt,
       createdAt: now,
       updatedAt: now,
     };
@@ -109,10 +118,19 @@ export async function updateUploadedFile(
       | "extractionSource"
       | "extractionErrorCode"
       | "extractionUpdatedAt"
+      | "understandingStatus"
+      | "understandingErrorCode"
+      | "understandingUpdatedAt"
+      | "pageCount"
+      | "outlineTitle"
+      | "detectedQuestionCount"
+      | "extractionQuality"
       | "chunkingStatus"
       | "chunkCount"
       | "chunkingErrorCode"
       | "chunkingUpdatedAt"
+      | "deepPdfStatus"
+      | "deepPdfUpdatedAt"
       | "embeddingStatus"
       | "embeddingUpdatedAt"
     >
@@ -150,10 +168,19 @@ export async function updateUploadedFile(
       extractionSource: updates.extractionSource ?? current.extractionSource,
       extractionErrorCode: updates.extractionErrorCode ?? current.extractionErrorCode,
       extractionUpdatedAt: updates.extractionUpdatedAt ?? current.extractionUpdatedAt,
+      understandingStatus: updates.understandingStatus ?? current.understandingStatus,
+      understandingErrorCode: updates.understandingErrorCode ?? current.understandingErrorCode,
+      understandingUpdatedAt: updates.understandingUpdatedAt ?? current.understandingUpdatedAt,
+      pageCount: updates.pageCount ?? current.pageCount,
+      outlineTitle: updates.outlineTitle ?? current.outlineTitle,
+      detectedQuestionCount: updates.detectedQuestionCount ?? current.detectedQuestionCount,
+      extractionQuality: updates.extractionQuality ?? current.extractionQuality,
       chunkingStatus: updates.chunkingStatus ?? current.chunkingStatus,
       chunkCount: updates.chunkCount ?? current.chunkCount,
       chunkingErrorCode: updates.chunkingErrorCode ?? current.chunkingErrorCode,
       chunkingUpdatedAt: updates.chunkingUpdatedAt ?? current.chunkingUpdatedAt,
+      deepPdfStatus: updates.deepPdfStatus ?? current.deepPdfStatus,
+      deepPdfUpdatedAt: updates.deepPdfUpdatedAt ?? current.deepPdfUpdatedAt,
       embeddingStatus: updates.embeddingStatus ?? current.embeddingStatus,
       embeddingUpdatedAt: updates.embeddingUpdatedAt ?? current.embeddingUpdatedAt,
       updatedAt: new Date(),
@@ -198,10 +225,19 @@ function mapUploadedFileRecord(id: string, data: Record<string, unknown>): Uploa
     extractionSource: mapExtractionSource(data.extractionSource),
     extractionErrorCode: typeof data.extractionErrorCode === "string" ? data.extractionErrorCode : null,
     extractionUpdatedAt: data.extractionUpdatedAt ? toDate(data.extractionUpdatedAt) : null,
+    understandingStatus: mapUnderstandingStatus(data.understandingStatus),
+    understandingErrorCode: typeof data.understandingErrorCode === "string" ? data.understandingErrorCode : null,
+    understandingUpdatedAt: data.understandingUpdatedAt ? toDate(data.understandingUpdatedAt) : null,
+    pageCount: typeof data.pageCount === "number" ? data.pageCount : undefined,
+    outlineTitle: typeof data.outlineTitle === "string" ? data.outlineTitle : undefined,
+    detectedQuestionCount: typeof data.detectedQuestionCount === "number" ? data.detectedQuestionCount : undefined,
+    extractionQuality: mapExtractionQuality(data.extractionQuality),
     chunkingStatus: mapChunkingStatus(data.chunkingStatus),
     chunkCount: typeof data.chunkCount === "number" ? data.chunkCount : undefined,
     chunkingErrorCode: typeof data.chunkingErrorCode === "string" ? data.chunkingErrorCode : null,
     chunkingUpdatedAt: data.chunkingUpdatedAt ? toDate(data.chunkingUpdatedAt) : null,
+    deepPdfStatus: mapDeepPdfStatus(data.deepPdfStatus),
+    deepPdfUpdatedAt: data.deepPdfUpdatedAt ? toDate(data.deepPdfUpdatedAt) : null,
     embeddingStatus: mapFileEmbeddingStatus(data.embeddingStatus),
     embeddingUpdatedAt: data.embeddingUpdatedAt ? toDate(data.embeddingUpdatedAt) : null,
     createdAt: toDate(data.createdAt),
@@ -287,6 +323,34 @@ function mapChunkingStatus(value: unknown): UploadedFileRecord["chunkingStatus"]
     return value;
   }
   return "not_started";
+}
+
+function mapUnderstandingStatus(value: unknown): UploadedFileRecord["understandingStatus"] {
+  if (value === "not_started" || value === "pending" || value === "completed" || value === "failed") {
+    return value;
+  }
+  return undefined;
+}
+
+function mapExtractionQuality(value: unknown): UploadedFileRecord["extractionQuality"] {
+  if (value === "good" || value === "partial" || value === "poor") {
+    return value;
+  }
+  return undefined;
+}
+
+function mapDeepPdfStatus(value: unknown): UploadedFileRecord["deepPdfStatus"] {
+  if (
+    value === "not_started" ||
+    value === "recommended" ||
+    value === "pending" ||
+    value === "completed" ||
+    value === "failed" ||
+    value === "skipped"
+  ) {
+    return value;
+  }
+  return undefined;
 }
 
 function mapFileEmbeddingStatus(value: unknown): UploadedFileRecord["embeddingStatus"] {

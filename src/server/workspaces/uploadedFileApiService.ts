@@ -160,10 +160,19 @@ export function createUploadedFileApiService(
         extractionSource: undefined,
         extractionErrorCode: null,
         extractionUpdatedAt: null,
+        understandingStatus: "not_started",
+        understandingErrorCode: null,
+        understandingUpdatedAt: null,
+        pageCount: undefined,
+        outlineTitle: undefined,
+        detectedQuestionCount: undefined,
+        extractionQuality: undefined,
         chunkingStatus: "not_started",
         chunkCount: undefined,
         chunkingErrorCode: null,
         chunkingUpdatedAt: null,
+        deepPdfStatus: "not_started",
+        deepPdfUpdatedAt: null,
       });
 
       await Promise.all([

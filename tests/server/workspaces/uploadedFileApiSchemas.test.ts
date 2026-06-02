@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  parseUploadedFileApiResponse,
   parseCreateUploadedFileRequest,
   toUploadedFileApiResponse,
 } from "../../../src/server/workspaces/uploadedFileApiSchemas";
@@ -84,6 +85,15 @@ describe("uploadedFileApiSchemas", () => {
       summarySource: "placeholder",
       summaryErrorCode: null,
       summaryUpdatedAt: now,
+      understandingStatus: "not_started",
+      understandingErrorCode: null,
+      understandingUpdatedAt: now,
+      pageCount: 7,
+      outlineTitle: "מבוא למכניקה",
+      detectedQuestionCount: 4,
+      extractionQuality: "partial",
+      deepPdfStatus: "recommended",
+      deepPdfUpdatedAt: now,
       createdAt: now,
       updatedAt: now,
     };
@@ -96,6 +106,75 @@ describe("uploadedFileApiSchemas", () => {
     expect(response.summarySource).toBe("placeholder");
     expect(response.summaryErrorCode).toBeNull();
     expect(response.summaryUpdatedAt).toBe(now.toISOString());
+    expect(response.understandingStatus).toBe("not_started");
+    expect(response.understandingErrorCode).toBeNull();
+    expect(response.understandingUpdatedAt).toBe(now.toISOString());
+    expect(response.pageCount).toBe(7);
+    expect(response.outlineTitle).toBe("מבוא למכניקה");
+    expect(response.detectedQuestionCount).toBe(4);
+    expect(response.extractionQuality).toBe("partial");
+    expect(response.deepPdfStatus).toBe("recommended");
+    expect(response.deepPdfUpdatedAt).toBe(now.toISOString());
     expect(response.uploadedAt).toBe(now.toISOString());
+  });
+
+  it("parses legacy response objects without new document-understanding fields", () => {
+    const result = parseUploadedFileApiResponse({
+      id: "file-1",
+      userId: "alice",
+      workspaceId: "ws-1",
+      fileName: "Lecture 1.pdf",
+      sourceType: "pdf",
+      assignmentStatus: "assigned",
+      indexingStatus: "indexed",
+      summaryStatus: "not_requested",
+      summaryText: null,
+      summarySource: "none",
+      summaryErrorCode: null,
+      summaryUpdatedAt: null,
+      extractionStatus: "not_started",
+      extractionErrorCode: null,
+      extractionUpdatedAt: null,
+      chunkingStatus: "not_started",
+      chunkingErrorCode: null,
+      chunkingUpdatedAt: null,
+      embeddingStatus: "not_started",
+      embeddingUpdatedAt: null,
+      uploadedAt: "2026-05-19T08:00:00.000Z",
+      createdAt: "2026-05-19T08:00:00.000Z",
+      updatedAt: "2026-05-19T08:00:00.000Z",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: expect.objectContaining({
+        id: "file-1",
+        extractionStatus: "not_started",
+      }),
+    });
+  });
+
+  it("rejects invalid understandingStatus when supplied", () => {
+    const result = parseUploadedFileApiResponse({ understandingStatus: "unknown" });
+    expect(result).toEqual({
+      ok: false,
+      error: "understandingStatus must be one of: not_started, pending, completed, failed.",
+    });
+  });
+
+  it("rejects invalid extractionQuality when supplied", () => {
+    const result = parseUploadedFileApiResponse({ extractionQuality: "excellent" });
+    expect(result).toEqual({
+      ok: false,
+      error: "extractionQuality must be one of: good, partial, poor.",
+    });
+  });
+
+  it("rejects invalid deepPdfStatus when supplied", () => {
+    const result = parseUploadedFileApiResponse({ deepPdfStatus: "later" });
+    expect(result).toEqual({
+      ok: false,
+      error: "deepPdfStatus must be one of: not_started, recommended, pending, completed, failed, skipped.",
+    });
   });
 });
