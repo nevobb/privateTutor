@@ -1241,3 +1241,24 @@ Copy this block and fill all fields:
   - Current state: audit complete; provider remains isolated and safe.
   - Next recommended step: Batch 6 can proceed, but should keep runtime wiring explicit and continue to avoid automatic Gemini execution until storage-loading and policy boundaries are intentionally approved.
   - Blockers/Risks: no immediate blocker; future runtime integration still needs a narrow Firebase Storage bytes-loader boundary and better non-synthetic source anchoring before retrieval depends on deep-PDF outputs.
+
+## 2026-06-02 23:16 (IDT) — Codex
+- Step/Task ID: Batch 6A — runtime integration fit check
+- Task summary: Inspect the current runtime flow and produce a safe staged plan for connecting document understanding to runtime without wiring Gemini or UI yet.
+- What I checked:
+  - Confirmed branch/status/log and read the Batch 1–5 reports plus the post-Batch-5 isolation audit.
+  - Traced upload → extraction → chunking → embeddings flow in `uploadedFileApiService.ts`, frontend processing in `page.tsx`, and current inventory/tutor routing in `sessionMessageApiService.ts` and `fileInventoryService.ts`.
+  - Verified `documentUnderstandingOrchestrationService` remains isolated and text-only, and `evaluateDocumentQualityGate()` remains recommendation-only.
+  - Identified post-chunking success as the safest Batch 6B hook point, with service-level guards and no Gemini execution.
+  - Wrote `agent-memory/PDF_READING_BATCH_6A_RUNTIME_INTEGRATION_FIT_CHECK.md`.
+- Files touched:
+  - `agent-memory/PDF_READING_BATCH_6A_RUNTIME_INTEGRATION_FIT_CHECK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Git status:
+  - Branch: `repair/gemini-deep-pdf-provider`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: fit check complete; ready to scope Batch 6B.
+  - Next recommended step: implement Batch 6B as text-only post-chunking understanding only, best-effort, metadata/artifact persistence only, with no tutor/UI/Gemini runtime integration.
+  - Blockers/Risks: later deep-PDF runtime work still needs a narrow Firebase Storage PDF bytes loader boundary and should not be coupled into Batch 6B.
