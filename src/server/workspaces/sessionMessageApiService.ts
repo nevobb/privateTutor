@@ -1,6 +1,6 @@
 import { isInstructionAwarenessQuestion, PUBLIC_TEACHING_CONTRACT_SUMMARY } from "../tutor/teachingContract";
 import { classifyTutorRequest } from "../tutor/requestClassifier";
-import { INVENTORY_NOT_AVAILABLE_RESPONSE } from "../tutor/fileInventoryService";
+import { buildFileInventory, formatFileInventoryResponse } from "../tutor/fileInventoryService";
 import { listFileChunks as defaultListFileChunks } from "./fileChunkRepository";
 import { getMockTutorResponse as defaultGetMockTutorResponse } from "../../lib/tutor";
 import { getActiveTutorProvider } from "../tutor/providerRegistry";
@@ -204,21 +204,31 @@ export function createSessionMessageApiService(
       }
 
       // Deterministic file-content inventory: "which questions/exercises are in the file?"
-      // Model NOT called. Returns an honest "not available yet" message.
-      //
-      // TODO (Phase C — Document Understanding Layer):
-      // When targetFile.understandingStatus === "completed", read from the detectedQuestions
-      // subcollection and return a real structured question list instead of this placeholder.
-      // See docs/DOCUMENT_UNDERSTANDING_LAYER.md for the full design.
+      // Model NOT called. Answers from real chunk text via buildFileInventory().
       if (requestClassification.intent === "file_content_inventory") {
         const files = await repositories.listUploadedFiles(userId, input.workspaceId);
-        const hasReadyFile = files.some(
+        const readyFile = files.find(
           (f) => f.extractionStatus === "completed" && f.chunkingStatus === "completed"
         );
 
-        const content = hasReadyFile
-          ? INVENTORY_NOT_AVAILABLE_RESPONSE
-          : "אין קבצים מעובדים זמינים כרגע. לאחר שהקובץ יגיע למצב Ready, אוכל לסייע.";
+        let content: string;
+        if (readyFile) {
+          const chunks = await repositories.listFileChunks(userId, input.workspaceId, readyFile.id);
+          const inventory = buildFileInventory(readyFile.originalFileName ?? readyFile.name, chunks);
+          content = formatFileInventoryResponse(inventory);
+        } else if (files.length > 0) {
+          const fileStatuses = files
+            .map((f) => {
+              const ext = f.extractionStatus ?? "not_started";
+              const chk = f.chunkingStatus ?? "not_started";
+              return `• ${f.originalFileName ?? f.name}: חילוץ=${ext}, צ׳אנקים=${chk}`;
+            })
+            .join("\n");
+          content = `הקבצים הבאים עדיין בעיבוד — לא ניתן לתת רשימת שאלות עדיין:\n${fileStatuses}\n\nהמתן שהעיבוד יסתיים ונסה שוב.`;
+        } else {
+          content =
+            "לא נמצאו קבצים שהועלו למרחב הלימוד הנוכחי. העלה קובץ PDF או DOCX כדי שאוכל לעבוד עם התוכן.";
+        }
 
         const assistantRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
           role: "tutor",

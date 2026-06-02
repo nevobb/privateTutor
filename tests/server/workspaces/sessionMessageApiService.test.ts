@@ -1125,7 +1125,7 @@ describeService("sessionMessageApiService", () => {
       });
     }
 
-    it("routes 'איזה שאלות יש בקובץ?' to inventory shortcut — model NOT called, chunks NOT scanned", async () => {
+    it("routes 'איזה שאלות יש בקובץ?' to inventory shortcut — model NOT called, chunks scanned via buildFileInventory", async () => {
       const repos = makeInventoryRepos();
       const service = mod.createSessionMessageApiService(repos);
       await service.sendMessageForUser("alice", "s-1", {
@@ -1136,7 +1136,7 @@ describeService("sessionMessageApiService", () => {
       });
 
       expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
-      expect(repos.listFileChunks).not.toHaveBeenCalled();
+      expect(repos.listFileChunks).toHaveBeenCalledWith("alice", "ws-1", "file-inv");
     });
 
     it("routes original failing question 'איזה שאלות אתה יכול לראות בקובץ?' to inventory — model NOT called", async () => {
@@ -1166,7 +1166,7 @@ describeService("sessionMessageApiService", () => {
       expect(assistant.content).toMatch(/טקסט שחולץ/);
     });
 
-    it("inventory fallback: no raw chunk output, no refusal, offers search alternatives", async () => {
+    it("inventory: real sections listed, no refusal, offers to start from a question", async () => {
       const repos = makeInventoryRepos();
       const service = mod.createSessionMessageApiService(repos);
       const result = await service.sendMessageForUser("alice", "s-1", {
@@ -1178,12 +1178,12 @@ describeService("sessionMessageApiService", () => {
 
       const assistant = result.assistantMessage as { content?: string };
       expect(assistant.content).not.toMatch(/אני לא יכול/i);
-      // must not dump raw chunk artifacts or section numbers from chunk scan
+      // must not dump raw chunk artifacts
       expect(assistant.content).not.toMatch(/-- \d+ of \d+/);
-      // must explain the limitation honestly
+      // must include extracted-text disclaimer
       expect(assistant.content).toMatch(/טקסט שחולץ/);
-      // must offer a concrete alternative path (search by number or keyword)
-      expect(assistant.content).toMatch(/שאלה 3|מילת מפתח|נושא/);
+      // must include real section headings found in the chunks
+      expect(assistant.content).toMatch(/שאלה [12]|נתחיל משאלה/);
     });
 
     it("when no ready files, inventory returns no-file message without calling model", async () => {
@@ -1197,8 +1197,55 @@ describeService("sessionMessageApiService", () => {
       });
 
       expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect(repos.listFileChunks).not.toHaveBeenCalled();
       const assistant = result.assistantMessage as { content?: string };
-      expect(assistant.content).toMatch(/אין קבצים|מעובדים/i);
+      expect(assistant.content).toMatch(/לא נמצאו קבצים/i);
+    });
+
+    it("inventory response includes section headings extracted from real chunk text", async () => {
+      const repos = makeInventoryRepos();
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "תן לי רשימת שאלות מהקובץ",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      const assistant = result.assistantMessage as { content?: string };
+      // buildFileInventory scans chunk text — "שאלה 1" and "שאלה 2" are headings in questionChunks
+      expect(assistant.content).toContain("שאלה 1");
+      expect(assistant.content).toContain("שאלה 2");
+      // file name used in inventory comes from originalFileName
+      // model was not called — deterministic path
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+    });
+
+    it("when files exist but not processed, inventory lists them with status", async () => {
+      const processingFile = {
+        id: "file-proc",
+        name: "math_hw.pdf",
+        originalFileName: "מתמטיקה שיעורי בית.pdf",
+        extractionStatus: "pending" as const,
+        chunkingStatus: "not_started" as const,
+        indexingStatus: "uploaded",
+      };
+      const repos = makeInventoryRepos({
+        listUploadedFiles: vi.fn(async () => [processingFile]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "איזה שאלות יש בקובץ?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect(repos.listFileChunks).not.toHaveBeenCalled();
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toMatch(/עדיין בעיבוד|בעיבוד/);
+      expect(assistant.content).toContain("מתמטיקה שיעורי בית.pdf");
     });
 
     it("does not route specific question 'תסביר שאלה 3' to inventory", async () => {
