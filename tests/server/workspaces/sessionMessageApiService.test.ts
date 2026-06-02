@@ -1307,6 +1307,40 @@ describeService("sessionMessageApiService", () => {
       expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
     });
 
+    it("for garbled math-heavy chunks, inventory bypasses model, hides broken snippet, and warns about extraction quality", async () => {
+      const garbledChunks = [
+        {
+          chunkId: "cg-0",
+          userId: "alice",
+          workspaceId: "ws-1",
+          fileId: "file-inv",
+          text: "שאלה 1\n0 0 1 2  a B I ",
+          chunkIndex: 0,
+          charStart: 0,
+          charEnd: 25,
+          tokenEstimate: 10,
+          source: "extracted_text",
+          createdAt: new Date(),
+        },
+      ];
+      const repos = makeInventoryRepos({
+        listFileChunks: vi.fn(async () => garbledChunks),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "איזה שאלות יש בקובץ?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).not.toMatch(/אין לי גישה ישירה/i);
+      expect(assistant.content).not.toContain("0 0 1 2  a B I ");
+      expect(assistant.content).toMatch(/איכות נמוכה|חולצו באיכות נמוכה|הנוסחאות\/הסימונים המתמטיים/);
+    });
+
     it("when files exist but not processed, inventory lists them with status", async () => {
       const processingFile = {
         id: "file-proc",
