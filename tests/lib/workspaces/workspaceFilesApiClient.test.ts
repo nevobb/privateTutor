@@ -113,6 +113,24 @@ describe("runWorkspaceFileExtraction", () => {
     ).rejects.toMatchObject({ status: 404 });
   });
 
+  it("uses the persisted file route without multipart bytes when local File state is gone after refresh", async () => {
+    mockFetch.mockResolvedValueOnce(makeOkResponse({ id: "file-1", extractionStatus: "completed" }));
+
+    await runWorkspaceFileExtraction({
+      workspaceId: "ws-1",
+      fileId: "file-1",
+      idToken: TOKEN,
+    });
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/workspaces/ws-1/files/file-1/extract");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeUndefined();
+    const headers = init.headers as Record<string, string>;
+    expect(headers["Authorization"]).toBe(`Bearer ${TOKEN}`);
+    expect(headers["Content-Type"]).toBeUndefined();
+  });
+
   it("sends DOCX file with correct name", async () => {
     mockFetch.mockResolvedValueOnce(makeOkResponse({ id: "file-2", extractionStatus: "completed" }));
 

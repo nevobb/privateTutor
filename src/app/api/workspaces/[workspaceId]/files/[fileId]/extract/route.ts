@@ -42,13 +42,6 @@ export function createWorkspaceFileExtractPostHandler(authResolver: AuthResolver
     try {
       const fileBuffer = await readFileBufferFromRequest(request);
 
-      if (!fileBuffer) {
-        return Response.json(
-          { error: "File bytes are required for extraction. Send file as multipart/form-data." },
-          { status: 400 }
-        );
-      }
-
       const result = await uploadedFileApiService.runExtractionLifecycleForFile(
         authResult.user,
         workspaceId,

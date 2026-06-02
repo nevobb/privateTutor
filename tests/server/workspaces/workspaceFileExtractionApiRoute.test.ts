@@ -69,17 +69,46 @@ describe("POST /api/workspaces/[workspaceId]/files/[fileId]/extract", () => {
     expect(response.status).toBe(400);
   });
 
-  it("returns 400 when no file bytes provided", async () => {
+  it("allows extraction continuation without multipart file bytes when persisted metadata is enough", async () => {
+    mockRunExtraction.mockResolvedValueOnce({
+      ok: true,
+      file: {
+        id: "file-1",
+        userId: "alice",
+        workspaceId: "ws-1",
+        name: "a.pdf",
+        url: "",
+        uploadedAt: new Date(),
+        assignmentStatus: "assigned",
+        indexingStatus: "indexed",
+        sourceType: "pdf",
+        extractionStatus: "completed",
+        extractedText: "Recovered from persisted server-side state.",
+        extractedTextPreview: "Recovered from persisted server-side state.",
+        extractedTextCharCount: 41,
+        extractionSource: "deterministic_test_parser",
+        extractionErrorCode: null,
+        extractionUpdatedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    } as never);
+    mockSerialize.mockReturnValueOnce({ id: "file-1", extractionStatus: "completed" } as never);
+
     const handler = createWorkspaceFileExtractPostHandler(okAuth());
     const response = await handler(
       new Request("http://localhost/api/workspaces/ws-1/files/file-1/extract", { method: "POST" }),
       context("ws-1", "file-1")
     );
 
-    expect(response.status).toBe(400);
-    const body = await response.json() as { error: string };
-    expect(body.error).toContain("File bytes are required");
-    expect(mockRunExtraction).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ id: "file-1", extractionStatus: "completed" });
+    expect(mockRunExtraction).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "alice" }),
+      "ws-1",
+      "file-1",
+      undefined
+    );
   });
 
   it("returns 404 when workspace or file is missing", async () => {

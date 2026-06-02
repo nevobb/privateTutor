@@ -299,13 +299,6 @@ export default function Home() {
         const effectiveChunkingStatus = latest?.chunkingStatus ?? initialFile?.chunkingStatus ?? "not_started";
 
         if (effectiveExtractionStatus !== "completed") {
-          if (!fileBytes) {
-            setFileProcessingStatusById((prev) => ({
-              ...prev,
-              [fileId]: "Re-upload required to continue processing.",
-            }));
-            return;
-          }
           setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: "Extracting text..." }));
           await runWorkspaceFileExtraction({
             workspaceId,

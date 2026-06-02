@@ -95,8 +95,10 @@ function renderPanelBody(
           const action = getPrimaryAction({
             extractionStatus,
             chunkingStatus,
+            embeddingStatus,
             processingStatus,
             isReadyForLearning,
+            hasPersistedStorage: Boolean(file.storagePath),
             canContinue: !disabled && Boolean(onContinueProcessing),
           });
 
@@ -127,6 +129,7 @@ function renderPanelBody(
                     </span>
                     <span>{`E:${extractionStatus}`}</span>
                     <span>{`C:${chunkingStatus}`}</span>
+                    <span>{`Emb:${embeddingStatus}`}</span>
                     {isReadyForLearning ? (
                       <span style={{ color: "var(--tutor-accent)" }}>Ready for learning</span>
                     ) : null}
@@ -177,11 +180,21 @@ function renderPanelBody(
 function getPrimaryAction(input: {
   extractionStatus: UploadedFile["extractionStatus"];
   chunkingStatus: UploadedFile["chunkingStatus"];
+  embeddingStatus: UploadedFile["embeddingStatus"];
   processingStatus: string | undefined;
   isReadyForLearning: boolean;
+  hasPersistedStorage: boolean;
   canContinue: boolean;
 }): { label: string; hint: string; disabled: boolean } | null {
-  const { extractionStatus, chunkingStatus, processingStatus, isReadyForLearning, canContinue } = input;
+  const {
+    extractionStatus,
+    chunkingStatus,
+    embeddingStatus,
+    processingStatus,
+    isReadyForLearning,
+    hasPersistedStorage,
+    canContinue,
+  } = input;
 
   if (isReadyForLearning) {
     return null;
@@ -202,9 +215,18 @@ function getPrimaryAction(input: {
     };
   }
 
+  if (extractionStatus !== "completed" && !hasPersistedStorage) {
+    return {
+      label: "Re-upload required",
+      hint: "Stored file metadata is incomplete, so extraction cannot continue yet.",
+      disabled: true,
+    };
+  }
+
   const failed =
     extractionStatus === "failed" ||
     chunkingStatus === "failed" ||
+    embeddingStatus === "failed" ||
     lowerStatus.includes("failed") ||
     lowerStatus.includes("error");
 

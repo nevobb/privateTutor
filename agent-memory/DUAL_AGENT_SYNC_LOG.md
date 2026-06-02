@@ -1038,3 +1038,38 @@ Copy this block and fill all fields:
   - Current state: done (implementation + validations), pending manual production smoke and push decision.
   - Next recommended step: run emulator+production manual smoke checklist from Step 28B prompt with Nevo credentials, then decide push.
   - Blockers/Risks: production smoke requires valid local Firebase project config and ADC credentials (not in repo).
+
+## 2026-06-02 05:59 (IDT) — Codex
+- Step/Task ID: File processing persistence repair
+- Task summary: Remove post-refresh dependence on `pendingFilesByFileId` for file-processing continuation and prove it with focused tests.
+- What I changed:
+  - Allowed persisted extraction continuation through `workspaceFilesApiClient`, the extract API route, and `page.tsx` even when the browser `File` is gone after refresh.
+  - Updated `FilePanel` to surface embedding status and show a disabled `Re-upload required` state when persisted storage metadata is actually missing.
+  - Added regression tests for persisted extraction continuation, extract-route behavior without multipart bytes, and refresh-safe FilePanel state.
+  - Wrote `agent-memory/FILE_PROCESSING_PERSISTENCE_REPAIR_REPORT.md` and refreshed Graphify.
+- Files touched:
+  - `src/lib/workspaces/workspaceFilesApiClient.ts`
+  - `src/app/api/workspaces/[workspaceId]/files/[fileId]/extract/route.ts`
+  - `src/app/page.tsx`
+  - `src/components/files/FilePanel.tsx`
+  - `tests/lib/workspaces/workspaceFilesApiClient.test.ts`
+  - `tests/server/workspaces/workspaceFileExtractionApiRoute.test.ts`
+  - `tests/components/files/FilePanel.test.tsx`
+  - `agent-memory/FILE_PROCESSING_PERSISTENCE_REPAIR_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/components/files/FilePanel.test.tsx tests/lib/workspaces/workspaceFilesApiClient.test.ts tests/behavior/mvpFileLearningPipeline.test.ts tests/server/workspaces/workspaceFileExtractionApiRoute.test.ts` — passed
+  - `npx tsc --noEmit` — passed
+  - `git diff --check` — passed
+  - `npm run build` — passed
+  - `npx vitest run` — passed
+  - `npm run lint` — failed on pre-existing repo lint issues outside this repair scope
+  - `graphify update .` — passed
+- Git status:
+  - Branch: `repair/persist-file-processing-state`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: review the repair diff and decide whether to also add a persisted uploaded-file `embeddingStatus: pending` state in a separate follow-up.
+  - Blockers/Risks: repo lint is still not clean due pre-existing unrelated errors/warnings.

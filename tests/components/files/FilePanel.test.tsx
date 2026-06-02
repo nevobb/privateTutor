@@ -11,6 +11,7 @@ function makeFile(overrides: Partial<UploadedFile> = {}): UploadedFile {
     url: "",
     uploadedAt: new Date("2026-05-20T10:00:00.000Z"),
     sourceType: "pdf",
+    storagePath: "users/alice/workspaces/ws-1/files/file-1/lecture.pdf",
     assignmentStatus: "unassigned",
     indexingStatus: "not-indexed",
     extractionStatus: "not_started",
@@ -65,6 +66,35 @@ describe("FilePanel processing actions", () => {
     );
 
     expect(html).toContain("Retry processing");
+  });
+
+  it("shows Re-upload required instead of pretending continuation is possible when persisted storage metadata is missing", () => {
+    const html = renderToStaticMarkup(
+      <FilePanel
+        files={[makeFile({ extractionStatus: "not_started", storagePath: undefined })]}
+        onContinueProcessing={async () => {}}
+      />
+    );
+
+    expect(html).toContain("Re-upload required");
+    expect(html).not.toContain("Run the next incomplete step automatically");
+  });
+
+  it("shows embedding status in the persisted file state summary", () => {
+    const html = renderToStaticMarkup(
+      <FilePanel
+        files={[
+          makeFile({
+            extractionStatus: "completed",
+            chunkingStatus: "completed",
+            embeddingStatus: "failed",
+          }),
+        ]}
+        onContinueProcessing={async () => {}}
+      />
+    );
+
+    expect(html).toContain("Emb:failed");
   });
 
   it("keeps continue action and status visible with long filenames", () => {
