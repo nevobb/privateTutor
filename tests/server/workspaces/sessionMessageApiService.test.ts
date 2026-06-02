@@ -152,7 +152,7 @@ function makeRepos(
         name: "Mechanics.pdf",
         indexingStatus: "indexed",
         summaryStatus: "ready",
-        summaryText: "Summary placeholder; content extraction not enabled yet.",
+        summaryText: "Mechanics course overview: Newton's laws, kinematics, energy conservation.",
         confidence: 0.9,
       },
     ]),
@@ -349,6 +349,73 @@ describeService("sessionMessageApiService", () => {
           },
         },
       });
+    });
+
+    it("does not use placeholder summaryText as grounding — reports retrieval_skipped_placeholder_content_only", async () => {
+      const repos = makeRepos({
+        listUploadedFiles: vi.fn(async () => [
+          {
+            id: "file-ph",
+            name: "hw5.pdf",
+            indexingStatus: "indexed",
+            summaryStatus: "ready",
+            summaryText: "Summary placeholder; content extraction not enabled yet.",
+            confidence: 0.9,
+          },
+        ]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "explain Newton",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      const update = result.internalUpdate as { retrieval: { used: boolean; why: string; source_ids: string[] } };
+      expect(update.retrieval.used).toBe(false);
+      expect(update.retrieval.why).toBe("retrieval_skipped_placeholder_content_only");
+      expect(update.retrieval.source_ids).toHaveLength(0);
+      // placeholder text must not appear in any citation
+      const assistant = result.assistantMessage as { citations?: Array<{ referenceText: string }> };
+      const citationTexts = (assistant.citations ?? []).map((c) => c.referenceText).join("\n");
+      expect(citationTexts).not.toContain("Summary placeholder");
+    });
+
+    it("uses real summaryText as grounding when available alongside placeholder files", async () => {
+      const repos = makeRepos({
+        listUploadedFiles: vi.fn(async () => [
+          {
+            id: "file-real",
+            name: "Notes.pdf",
+            indexingStatus: "indexed",
+            summaryStatus: "ready",
+            summaryText: "Newton's laws cover force, mass, and acceleration.",
+            confidence: 0.95,
+          },
+          {
+            id: "file-ph",
+            name: "hw5.pdf",
+            indexingStatus: "indexed",
+            summaryStatus: "ready",
+            summaryText: "Summary placeholder; content extraction not enabled yet.",
+            confidence: 0.9,
+          },
+        ]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "explain Newton",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      // real file was selected, placeholder excluded
+      const update2 = result.internalUpdate as { retrieval: { used: boolean; source_ids: string[] } };
+      expect(update2.retrieval.used).toBe(true);
+      expect(update2.retrieval.source_ids).toContain("file-real");
+      expect(update2.retrieval.source_ids).not.toContain("file-ph");
     });
 
     it("marks retrieval failed when repository lookup throws", async () => {

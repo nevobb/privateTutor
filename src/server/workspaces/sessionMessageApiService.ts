@@ -33,6 +33,10 @@ import type { FileChunkRetrievalInput, FileChunkRetrievalResult, RetrievedFileCh
 // Each "turn" is one message (user or tutor). 20 = 10 exchanges.
 const MAX_HISTORY_TURNS = 20;
 
+// Phase 8 metadata-only indexing wrote this placeholder as summaryText for all files.
+// It has no informational value and must not be injected into the tutor grounding context.
+const LEGACY_SUMMARY_PLACEHOLDER = "Summary placeholder; content extraction not enabled yet.";
+
 export interface SessionMessageApiService {
   listMessagesForUser(
     user: AuthenticatedUser | string,
@@ -657,7 +661,30 @@ async function executeLegacyIndexedFileRetrieval(
     return scoreB - scoreA;
   });
   const selected = ranked.slice(0, effectiveMaxChunks);
-  const sourceIds = selected.map((file) => file.id);
+
+  // Exclude Phase 8 placeholder summaries — they contain no real content and must
+  // not reach the tutor as if file text was available.
+  const usableFiles = selected.filter(
+    (file) => !(file.summaryStatus === "ready" && file.summaryText === LEGACY_SUMMARY_PLACEHOLDER)
+  );
+
+  if (usableFiles.length === 0) {
+    tutorResponse.internalUpdate.retrieval = {
+      ...tutorResponse.internalUpdate.retrieval,
+      used: false,
+      scope: decision.retrieval_scope,
+      source_ids: [],
+      why: "retrieval_skipped_placeholder_content_only",
+    };
+    tutorResponse.decisionLogEvents?.push({
+      type: "retrieval_skipped",
+      title: "Retrieval skipped",
+      detail: "All indexed files contain only placeholder summaries — no real extracted content available.",
+    });
+    return { citations: tutorResponse.message.citations, retrievedChunks: [] };
+  }
+
+  const sourceIds = usableFiles.map((file) => file.id);
 
   tutorResponse.internalUpdate.retrieval = {
     used: true,
@@ -666,7 +693,7 @@ async function executeLegacyIndexedFileRetrieval(
     why: `retrieval_executed_selected_${sourceIds.length}_indexed_files`,
   };
 
-  const citations = selected.map((file) => ({
+  const citations = usableFiles.map((file) => ({
     id: `retrieval-${file.id}`,
     sourceId: file.id,
     referenceText:
