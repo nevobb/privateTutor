@@ -1,6 +1,10 @@
 import type {
   CostMode,
   DecisionLogEntry,
+  DetectedQuestionArtifact,
+  DocumentOutlineArtifact,
+  DocumentPageArtifact,
+  DocumentSourceReference,
   FileChunk,
   SourceCitation,
   TutorMessage,
@@ -66,6 +70,26 @@ export interface UploadedFileRecord extends UploadedFile {
 
 export interface FileChunkRecord extends Omit<FileChunk, "createdAt"> {
   createdAt: Date;
+}
+
+export interface DocumentSourceReferenceRecord extends DocumentSourceReference {}
+
+export interface DocumentPageArtifactRecord extends Omit<DocumentPageArtifact, "createdAt" | "updatedAt"> {
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DocumentOutlineArtifactRecord extends Omit<DocumentOutlineArtifact, "createdAt" | "updatedAt"> {
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DetectedQuestionArtifactRecord extends Omit<DetectedQuestionArtifact, "createdAt" | "updatedAt"> {
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface FileChunkEmbeddingRecord {

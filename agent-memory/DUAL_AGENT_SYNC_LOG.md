@@ -1073,3 +1073,36 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: review the repair diff and decide whether to also add a persisted uploaded-file `embeddingStatus: pending` state in a separate follow-up.
   - Blockers/Risks: repo lint is still not clean due pre-existing unrelated errors/warnings.
+
+## 2026-06-02 17:03 (IDT) — Codex
+- Step/Task ID: PDF Reading Batch 2 — artifact model
+- Task summary: Add additive page/outline/detected-question artifact types and repository support under uploaded-file-owned Firestore subcollections without changing runtime behavior.
+- What I changed:
+  - Added document artifact domain types for pages, outlines, detected questions, and source references.
+  - Added server record types plus schema/serialization helpers for the new artifact shapes.
+  - Added repository helpers for pages, document outline, and detected questions under `users/{userId}/uploadedFiles/{fileId}`.
+  - Added schema and Firestore emulator tests covering artifact parsing, persistence, empty-state safety, and backward compatibility.
+  - Wrote `agent-memory/PDF_READING_BATCH_2_ARTIFACT_MODEL_REPORT.md` and refreshed Graphify.
+- Files touched:
+  - `src/types/index.ts`
+  - `src/server/workspaces/workspaceTypes.ts`
+  - `src/server/workspaces/documentArtifactSchemas.ts`
+  - `src/server/workspaces/documentArtifactRepository.ts`
+  - `tests/server/workspaces/documentArtifactSchemas.test.ts`
+  - `tests/server/workspaces/documentArtifactRepository.test.ts`
+  - `agent-memory/PDF_READING_BATCH_2_ARTIFACT_MODEL_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — passed
+- Git status:
+  - Branch: `repair/pdf-document-artifacts-model`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: review the additive artifact model, then implement provider-boundary work in a separate batch without changing current tutor behavior.
+  - Blockers/Risks: future runtime integration still needs deliberate coordination between uploaded-file-owned artifacts and workspace/file chunk retrieval paths.

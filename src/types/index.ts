@@ -30,6 +30,8 @@ export type DeepPdfStatus =
   | "completed"
   | "failed"
   | "skipped";
+export type DocumentTextQuality = "good" | "partial" | "poor" | "empty";
+export type DocumentOutlineConfidence = "high" | "medium" | "low";
 
 // Extended to include spec lifecycle values alongside legacy "candidate"
 export type MemoryObservationState =
@@ -159,6 +161,87 @@ export interface UploadedFile {
   deepPdfUpdatedAt?: Date | null;
   embeddingStatus?: "not_started" | "completed" | "failed";
   embeddingUpdatedAt?: Date | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface DocumentSourceReference {
+  fileId: string;
+  fileName?: string;
+  pageNumber?: number;
+  pageStart?: number;
+  pageEnd?: number;
+  sectionId?: string;
+  questionId?: string;
+  sourceChunkIds: string[];
+  textQuality?: DocumentTextQuality;
+  understandingConfidence?: number;
+}
+
+export interface DocumentPageArtifact {
+  pageId: string;
+  fileId: string;
+  pageNumber: number;
+  extractedText: string;
+  cleanedText?: string;
+  textQuality: DocumentTextQuality;
+  charCount: number;
+  sourceChunkIds: string[];
+  optionalPageImageRef?: string;
+  sourceReferences?: DocumentSourceReference[];
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface DocumentOutlineSection {
+  sectionId: string;
+  label: string;
+  title?: string;
+  pageStart?: number;
+  pageEnd?: number;
+  charStart: number;
+  charEnd: number;
+  sourceChunkIds: string[];
+  subsections: DocumentOutlineSection[];
+  confidence: number;
+  sourceReferences?: DocumentSourceReference[];
+}
+
+export interface DocumentOutlineArtifact {
+  outlineId: string;
+  fileId: string;
+  title?: string;
+  sections: DocumentOutlineSection[];
+  confidence: DocumentOutlineConfidence;
+  sourceReferences?: DocumentSourceReference[];
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface DetectedQuestionSubsection {
+  label: string;
+  charStart: number;
+  charEnd: number;
+  sourceChunkIds: string[];
+  sourceReferences?: DocumentSourceReference[];
+}
+
+export interface DetectedQuestionArtifact {
+  questionId: string;
+  fileId: string;
+  label: string;
+  questionNumber?: number;
+  topic?: string;
+  summary?: string;
+  pageStart?: number;
+  pageEnd?: number;
+  charStart: number;
+  charEnd: number;
+  sourceChunkIds: string[];
+  subsections: DetectedQuestionSubsection[];
+  confidence: number;
+  extractionNotes?: string;
+  sourceReferences?: DocumentSourceReference[];
   createdAt?: Date;
   updatedAt?: Date;
 }
