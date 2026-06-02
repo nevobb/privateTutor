@@ -106,6 +106,7 @@ export interface Workspace {
 export interface UploadedFile {
   id: string;
   name: string;
+  originalFileName?: string;
   url: string;
   uploadedAt: Date;
   workspaceId?: string;
@@ -138,6 +139,8 @@ export interface UploadedFile {
   chunkCount?: number;
   chunkingErrorCode?: string | null;
   chunkingUpdatedAt?: Date | null;
+  embeddingStatus?: "not_started" | "completed" | "failed";
+  embeddingUpdatedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
 }

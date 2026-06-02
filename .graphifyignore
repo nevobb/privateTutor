@@ -1,0 +1,33 @@
+# dependencies / build output
+node_modules/
+.next/
+dist/
+build/
+coverage/
+.firebase/
+.vercel/
+
+# env / secrets
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.cert
+*serviceAccount*.json
+firebase-adminsdk*.json
+credentials*.json
+
+# local/editor noise
+.DS_Store
+.idea/
+.vscode/
+.cache/
+
+# Graphify output
+graphify-out/
+
+# private/local study files
+private-files/
+study-files/
+uploads/

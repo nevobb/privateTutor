@@ -1,6 +1,7 @@
 import { resolveAuthenticatedUser } from "../../../../../../../server/auth/resolveAuthenticatedUser";
 import { isFirestoreEmulatorUnavailableError } from "../../../../../../../server/firebase/firestoreEmulatorClient";
 import { fileChunkEmbeddingService } from "../../../../../../../server/workspaces/fileChunkEmbeddingService";
+import { updateUploadedFile } from "../../../../../../../server/workspaces/uploadedFileRepository";
 import type { AuthResult } from "../../../../../../../server/auth/authTypes";
 
 type AuthResolver = (request: Request) => Promise<AuthResult>;
@@ -48,6 +49,14 @@ export function createWorkspaceFileEmbeddingsPostHandler(authResolver: AuthResol
 
         return Response.json({ error: "Failed to run embedding lifecycle." }, { status: 500 });
       }
+
+      const embeddingStatus = result.embeddedChunkCount > 0 ? "completed" : "failed";
+      await updateUploadedFile(authResult.user.userId, fileId, {
+        embeddingStatus,
+        embeddingUpdatedAt: new Date(),
+      }).catch(() => {
+        // Non-fatal: embedding data is persisted on chunks; file status update is best-effort.
+      });
 
       return Response.json({
         embeddedChunkCount: result.embeddedChunkCount,

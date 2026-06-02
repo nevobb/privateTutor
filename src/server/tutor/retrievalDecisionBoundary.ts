@@ -93,5 +93,5 @@ function isBroadQuestion(message: string): boolean {
 }
 
 function isActiveContextQuestion(message: string): boolean {
-  return /(בקובץ|בחומר|מהסיכום|from the file|from this session|in our session|from my notes|my notes)/.test(message);
+  return /(בקובץ|מהקובץ|בחומר|מהחומר|מהסיכום|from the file|from this session|in our session|from my notes|my notes)/.test(message);
 }

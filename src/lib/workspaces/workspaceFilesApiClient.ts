@@ -36,6 +36,7 @@ export async function createWorkspaceFileMetadata(input: {
   workspaceId: string;
   idToken: string;
   fileName: string;
+  originalFileName?: string;
   sourceType: WorkspaceFileSourceType;
   storagePath: string;
   topicHint?: string;
@@ -48,6 +49,7 @@ export async function createWorkspaceFileMetadata(input: {
     },
     body: JSON.stringify({
       fileName: input.fileName,
+      originalFileName: input.originalFileName,
       sourceType: input.sourceType,
       storagePath: input.storagePath,
       topicHint: input.topicHint,

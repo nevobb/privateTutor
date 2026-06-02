@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import MainLayout from "../components/layout/MainLayout";
 import CollapsiblePanel from "../components/layout/CollapsiblePanel";
 import ThemePicker from "../components/settings/ThemePicker";
@@ -110,6 +110,7 @@ export default function Home() {
     Record<string, string | undefined>
   >({});
   const [pendingFilesByFileId, setPendingFilesByFileId] = useState<Record<string, File | undefined>>({});
+  const processingInFlightRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     try {
@@ -238,7 +239,8 @@ export default function Home() {
       setUploadedFiles(
         files.map((item) => ({
           id: item.id,
-          name: item.fileName,
+          name: item.originalFileName ?? item.fileName,
+          originalFileName: item.originalFileName,
           url: "",
           uploadedAt: new Date(item.uploadedAt),
           workspaceId: item.workspaceId,
@@ -264,6 +266,8 @@ export default function Home() {
           chunkCount: item.chunkCount,
           chunkingErrorCode: item.chunkingErrorCode,
           chunkingUpdatedAt: item.chunkingUpdatedAt ? new Date(item.chunkingUpdatedAt) : null,
+          embeddingStatus: item.embeddingStatus,
+          embeddingUpdatedAt: item.embeddingUpdatedAt ? new Date(item.embeddingUpdatedAt) : null,
           createdAt: new Date(item.createdAt),
           updatedAt: new Date(item.updatedAt),
         }))
@@ -272,6 +276,78 @@ export default function Home() {
       setUploadedFiles([]);
     }
   }, [activeWorkspaceId, authState.status, getToken]);
+
+  const runFileProcessingPipeline = useCallback(
+    async (options: {
+      workspaceId: string;
+      fileId: string;
+      token: string;
+      fileBytes?: File;
+      initialFile?: UploadedFile;
+    }): Promise<void> => {
+      const { workspaceId, fileId, token, fileBytes, initialFile } = options;
+
+      if (processingInFlightRef.current.has(fileId)) {
+        return;
+      }
+      processingInFlightRef.current.add(fileId);
+
+      try {
+        const latestFiles = await fetchWorkspaceFiles(token, workspaceId);
+        const latest = latestFiles.find((item) => item.id === fileId);
+        const effectiveExtractionStatus = latest?.extractionStatus ?? initialFile?.extractionStatus ?? "not_started";
+        const effectiveChunkingStatus = latest?.chunkingStatus ?? initialFile?.chunkingStatus ?? "not_started";
+
+        if (effectiveExtractionStatus !== "completed") {
+          if (!fileBytes) {
+            setFileProcessingStatusById((prev) => ({
+              ...prev,
+              [fileId]: "Re-upload required to continue processing.",
+            }));
+            return;
+          }
+          setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: "Extracting text..." }));
+          await runWorkspaceFileExtraction({
+            workspaceId,
+            fileId,
+            idToken: token,
+            file: fileBytes,
+          });
+        }
+
+        if (effectiveChunkingStatus !== "completed") {
+          setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: "Chunking text..." }));
+          await runWorkspaceFileChunking({
+            workspaceId,
+            fileId,
+            idToken: token,
+          });
+        }
+
+        setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: "Creating embeddings..." }));
+        const embeddingResult = await runWorkspaceFileEmbeddings({
+          workspaceId,
+          fileId,
+          idToken: token,
+        });
+
+        await reloadWorkspaceFiles();
+        setFileProcessingStatusById((prev) => ({
+          ...prev,
+          [fileId]:
+            embeddingResult.failedChunkCount > 0
+              ? `Embeddings done (${embeddingResult.embeddedChunkCount} ok, ${embeddingResult.failedChunkCount} failed).`
+              : "Ready for learning",
+        }));
+      } catch (error: unknown) {
+        const message = error instanceof WorkspaceFilesApiError ? error.message : "Processing failed.";
+        setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: message }));
+      } finally {
+        processingInFlightRef.current.delete(fileId);
+      }
+    },
+    [reloadWorkspaceFiles]
+  );
 
   useEffect(() => {
     void reloadWorkspaceFiles();
@@ -312,15 +388,19 @@ export default function Home() {
           workspaceId: activeWorkspaceId,
           idToken: token,
           fileName: uploaded.fileName,
+          originalFileName: uploaded.originalFileName,
           sourceType: uploaded.sourceType,
           storagePath: uploaded.storagePath,
         });
 
         setPendingFilesByFileId((prev) => ({ ...prev, [createdFile.id]: file }));
         await reloadWorkspaceFiles();
-        setFileUploadStatus({
-          state: "done",
-          message: "File uploaded. Next step: Extract -> Chunk -> Embed.",
+        setFileUploadStatus({ state: "done", message: "Uploaded. Processing started automatically..." });
+        void runFileProcessingPipeline({
+          workspaceId: activeWorkspaceId,
+          fileId: createdFile.id,
+          token,
+          fileBytes: file,
         });
       } catch (error: unknown) {
         const message =
@@ -332,98 +412,32 @@ export default function Home() {
         setFileUploadStatus({ state: "error", message });
       }
     },
-    [activeWorkspaceId, authState, getToken, reloadWorkspaceFiles]
+    [activeWorkspaceId, authState, getToken, reloadWorkspaceFiles, runFileProcessingPipeline]
   );
 
-  const handleExtractFile = useCallback(
+  const handleContinueProcessing = useCallback(
     async (fileId: string): Promise<void> => {
       if (authState.status !== "signed-in" || !activeWorkspaceId) return;
       const token = await getToken();
       if (!token) return;
-
-      const fileForExtraction = pendingFilesByFileId[fileId];
-      if (!fileForExtraction) {
-        setFileProcessingStatusById((prev) => ({
-          ...prev,
-          [fileId]: "File bytes not available. Re-upload the file to extract content.",
-        }));
-        return;
-      }
-
-      setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: "Extracting content..." }));
-      try {
-        await runWorkspaceFileExtraction({
-          workspaceId: activeWorkspaceId,
-          fileId,
-          idToken: token,
-          file: fileForExtraction,
-        });
-        setPendingFilesByFileId((prev) => {
-          const next = { ...prev };
-          delete next[fileId];
-          return next;
-        });
-        await reloadWorkspaceFiles();
-        setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: "Extraction completed." }));
-      } catch (error: unknown) {
-        const message =
-          error instanceof WorkspaceFilesApiError ? error.message : "Extraction failed.";
-        setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: message }));
-      }
+      const fileBytes = pendingFilesByFileId[fileId];
+      const fileRecord = uploadedFiles.find((item) => item.id === fileId);
+      void runFileProcessingPipeline({
+        workspaceId: activeWorkspaceId,
+        fileId,
+        token,
+        fileBytes,
+        initialFile: fileRecord,
+      });
     },
-    [activeWorkspaceId, authState.status, getToken, pendingFilesByFileId, reloadWorkspaceFiles]
-  );
-
-  const handleChunkFile = useCallback(
-    async (fileId: string): Promise<void> => {
-      if (authState.status !== "signed-in" || !activeWorkspaceId) return;
-      const token = await getToken();
-      if (!token) return;
-
-      setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: "Creating chunks..." }));
-      try {
-        const result = await runWorkspaceFileChunking({
-          workspaceId: activeWorkspaceId,
-          fileId,
-          idToken: token,
-        });
-        await reloadWorkspaceFiles();
-        setFileProcessingStatusById((prev) => ({
-          ...prev,
-          [fileId]: `Chunking completed (${result.chunkCount} chunks).`,
-        }));
-      } catch (error: unknown) {
-        const message = error instanceof WorkspaceFilesApiError ? error.message : "Chunking failed.";
-        setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: message }));
-      }
-    },
-    [activeWorkspaceId, authState.status, getToken, reloadWorkspaceFiles]
-  );
-
-  const handleEmbedFile = useCallback(
-    async (fileId: string): Promise<void> => {
-      if (authState.status !== "signed-in" || !activeWorkspaceId) return;
-      const token = await getToken();
-      if (!token) return;
-
-      setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: "Generating embeddings..." }));
-      try {
-        const result = await runWorkspaceFileEmbeddings({
-          workspaceId: activeWorkspaceId,
-          fileId,
-          idToken: token,
-        });
-        await reloadWorkspaceFiles();
-        setFileProcessingStatusById((prev) => ({
-          ...prev,
-          [fileId]: `Embeddings done (${result.embeddedChunkCount} ok, ${result.failedChunkCount} failed).`,
-        }));
-      } catch (error: unknown) {
-        const message = error instanceof WorkspaceFilesApiError ? error.message : "Embedding failed.";
-        setFileProcessingStatusById((prev) => ({ ...prev, [fileId]: message }));
-      }
-    },
-    [activeWorkspaceId, authState.status, getToken, reloadWorkspaceFiles]
+    [
+      activeWorkspaceId,
+      authState.status,
+      getToken,
+      pendingFilesByFileId,
+      runFileProcessingPipeline,
+      uploadedFiles,
+    ]
   );
 
   const handleCreateWorkspace = useCallback(
@@ -612,9 +626,7 @@ export default function Home() {
             disabled={!activeWorkspaceId || authState.status !== "signed-in"}
             onFileSelected={handleFileSelected}
             uploadStatus={fileUploadStatus}
-            onExtractFile={handleExtractFile}
-            onChunkFile={handleChunkFile}
-            onEmbedFile={handleEmbedFile}
+            onContinueProcessing={handleContinueProcessing}
             processingStatusByFileId={fileProcessingStatusById}
           />
         </CollapsiblePanel>

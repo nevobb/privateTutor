@@ -14,9 +14,7 @@ interface FilePanelProps {
   disabled?: boolean;
   onFileSelected?: (file: File) => Promise<void>;
   uploadStatus?: FileUploadStatus;
-  onExtractFile?: (fileId: string) => Promise<void>;
-  onChunkFile?: (fileId: string) => Promise<void>;
-  onEmbedFile?: (fileId: string) => Promise<void>;
+  onContinueProcessing?: (fileId: string) => Promise<void>;
   processingStatusByFileId?: Record<string, string | undefined>;
 }
 
@@ -25,9 +23,7 @@ export default function FilePanel({
   disabled = false,
   onFileSelected,
   uploadStatus = { state: "idle" },
-  onExtractFile,
-  onChunkFile,
-  onEmbedFile,
+  onContinueProcessing,
   processingStatusByFileId = {},
 }: FilePanelProps) {
   return renderPanelBody(
@@ -35,9 +31,7 @@ export default function FilePanel({
     disabled,
     onFileSelected,
     uploadStatus,
-    onExtractFile,
-    onChunkFile,
-    onEmbedFile,
+    onContinueProcessing,
     processingStatusByFileId
   );
 }
@@ -47,9 +41,7 @@ function renderPanelBody(
   disabled: boolean,
   onFileSelected: FilePanelProps["onFileSelected"],
   uploadStatus: FileUploadStatus,
-  onExtractFile: FilePanelProps["onExtractFile"],
-  onChunkFile: FilePanelProps["onChunkFile"],
-  onEmbedFile: FilePanelProps["onEmbedFile"],
+  onContinueProcessing: FilePanelProps["onContinueProcessing"],
   processingStatusByFileId: Record<string, string | undefined>
 ) {
   return (
@@ -93,28 +85,25 @@ function renderPanelBody(
         files.map((file) => {
           const extractionStatus = file.extractionStatus ?? "not_started";
           const chunkingStatus = file.chunkingStatus ?? "not_started";
+          const embeddingStatus = file.embeddingStatus ?? "not_started";
+          const processingStatus = processingStatusByFileId[file.id];
+          const isReadyForLearning =
+            extractionStatus === "completed" &&
+            chunkingStatus === "completed" &&
+            embeddingStatus === "completed";
 
-          const extractDisabled =
-            disabled ||
-            !onExtractFile ||
-            extractionStatus === "pending" ||
-            extractionStatus === "completed";
-
-          const chunkDisabled =
-            disabled ||
-            !onChunkFile ||
-            extractionStatus !== "completed" ||
-            chunkingStatus === "pending";
-
-          const embedDisabled =
-            disabled ||
-            !onEmbedFile ||
-            chunkingStatus !== "completed";
+          const action = getPrimaryAction({
+            extractionStatus,
+            chunkingStatus,
+            processingStatus,
+            isReadyForLearning,
+            canContinue: !disabled && Boolean(onContinueProcessing),
+          });
 
           return (
             <div
               key={file.id}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors text-xs"
+              className="px-2 py-2 rounded-lg transition-colors text-xs space-y-2"
               style={{ color: "var(--tutor-text-secondary)" }}
               onMouseEnter={(e) =>
                 ((e.currentTarget as HTMLDivElement).style.background =
@@ -124,67 +113,48 @@ function renderPanelBody(
                 ((e.currentTarget as HTMLDivElement).style.background = "transparent")
               }
             >
-              <span style={{ fontSize: "12px" }} aria-hidden="true">
-                {getFileIcon(file.sourceType)}
-              </span>
-              <span className="truncate flex-1">{file.name}</span>
-              <span style={{ color: "var(--tutor-text-muted)", flexShrink: 0 }}>
-                {file.uploadedAt.toLocaleDateString("he-IL", { day: "numeric", month: "short" })}
-              </span>
-              <span style={{ color: "var(--tutor-text-muted)", flexShrink: 0 }}>
-                {`E:${extractionStatus} C:${chunkingStatus}`}
-              </span>
-              <button
-                type="button"
-                className="px-2 py-1 rounded text-[10px]"
-                style={{
-                  background: "var(--tutor-sidebar-hover)",
-                  color: "var(--tutor-text-secondary)",
-                  opacity: extractDisabled ? 0.4 : 1,
-                }}
-                disabled={extractDisabled}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (!onExtractFile) return;
-                  void onExtractFile(file.id);
-                }}
-              >
-                Extract
-              </button>
-              <button
-                type="button"
-                className="px-2 py-1 rounded text-[10px]"
-                style={{
-                  background: "var(--tutor-sidebar-hover)",
-                  color: "var(--tutor-text-secondary)",
-                  opacity: chunkDisabled ? 0.4 : 1,
-                }}
-                disabled={chunkDisabled}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (!onChunkFile) return;
-                  void onChunkFile(file.id);
-                }}
-              >
-                Chunk
-              </button>
-              <button
-                type="button"
-                className="px-2 py-1 rounded text-[10px]"
-                style={{
-                  background: "var(--tutor-sidebar-hover)",
-                  color: "var(--tutor-text-secondary)",
-                  opacity: embedDisabled ? 0.4 : 1,
-                }}
-                disabled={embedDisabled}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (!onEmbedFile) return;
-                  void onEmbedFile(file.id);
-                }}
-              >
-                Embed
-              </button>
+              <div className="flex items-start gap-2 min-w-0" dir="rtl">
+                <span style={{ fontSize: "12px" }} aria-hidden="true">
+                  {getFileIcon(file.sourceType)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate" title={file.name}>
+                    {file.name}
+                  </div>
+                  <div className="flex flex-wrap gap-x-2 gap-y-1 text-[10px]" style={{ color: "var(--tutor-text-muted)" }}>
+                    <span>
+                      {file.uploadedAt.toLocaleDateString("he-IL", { day: "numeric", month: "short" })}
+                    </span>
+                    <span>{`E:${extractionStatus}`}</span>
+                    <span>{`C:${chunkingStatus}`}</span>
+                    {isReadyForLearning ? (
+                      <span style={{ color: "var(--tutor-accent)" }}>Ready for learning</span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5" dir="rtl">
+                {action ? (
+                  <button
+                    type="button"
+                    className="px-2 py-1 rounded text-[10px]"
+                    style={{
+                      background: "var(--tutor-sidebar-hover)",
+                      color: "var(--tutor-text-secondary)",
+                      opacity: action.disabled ? 0.45 : 1,
+                    }}
+                    disabled={action.disabled}
+                    title={action.hint}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (!onContinueProcessing || action.disabled) return;
+                      void onContinueProcessing(file.id);
+                    }}
+                  >
+                    {action.label}
+                  </button>
+                ) : null}
+              </div>
             </div>
           );
         })
@@ -202,6 +172,63 @@ function renderPanelBody(
       ) : null}
     </div>
   );
+}
+
+function getPrimaryAction(input: {
+  extractionStatus: UploadedFile["extractionStatus"];
+  chunkingStatus: UploadedFile["chunkingStatus"];
+  processingStatus: string | undefined;
+  isReadyForLearning: boolean;
+  canContinue: boolean;
+}): { label: string; hint: string; disabled: boolean } | null {
+  const { extractionStatus, chunkingStatus, processingStatus, isReadyForLearning, canContinue } = input;
+
+  if (isReadyForLearning) {
+    return null;
+  }
+
+  const lowerStatus = (processingStatus ?? "").toLowerCase();
+  if (
+    lowerStatus.includes("extracting") ||
+    lowerStatus.includes("chunking") ||
+    lowerStatus.includes("embedding") ||
+    extractionStatus === "pending" ||
+    chunkingStatus === "pending"
+  ) {
+    return {
+      label: "Processing...",
+      hint: "File processing is currently running",
+      disabled: true,
+    };
+  }
+
+  const failed =
+    extractionStatus === "failed" ||
+    chunkingStatus === "failed" ||
+    lowerStatus.includes("failed") ||
+    lowerStatus.includes("error");
+
+  if (failed) {
+    return {
+      label: "Retry processing",
+      hint: "Retry from the first incomplete processing step",
+      disabled: !canContinue,
+    };
+  }
+
+  if (extractionStatus === "completed" && chunkingStatus === "completed") {
+    return {
+      label: "Continue processing",
+      hint: "Create embeddings to complete file readiness",
+      disabled: !canContinue,
+    };
+  }
+
+  return {
+    label: "Continue processing",
+    hint: "Run the next incomplete step automatically",
+    disabled: !canContinue,
+  };
 }
 
 function statusText(status: FileUploadStatus): string {

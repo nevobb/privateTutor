@@ -27,6 +27,7 @@ type ServiceModule = {
     listSessionMessages: (userId: string, workspaceId: string, sessionId: string) => Promise<Record<string, unknown>[]>;
     appendMessage: (userId: string, workspaceId: string, sessionId: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>;
     listUploadedFiles: (userId: string, workspaceId: string) => Promise<Array<Record<string, unknown>>>;
+    listFileChunks: (userId: string, workspaceId: string, fileId: string) => Promise<Array<Record<string, unknown>>>;
     writeDecisionLogEntry: (
       userId: string,
       input: {
@@ -155,6 +156,7 @@ function makeRepos(
         confidence: 0.9,
       },
     ]),
+    listFileChunks: vi.fn(async () => []),
     writeDecisionLogEntry: vi.fn(async () => ({ id: "d1" })),
     processMemoryCandidate: vi.fn(async () => {}),
     webSearchProvider: {
@@ -965,6 +967,290 @@ describeService("sessionMessageApiService", () => {
 
       expect(repos.retrieveFileChunks).not.toHaveBeenCalled();
       expect(repos.webSearchProvider.search).toHaveBeenCalledWith("latest news today");
+    });
+  });
+
+  describe("file-access awareness shortcut", () => {
+    const readyFile = {
+      id: "file-ready",
+      name: "פיזיקה_2_מטלה_5.pdf",
+      originalFileName: "פיזיקה 2 מטלה 5.pdf",
+      extractionStatus: "completed",
+      chunkingStatus: "completed",
+      indexingStatus: "indexed",
+    };
+
+    const processingFile = {
+      id: "file-proc",
+      name: "notes.pdf",
+      extractionStatus: "pending",
+      chunkingStatus: "not_started",
+      indexingStatus: "uploaded",
+    };
+
+    function makeContentReflectingRepos(overrides: Partial<Parameters<ServiceModule["createSessionMessageApiService"]>[0]> = {}) {
+      return makeRepos({
+        appendMessage: vi.fn(
+          async (_uid: string, _wsId: string, _sessId: string, input: Record<string, unknown>) =>
+            input.role === "user" ? baseMessage : { ...tutorMessage, content: input.content as string }
+        ),
+        ...overrides,
+      });
+    }
+
+    it("returns deterministic yes-answer when ready file exists and model is NOT called", async () => {
+      const repos = makeContentReflectingRepos({
+        listUploadedFiles: vi.fn(async () => [readyFile]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "האם אתה יכול לראות שאלות מהקובץ פיזיקה 2 מטלה 5",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toMatch(/כן/);
+      expect(assistant.content).toMatch(/טקסט שחולץ/);
+    });
+
+    it("includes the original file name in the file-access response", async () => {
+      const repos = makeContentReflectingRepos({
+        listUploadedFiles: vi.fn(async () => [readyFile]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "האם אתה יכול לראות את הקובץ?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toContain("פיזיקה 2 מטלה 5.pdf");
+    });
+
+    it("returns processing message when file is still being processed", async () => {
+      const repos = makeContentReflectingRepos({
+        listUploadedFiles: vi.fn(async () => [processingFile]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "האם אתה יכול לראות את הקובץ?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toMatch(/עיבוד/);
+    });
+
+    it("returns no-file message when no files are uploaded", async () => {
+      const repos = makeContentReflectingRepos({
+        listUploadedFiles: vi.fn(async () => []),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "האם אתה יכול לראות את הקובץ?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toMatch(/לא נמצאו קבצים/);
+    });
+
+    it("includes visual limitation note in the yes-answer", async () => {
+      const repos = makeContentReflectingRepos({
+        listUploadedFiles: vi.fn(async () => [readyFile]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "האם אתה יכול לראות שאלות מהקובץ?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toMatch(/חזותית/);
+    });
+
+    it("does not trigger file-access shortcut for regular content questions", async () => {
+      const repos = makeRepos({
+        listUploadedFiles: vi.fn(async () => [readyFile]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "תסביר לי מה זה פוטנציאל חשמלי",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).toHaveBeenCalled();
+    });
+  });
+
+  describe("file-content inventory shortcut", () => {
+    const readyFileWithChunks = {
+      id: "file-inv",
+      name: "physics_hw5.pdf",
+      originalFileName: "פיזיקה 2 מטלה 5.pdf",
+      extractionStatus: "completed",
+      chunkingStatus: "completed",
+      indexingStatus: "indexed",
+    };
+
+    const questionChunks = [
+      { chunkId: "c0", userId: "alice", workspaceId: "ws-1", fileId: "file-inv", text: "שאלה 1\nחשב את הפוטנציאל...", chunkIndex: 0, charStart: 0, charEnd: 50, tokenEstimate: 20, source: "extracted_text", createdAt: new Date() },
+      { chunkId: "c1", userId: "alice", workspaceId: "ws-1", fileId: "file-inv", text: "שאלה 2\nמצא את עוצמת השדה...", chunkIndex: 1, charStart: 50, charEnd: 100, tokenEstimate: 20, source: "extracted_text", createdAt: new Date() },
+    ];
+
+    function makeInventoryRepos(overrides: Partial<Parameters<ServiceModule["createSessionMessageApiService"]>[0]> = {}) {
+      return makeRepos({
+        appendMessage: vi.fn(
+          async (_uid: string, _wsId: string, _sessId: string, input: Record<string, unknown>) =>
+            input.role === "user" ? baseMessage : { ...tutorMessage, content: input.content as string }
+        ),
+        listUploadedFiles: vi.fn(async () => [readyFileWithChunks]),
+        listFileChunks: vi.fn(async () => questionChunks),
+        ...overrides,
+      });
+    }
+
+    it("routes 'איזה שאלות יש בקובץ?' to inventory shortcut — model NOT called, chunks NOT scanned", async () => {
+      const repos = makeInventoryRepos();
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "איזה שאלות יש בקובץ?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect(repos.listFileChunks).not.toHaveBeenCalled();
+    });
+
+    it("routes original failing question 'איזה שאלות אתה יכול לראות בקובץ?' to inventory — model NOT called", async () => {
+      const repos = makeInventoryRepos();
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "איזה שאלות אתה יכול לראות בקובץ?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+    });
+
+    it("inventory response contains extracted-text disclaimer", async () => {
+      const repos = makeInventoryRepos();
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "תן לי רשימת שאלות מהקובץ",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toMatch(/טקסט שחולץ/);
+    });
+
+    it("inventory fallback: no raw chunk output, no refusal, offers search alternatives", async () => {
+      const repos = makeInventoryRepos();
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "איזה שאלות יש בקובץ?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).not.toMatch(/אני לא יכול/i);
+      // must not dump raw chunk artifacts or section numbers from chunk scan
+      expect(assistant.content).not.toMatch(/-- \d+ of \d+/);
+      // must explain the limitation honestly
+      expect(assistant.content).toMatch(/טקסט שחולץ/);
+      // must offer a concrete alternative path (search by number or keyword)
+      expect(assistant.content).toMatch(/שאלה 3|מילת מפתח|נושא/);
+    });
+
+    it("when no ready files, inventory returns no-file message without calling model", async () => {
+      const repos = makeInventoryRepos({ listUploadedFiles: vi.fn(async () => []) });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "איזה שאלות יש בקובץ?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toMatch(/אין קבצים|מעובדים/i);
+    });
+
+    it("does not route specific question 'תסביר שאלה 3' to inventory", async () => {
+      const repos = makeInventoryRepos();
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "תסביר לי שאלה 3",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).toHaveBeenCalled();
+      expect(repos.listFileChunks).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("visual reference shortcut", () => {
+    function makeVisualRepos() {
+      return makeRepos({
+        appendMessage: vi.fn(
+          async (_uid: string, _wsId: string, _sessId: string, input: Record<string, unknown>) =>
+            input.role === "user" ? baseMessage : { ...tutorMessage, content: input.content as string }
+        ),
+      });
+    }
+
+    it("routes 'מה רואים בגרף?' to visual shortcut — model NOT called", async () => {
+      const repos = makeVisualRepos();
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "מה רואים בגרף?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+    });
+
+    it("visual shortcut response mentions visual PDF understanding is not active", async () => {
+      const repos = makeVisualRepos();
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "תסביר את המעגל בתמונה",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toMatch(/חזותי/i);
     });
   });
 

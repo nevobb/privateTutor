@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   TUTOR_TEACHING_CONTRACT,
   PUBLIC_TEACHING_CONTRACT_SUMMARY,
+  isFileAccessQuestion,
   isInstructionAwarenessQuestion,
 } from "../../../src/server/tutor/teachingContract";
 
@@ -155,6 +156,59 @@ describe("isInstructionAwarenessQuestion", () => {
 
   it("does not match hint requests", () => {
     expect(isInstructionAwarenessQuestion("תן לי רק רמז")).toBe(false);
+  });
+});
+
+// ── File access awareness detection ──────────────────────────────────────────
+
+describe("isFileAccessQuestion", () => {
+  it("detects Hebrew 'can you see the file?' question", () => {
+    expect(isFileAccessQuestion("האם אתה יכול לראות את הקובץ שהעלתי?")).toBe(true);
+  });
+
+  it("detects the original failing question", () => {
+    expect(isFileAccessQuestion("האם אתה יכול לראות שאלות מהקובץ פיזיקה 2 מטלה 5")).toBe(true);
+  });
+
+  it("detects Hebrew 'can you access the file?' question", () => {
+    expect(isFileAccessQuestion("האם יש לך גישה לקובץ?")).toBe(true);
+  });
+
+  it("detects English 'can you see the PDF?'", () => {
+    expect(isFileAccessQuestion("Can you see the PDF I uploaded?")).toBe(true);
+  });
+
+  it("detects 'can you access the file?'", () => {
+    expect(isFileAccessQuestion("can you access the file?")).toBe(true);
+  });
+
+  it("does not match a content question about the file", () => {
+    expect(isFileAccessQuestion("תסביר את שאלה 3 מהמטלה")).toBe(false);
+  });
+
+  it("does not match a greeting", () => {
+    expect(isFileAccessQuestion("שלום, מה שלומך?")).toBe(false);
+  });
+
+  it("does not match a math question", () => {
+    expect(isFileAccessQuestion("מה הנגזרת של sin(x)?")).toBe(false);
+  });
+});
+
+// ── Contract — file access section ────────────────────────────────────────────
+
+describe("TUTOR_TEACHING_CONTRACT — file access awareness", () => {
+  it("forbids claiming no file access", () => {
+    expect(TUTOR_TEACHING_CONTRACT).toMatch(/Never say.*אין לי גישה/i);
+  });
+
+  it("states visual limitation correctly", () => {
+    expect(TUTOR_TEACHING_CONTRACT).toMatch(/Visual content/i);
+    expect(TUTOR_TEACHING_CONTRACT).toMatch(/not yet analysed visually/i);
+  });
+
+  it("includes file access awareness section header", () => {
+    expect(TUTOR_TEACHING_CONTRACT).toMatch(/File Access Awareness/i);
   });
 });
 

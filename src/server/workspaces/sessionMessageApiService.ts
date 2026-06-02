@@ -1,4 +1,7 @@
 import { isInstructionAwarenessQuestion, PUBLIC_TEACHING_CONTRACT_SUMMARY } from "../tutor/teachingContract";
+import { classifyTutorRequest } from "../tutor/requestClassifier";
+import { INVENTORY_NOT_AVAILABLE_RESPONSE } from "../tutor/fileInventoryService";
+import { listFileChunks as defaultListFileChunks } from "./fileChunkRepository";
 import { getMockTutorResponse as defaultGetMockTutorResponse } from "../../lib/tutor";
 import { getActiveTutorProvider } from "../tutor/providerRegistry";
 import type { ConversationTurn, TutorGroundingContext } from "../tutor/schemas";
@@ -50,6 +53,7 @@ interface Repositories {
   listSessionMessages: typeof defaultListSessionMessages;
   appendMessage: typeof defaultAppendMessage;
   listUploadedFiles: typeof defaultListUploadedFiles;
+  listFileChunks: typeof defaultListFileChunks;
   writeDecisionLogEntry: typeof defaultWriteDecisionLogEntry;
   processMemoryCandidate: typeof defaultLearnerMemoryApiService.processMemoryCandidate;
   webSearchProvider: typeof defaultWebSearchProvider;
@@ -89,6 +93,7 @@ function defaultRepositories(): Repositories {
     listSessionMessages: defaultListSessionMessages,
     appendMessage: defaultAppendMessage,
     listUploadedFiles: defaultListUploadedFiles,
+    listFileChunks: defaultListFileChunks,
     writeDecisionLogEntry: defaultWriteDecisionLogEntry,
     processMemoryCandidate: defaultLearnerMemoryApiService.processMemoryCandidate,
     webSearchProvider: defaultWebSearchProvider,
@@ -156,6 +161,82 @@ export function createSessionMessageApiService(
             decision_log_entries: [],
           },
         };
+      }
+
+      // Classify request intent before calling the model.
+      // This prevents the model from mishandling file-related meta-questions using training-data defaults.
+      const requestClassification = classifyTutorRequest(input.userMessage);
+
+      // Deterministic file-access status: "can you see/access the file?"
+      // Answered from real Firestore state — model NOT called.
+      if (requestClassification.intent === "file_access_status") {
+        const files = await repositories.listUploadedFiles(userId, input.workspaceId);
+        const readyFiles = files.filter(
+          (f) => f.extractionStatus === "completed" && f.chunkingStatus === "completed"
+        );
+        const processingFiles = files.filter(
+          (f) =>
+            f.extractionStatus === "pending" ||
+            f.chunkingStatus === "pending" ||
+            f.extractionStatus === "not_started" ||
+            f.chunkingStatus === "not_started"
+        );
+
+        let content: string;
+        if (readyFiles.length > 0) {
+          const fileList = readyFiles
+            .map((f) => `• ${f.originalFileName ?? f.name}`)
+            .join("\n");
+          content = `כן, אני יכול להשתמש בטקסט שחולץ מהקבצים הבאים:\n${fileList}\n\nשאל אותי שאלה על התוכן ואני אענה מהחומר שחולץ.\n\nהערה: כרגע אני לא מנתח חזותית גרפים, מעגלים, או תרשימים. ניתוח חזותי יתווסף בשלב נפרד.`;
+        } else if (processingFiles.length > 0) {
+          content = `הקובץ עדיין בעיבוד — חילוץ טקסט, יצירת צ׳אנקים, או embeddings. המתן כמה שניות ונסה שוב.`;
+        } else if (files.length > 0) {
+          content = `הקבצים שהועלו טרם הסתיים עיבודם. ייתכן שקרתה שגיאה בעיבוד — בדוק את סטטוס הקבצים ונסה להעלות מחדש אם נדרש.`;
+        } else {
+          content = `לא נמצאו קבצים שהועלו למרחב הלימוד הנוכחי. העלה קובץ PDF או DOCX כדי שאוכל לעבוד עם התוכן.`;
+        }
+
+        const assistantRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
+          role: "tutor",
+          content,
+        });
+        return makeDeterministicReturn(userRecord, assistantRecord, "file_access_awareness_shortcut");
+      }
+
+      // Deterministic file-content inventory: "which questions/exercises are in the file?"
+      // Model NOT called. Returns an honest "not available yet" message.
+      //
+      // TODO (Phase C — Document Understanding Layer):
+      // When targetFile.understandingStatus === "completed", read from the detectedQuestions
+      // subcollection and return a real structured question list instead of this placeholder.
+      // See docs/DOCUMENT_UNDERSTANDING_LAYER.md for the full design.
+      if (requestClassification.intent === "file_content_inventory") {
+        const files = await repositories.listUploadedFiles(userId, input.workspaceId);
+        const hasReadyFile = files.some(
+          (f) => f.extractionStatus === "completed" && f.chunkingStatus === "completed"
+        );
+
+        const content = hasReadyFile
+          ? INVENTORY_NOT_AVAILABLE_RESPONSE
+          : "אין קבצים מעובדים זמינים כרגע. לאחר שהקובץ יגיע למצב Ready, אוכל לסייע.";
+
+        const assistantRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
+          role: "tutor",
+          content,
+        });
+        return makeDeterministicReturn(userRecord, assistantRecord, "file_content_inventory_shortcut");
+      }
+
+      // Deterministic visual reference: "what is in the graph/diagram/circuit?"
+      // Visual PDF understanding is not yet implemented. Offer text-based fallback.
+      if (requestClassification.intent === "visual_reference_request") {
+        const content =
+          "כרגע אני לא מנתח חזותית גרפים, מעגלים, תרשימים, או תמונות מתוך PDF. ניתוח חזותי יתווסף בשלב נפרד.\n\nאם הטקסט שחולץ מהקובץ מכיל תיאור טקסטואלי של האיור, אוכל לעזור על סמך הטקסט. שאל שאלה ספציפית על הנושא ואנסה.";
+        const assistantRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
+          role: "tutor",
+          content,
+        });
+        return makeDeterministicReturn(userRecord, assistantRecord, "visual_reference_shortcut");
       }
 
       const tutorResponse = await repositories.getMockTutorResponse(
@@ -712,6 +793,28 @@ function buildGroundingContextFromChunks(chunks: RetrievedFileChunk[]): TutorGro
     })),
     totalTokenEstimate: chunks.reduce((sum, c) => sum + c.tokenEstimate, 0),
     instruction: "Use the following retrieved learning-material excerpts to inform your answer. Treat them as internal course material.",
+  };
+}
+
+function makeDeterministicReturn(
+  userRecord: MessageRecord,
+  assistantRecord: MessageRecord,
+  why: string
+): PostMessageApiResponse {
+  return {
+    userMessage: serializeMessage(userRecord),
+    assistantMessage: serializeMessage(assistantRecord),
+    internalUpdate: {
+      detected_intent: "user_preference",
+      confidence: 1.0,
+      should_stop_progression: false,
+      local_question: { detected: false, reason: "" },
+      retrieval: { used: false, scope: "none", source_ids: [], why },
+      retrieval_decision: { needs_retrieval: false, retrieval_scope: "none", max_chunks: 0, max_tokens: 0, should_ask_clarification_first: false },
+      learner_memory_update: { needed: false, update_type: "none", memory_type: "none", content: "", confidence: 0 },
+      knowledge_base_action: { needed: false, action: "none", confidence: 0, requires_user_confirmation: false },
+      decision_log_entries: [],
+    },
   };
 }
 

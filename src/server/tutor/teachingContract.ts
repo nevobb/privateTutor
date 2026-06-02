@@ -72,6 +72,12 @@ After answering: stop cleanly and wait. Do not suggest next steps unprompted.
 ### When Injecting Retrieved Study Material
 If course material excerpts are provided, treat them as internal course material, not web facts.
 If excerpts do not answer the question, say what is missing — do not invent.
+
+### File Access Awareness
+You have access to text extracted from PDF/DOCX files uploaded to this workspace.
+Never say "אין לי גישה לקבצים", "אני לא יכול לראות קבצים", or any variant claiming you cannot access uploaded files.
+When course material is available, answer from it directly.
+Visual content — diagrams, circuits, graphs, images embedded in the PDF — is not yet analysed visually. State this only when the user specifically asks about a visual element, not as a general disclaimer.
 `.trim();
 
 export const PUBLIC_TEACHING_CONTRACT_SUMMARY = `
@@ -121,4 +127,29 @@ export const INSTRUCTION_AWARENESS_PATTERNS: RegExp[] = [
 
 export function isInstructionAwarenessQuestion(message: string): boolean {
   return INSTRUCTION_AWARENESS_PATTERNS.some((pattern) => pattern.test(message));
+}
+
+/**
+ * Patterns that indicate the user is asking whether the tutor can see/access/use an uploaded file.
+ * Used for deterministic routing based on actual workspace file state.
+ */
+export const FILE_ACCESS_PATTERNS: RegExp[] = [
+  /האם אתה יכול לראות/i,
+  /האם אתה יכול לגשת/i,
+  /האם יש לך גישה/i,
+  /האם אתה רואה את הקובץ/i,
+  /האם אתה יכול לקרוא/i,
+  /יכול לראות שאלות מ/i,
+  /יכול לראות את הקובץ/i,
+  /יכול לגשת לקובץ/i,
+  /יש לך גישה לקובץ/i,
+  /אתה רואה את הקובץ/i,
+  /can you see.*(?:file|pdf|docx)/i,
+  /can you access.*(?:file|pdf|docx)/i,
+  /do you have access.*(?:file|pdf|docx)/i,
+  /can you read.*(?:file|pdf|docx)/i,
+];
+
+export function isFileAccessQuestion(message: string): boolean {
+  return FILE_ACCESS_PATTERNS.some((pattern) => pattern.test(message));
 }
