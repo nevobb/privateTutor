@@ -23,8 +23,7 @@ export interface FileInventoryResult {
 
 const MAX_SECTIONS = 30;
 const PREVIEW_MAX_CHARS = 120;
-const LOW_QUALITY_PREVIEW_PLACEHOLDER =
-  "תצוגת הנוסחה/הסימון הושמטה כי חילוץ הטקסט בחלק הזה באיכות נמוכה.";
+const HEBREW_SECTION_LETTERS = "אבגדהוזחטיכלמנסעפצקרשת";
 
 const SECTION_PATTERNS: RegExp[] = [
   /^שאלה\s+\d+/m,
@@ -58,6 +57,112 @@ export function isLowQualityMathExtractionPreview(preview: string): boolean {
   }
 
   return tokens.length >= 6 && hasMathOperator && singleCharRatio >= 0.45 && digitRatio >= 0.2;
+}
+
+function normalizeDisplayText(text: string): string {
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/\s*-\s*/g, "-")
+    .trim();
+}
+
+function truncateDisplayText(text: string, maxChars = 100): string {
+  const normalized = normalizeDisplayText(text);
+  if (normalized.length <= maxChars) {
+    return normalized;
+  }
+  return `${normalized.slice(0, maxChars - 1).trimEnd()}…`;
+}
+
+function buildLetterSectionLabel(letter: string): string {
+  return `מקטע ${letter}׳`;
+}
+
+function parseSectionHeading(heading: string): { label: string; detail?: string } {
+  const normalized = normalizeDisplayText(heading);
+
+  let match = /^שאלה\s+(\d+)(?:\s*[-–—:]?\s*(.*))?$/i.exec(normalized);
+  if (match) {
+    return { label: `שאלה ${match[1]}`, detail: match[2] ? truncateDisplayText(match[2]) : undefined };
+  }
+
+  match = /^תרגיל\s+(\d+)(?:\s*[-–—:]?\s*(.*))?$/i.exec(normalized);
+  if (match) {
+    return { label: `תרגיל ${match[1]}`, detail: match[2] ? truncateDisplayText(match[2]) : undefined };
+  }
+
+  match = /^סעיף\s+(\d+)(?:\s*[-–—:]?\s*(.*))?$/i.exec(normalized);
+  if (match) {
+    return { label: `סעיף ${match[1]}`, detail: match[2] ? truncateDisplayText(match[2]) : undefined };
+  }
+
+  match = /^מטלה\s+(\d+)(?:\s*[-–—:]?\s*(.*))?$/i.exec(normalized);
+  if (match) {
+    return { label: `מטלה ${match[1]}`, detail: match[2] ? truncateDisplayText(match[2]) : undefined };
+  }
+
+  match = /^Question\s+(\d+)(?:\s*[-–—:]?\s*(.*))?$/i.exec(normalized);
+  if (match) {
+    return { label: `Question ${match[1]}`, detail: match[2] ? truncateDisplayText(match[2]) : undefined };
+  }
+
+  match = /^Exercise\s+(\d+)(?:\s*[-–—:]?\s*(.*))?$/i.exec(normalized);
+  if (match) {
+    return { label: `Exercise ${match[1]}`, detail: match[2] ? truncateDisplayText(match[2]) : undefined };
+  }
+
+  match = /^Problem\s+(\d+)(?:\s*[-–—:]?\s*(.*))?$/i.exec(normalized);
+  if (match) {
+    return { label: `Problem ${match[1]}`, detail: match[2] ? truncateDisplayText(match[2]) : undefined };
+  }
+
+  match = new RegExp(`^\\(\\s*([${HEBREW_SECTION_LETTERS}])\\s*\\)\\s*(.*)$`).exec(normalized);
+  if (match) {
+    return {
+      label: buildLetterSectionLabel(match[1]),
+      detail: match[2] ? truncateDisplayText(match[2]) : undefined,
+    };
+  }
+
+  match = new RegExp(`^([${HEBREW_SECTION_LETTERS}])\\.\\s*(.*)$`).exec(normalized);
+  if (match) {
+    return {
+      label: buildLetterSectionLabel(match[1]),
+      detail: match[2] ? truncateDisplayText(match[2]) : undefined,
+    };
+  }
+
+  match = /^(\d+)\.\s*(.*)$/.exec(normalized);
+  if (match) {
+    return {
+      label: `שאלה/מקטע ${match[1]}`,
+      detail: match[2] ? truncateDisplayText(match[2]) : undefined,
+    };
+  }
+
+  return { label: truncateDisplayText(normalized, 60) };
+}
+
+function buildSectionLine(section: FileInventorySection): string {
+  const parsedHeading = parseSectionHeading(section.heading);
+  const cleanPreview = truncateDisplayText(section.preview);
+  const previewIsLowQuality = isLowQualityMathExtractionPreview(section.preview);
+
+  let detail: string | undefined;
+  if (previewIsLowQuality) {
+    if (parsedHeading.detail) {
+      detail = `${parsedHeading.detail} (זוהה חלקית)`;
+    } else {
+      detail = "זוהה חלקית; התוכן המתמטי במקטע הזה לא נקלט בצורה אמינה.";
+    }
+  } else if (cleanPreview.length > 0) {
+    detail = cleanPreview;
+  } else if (parsedHeading.detail) {
+    detail = parsedHeading.detail;
+  }
+
+  return detail ? `${parsedHeading.label} — ${detail}` : parsedHeading.label;
 }
 
 export function buildFileInventory(
@@ -103,10 +208,11 @@ export function formatFileInventoryResponse(result: FileInventoryResult): string
     isLowQualityMathExtractionPreview(section.preview)
   );
   const extractionQualityWarning =
-    "הקובץ זוהה והטקסט חולץ, אבל חלק מהנוסחאות/הסימונים המתמטיים חולצו באיכות נמוכה ולכן אני לא מציג אותם כפי שהם. אפשר לבחור שאלה או מקטע, או לשאול שאלה ממוקדת על החומר, ואני אנסה לעבוד עם הטקסט הזמין.";
+    "חשוב: חלק מהנוסחאות והסימונים המתמטיים חולצו באיכות נמוכה, לכן אני לא מציג אותם כאילו הם נוסחה תקינה.";
 
   if (result.sections.length === 0) {
     return [
+      "הקובץ זוהה והטקסט חולץ.",
       disclaimer,
       "",
       "מהטקסט שחולץ לא זיהיתי מספור מסודר של שאלות/תרגילים — הקובץ עשוי להכיל חומר רציף ללא כותרות ממוספרות.",
@@ -114,21 +220,19 @@ export function formatFileInventoryResponse(result: FileInventoryResult): string
     ].join("\n");
   }
 
-  const listLines = result.sections.map((s, i) => {
-    const previewText = isLowQualityMathExtractionPreview(s.preview)
-      ? LOW_QUALITY_PREVIEW_PLACEHOLDER
-      : s.preview;
-    const preview = previewText ? `\n   ${previewText}` : "";
-    return `${i + 1}. ${s.heading}${preview}`;
-  });
+  const listLines = result.sections.map((s, i) => `${i + 1}. ${buildSectionLine(s)}`);
 
   return [
+    "הקובץ זוהה והטקסט חולץ.",
     disclaimer,
     ...(hasLowQualityMathPreview ? ["", extractionQualityWarning] : []),
-    `מהטקסט שחולץ זיהיתי את המקטעים הבאים:`,
+    "",
+    hasLowQualityMathPreview ? "מקטעים שזוהו חלקית:" : "מקטעים שזוהו:",
     "",
     ...listLines,
     "",
-    "אם תרצה, נתחיל משאלה מסוימת.",
+    hasLowQualityMathPreview
+      ? "כדי לעבוד בצורה טובה יותר, בחר שאלה/מקטע מסוים או ציין עמוד/ציטוט קצר ממנו."
+      : "אם תרצה, בחר שאלה/מקטע מסוים ונמשיך משם.",
   ].join("\n");
 }

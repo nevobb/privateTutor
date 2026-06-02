@@ -1233,7 +1233,8 @@ describeService("sessionMessageApiService", () => {
       expect(repos.listUploadedFiles).toHaveBeenCalledWith("alice", "ws-1");
       expect(repos.listFileChunks).toHaveBeenCalledWith("alice", "ws-1", "file-inv");
       const assistant = result.assistantMessage as { content?: string };
-      expect(assistant.content).toMatch(/טקסט שחולץ/);
+      expect(assistant.content).toMatch(/הקובץ זוהה והטקסט חולץ/);
+      expect(assistant.content).toMatch(/מקטעים שזוהו/);
       expect(assistant.content).toContain("שאלה 1");
       expect(assistant.content).not.toMatch(/אין לי גישה ישירה/i);
     });
@@ -1307,7 +1308,7 @@ describeService("sessionMessageApiService", () => {
       expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
     });
 
-    it("for garbled math-heavy chunks, inventory bypasses model, hides broken snippet, and warns about extraction quality", async () => {
+    it("for garbled math-heavy chunks, inventory bypasses model, hides broken snippet, and returns one structured warning", async () => {
       const garbledChunks = [
         {
           chunkId: "cg-0",
@@ -1338,7 +1339,16 @@ describeService("sessionMessageApiService", () => {
       const assistant = result.assistantMessage as { content?: string };
       expect(assistant.content).not.toMatch(/אין לי גישה ישירה/i);
       expect(assistant.content).not.toContain("0 0 1 2  a B I ");
+      expect(assistant.content).toMatch(/הקובץ זוהה והטקסט חולץ/);
+      expect(assistant.content).toMatch(/מקטעים שזוהו חלקית/);
       expect(assistant.content).toMatch(/איכות נמוכה|חולצו באיכות נמוכה|הנוסחאות\/הסימונים המתמטיים/);
+      expect(assistant.content).not.toContain("תצוגת הנוסחה/הסימון הושמטה");
+      expect(
+        assistant.content?.match(/איכות נמוכה|חולצו באיכות נמוכה|הנוסחאות\/הסימונים המתמטיים/g)
+          ?.length
+      ).toBe(1);
+      expect(assistant.content).toMatch(/שאלה|מקטע|עמוד/);
+      expect(assistant.content).not.toMatch(/אני רואה את ה-PDF|יכול לראות את ה-PDF/);
     });
 
     it("when files exist but not processed, inventory lists them with status", async () => {

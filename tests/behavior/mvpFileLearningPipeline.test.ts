@@ -179,6 +179,53 @@ describeMvp("MVP File Learning Pipeline", () => {
     )) as unknown as ServiceModule;
   });
 
+  describe("deterministic file inventory stabilization", () => {
+    it("exact smoke phrase returns structured inventory response without model call", async () => {
+      const repos = makeRepos({
+        listUploadedFiles: vi.fn(async () => [
+          {
+            id: "file-physics",
+            name: "physics.pdf",
+            originalFileName: "פיזיקה 2 מטלה 5.pdf",
+            extractionStatus: "completed",
+            chunkingStatus: "completed",
+            indexingStatus: "indexed",
+          },
+        ]),
+        listFileChunks: vi.fn(async () => [
+          {
+            chunkId: "inv-1",
+            userId: "alice",
+            workspaceId: "ws-physics",
+            fileId: "file-physics",
+            text: "שאלה 1\nחשב את הפוטנציאל החשמלי.",
+            chunkIndex: 0,
+            charStart: 0,
+            charEnd: 32,
+            tokenEstimate: 10,
+            source: "extracted_text",
+            createdAt: new Date(),
+          },
+        ]),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "sess-1", {
+        workspaceId: "ws-physics",
+        userMessage: "איזה קבצים העליתי לסביבת העבודה הזאת ומה יש בהם?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect(result.assistantMessage.content).toMatch(/הקובץ זוהה והטקסט חולץ/);
+      expect(result.assistantMessage.content).toMatch(/מקטעים שזוהו/);
+      expect(result.assistantMessage.content).toContain("שאלה 1");
+      expect(result.assistantMessage.content).not.toMatch(/אין לי גישה ישירה/i);
+      expect(result.assistantMessage.content).not.toMatch(/אני רואה את ה-PDF|יכול לראות את ה-PDF/);
+    });
+  });
+
   describe("happy path: extraction + chunking completed, matching chunks", () => {
     it("retrieval.used = true when eligible chunks found", async () => {
       const repos = makeRepos({

@@ -118,9 +118,10 @@ describe("formatFileInventoryResponse", () => {
     expect(isLowQualityMathExtractionPreview("0 0 1 2  a B I ")).toBe(true);
   });
 
-  it("starts with text-based extraction disclaimer", () => {
+  it("starts with file-detected statement and text-based extraction disclaimer", () => {
     const result = buildFileInventory("f.pdf", [makeChunk(0, "שאלה 1\nתוכן")]);
     const text = formatFileInventoryResponse(result);
+    expect(text).toMatch(/הקובץ זוהה והטקסט חולץ/);
     expect(text).toMatch(/טקסט שחולץ/);
     expect(text).toMatch(/חזותית/i);
   });
@@ -159,12 +160,21 @@ describe("formatFileInventoryResponse", () => {
     expect(text).not.toContain("0 0 1 2  a B I ");
   });
 
-  it("includes extraction-quality warning when math extraction preview looks garbled", () => {
+  it("includes one clear extraction-quality warning when math extraction preview looks garbled", () => {
     const result = buildFileInventory("f.pdf", [
       makeChunk(0, "שאלה 1\n0 0 1 2  a B I "),
     ]);
     const text = formatFileInventoryResponse(result);
     expect(text).toMatch(/איכות נמוכה|חולצו באיכות נמוכה|הנוסחאות\/הסימונים המתמטיים/);
+    expect(text.match(/איכות נמוכה|חולצו באיכות נמוכה|הנוסחאות\/הסימונים המתמטיים/g)?.length).toBe(1);
+  });
+
+  it("does not insert low-quality placeholder mid-sentence in the broken preview line", () => {
+    const result = buildFileInventory("f.pdf", [
+      makeChunk(0, "שאלה 1\n0 0 1 2  a B I "),
+    ]);
+    const text = formatFileInventoryResponse(result);
+    expect(text).not.toContain("תצוגת הנוסחה/הסימון הושמטה");
   });
 
   it("when no sections found, still does not claim inability — offers text-based help", () => {
@@ -183,7 +193,7 @@ describe("formatFileInventoryResponse", () => {
     ];
     const result = buildFileInventory("f.pdf", chunks);
     const text = formatFileInventoryResponse(result);
-    expect(text).toMatch(/שאלה|נתחיל|תרצה/);
+    expect(text).toMatch(/שאלה|מקטע|עמוד|תרצה/);
   });
 
   it("keeps clean extracted Hebrew/English preview visible when text is readable", () => {
@@ -194,5 +204,14 @@ describe("formatFileInventoryResponse", () => {
     const text = formatFileInventoryResponse(result);
     expect(text).toContain("חשב את הפוטנציאל החשמלי");
     expect(text).toContain("Find the electric field");
+  });
+
+  it("uses structured partially-detected heading for noisy Hebrew letter sections", () => {
+    const result = buildFileInventory("f.pdf", [
+      makeChunk(0, "ג. האם קיימים ערכים של a ו- b עבורם מתאפס הש דה המגנטי\n0 0 1 2  a B I "),
+    ]);
+    const text = formatFileInventoryResponse(result);
+    expect(text).toContain("מקטע");
+    expect(text).not.toContain("תצוגת הנוסחה/הסימון הושמטה");
   });
 });
