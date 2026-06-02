@@ -10,6 +10,7 @@ import {
 import {
   pdfParseOutlineProvider,
   type DocumentUnderstandingProvider,
+  type DocumentUnderstandingOutput,
 } from "./documentUnderstandingProvider";
 import type { UploadedFileRecord } from "./workspaceTypes";
 
@@ -20,7 +21,7 @@ type UnderstandingRunFailureCode =
   | "unsupported_provider";
 
 export type DocumentUnderstandingRunResult =
-  | { ok: true; file: UploadedFileRecord }
+  | { ok: true; file: UploadedFileRecord; output: DocumentUnderstandingOutput }
   | { ok: false; code: UnderstandingRunFailureCode };
 
 export interface DocumentUnderstandingOrchestrationService {
@@ -157,7 +158,7 @@ export function createDocumentUnderstandingOrchestrationService(
           return { ok: false, code: "file_not_found" };
         }
 
-        return { ok: true, file: completed };
+        return { ok: true, file: completed, output };
       } catch {
         const failed = await deps.updateUploadedFile(userId, fileId, {
           understandingStatus: "failed",

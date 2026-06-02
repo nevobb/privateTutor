@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { createUploadedFileApiService } from "../../../src/server/workspaces/uploadedFileApiService";
 import type { UploadedFileRecord, WorkspaceRecord } from "../../../src/server/workspaces/workspaceTypes";
 import type { AuthenticatedUser } from "../../../src/server/auth/authTypes";
+import type { DocumentUnderstandingOrchestrationService } from "../../../src/server/workspaces/documentUnderstandingOrchestrationService";
+import type { DocumentQualityGateOutput } from "../../../src/server/workspaces/documentQualityGate";
 
 const user: AuthenticatedUser = { userId: "alice", email: "alice@test.example" };
 const baseDate = new Date("2026-05-19T08:00:00.000Z");
@@ -56,6 +58,65 @@ function createRecord(overrides: Partial<UploadedFileRecord> = {}): UploadedFile
 }
 
 function makeRepositories() {
+  const defaultRunTextOnlyUnderstanding: DocumentUnderstandingOrchestrationService["runTextOnlyUnderstanding"] =
+    async (_userId: string, _fileId: string) => ({
+      ok: true as const,
+      file: createRecord({
+        extractionStatus: "completed",
+        extractedText: "שאלה 1\n\nתוכן ראשון\n\nשאלה 2\n\nתוכן שני",
+        extractedTextCharCount: 37,
+        chunkingStatus: "completed",
+        chunkCount: 2,
+        understandingStatus: "completed",
+        understandingErrorCode: null,
+        understandingUpdatedAt: baseDate,
+        pageCount: 1,
+        outlineTitle: "שאלה 1",
+        detectedQuestionCount: 2,
+        extractionQuality: "good",
+        deepPdfStatus: "not_started",
+      }),
+      output: {
+        providerName: "pdf_parse_outline",
+        providerMode: "text_only" as const,
+        pageCount: 1,
+        pages: [],
+        outline: {
+          outlineId: "v1",
+          fileId: "file-1",
+          sections: [],
+          confidence: "high" as const,
+        },
+        detectedQuestions: [],
+        qualitySignals: {
+          hasExtractedText: true,
+          extractedTextCharCount: 37,
+          likelyHasMath: false,
+          likelyHasVisualContent: false,
+          textQuality: "good" as const,
+        },
+        extractionQuality: "good" as const,
+        confidence: "high" as const,
+        warnings: [],
+        errors: [],
+      },
+    });
+
+  const documentUnderstandingOrchestrationService: DocumentUnderstandingOrchestrationService = {
+    runTextOnlyUnderstanding: vi.fn(defaultRunTextOnlyUnderstanding),
+  };
+
+  const defaultQualityGateResult: DocumentQualityGateOutput = {
+    decision: "use_text_only",
+    recommendedProviderMode: "text_only",
+    reasons: ["clean_text"],
+    confidence: "high",
+    extractionQuality: "good",
+    shouldRunAutomatically: false,
+    shouldShowUserNoticeLater: false,
+    safeFallbackProviderMode: "text_only",
+  };
+
   const createUploadedFile = vi.fn(async () => createRecord());
   const updateUploadedFile = vi.fn(async (_userId: string, _fileId: string, updates: Partial<UploadedFileRecord>) => {
     if (updates.indexingStatus === "indexing") return createRecord({ indexingStatus: "indexing" });
@@ -110,6 +171,39 @@ function makeRepositories() {
       return createRecord({ chunkingStatus: "failed", chunkingErrorCode: "chunking_lifecycle_failed", chunkingUpdatedAt: baseDate });
     }
 
+    if (updates.understandingStatus === "pending") {
+      return createRecord({
+        understandingStatus: "pending",
+        understandingErrorCode: null,
+        understandingUpdatedAt: updates.understandingUpdatedAt ?? baseDate,
+      });
+    }
+    if (updates.understandingStatus === "completed") {
+      return createRecord({
+        understandingStatus: "completed",
+        understandingErrorCode: null,
+        understandingUpdatedAt: updates.understandingUpdatedAt ?? baseDate,
+        pageCount: updates.pageCount,
+        outlineTitle: updates.outlineTitle,
+        detectedQuestionCount: updates.detectedQuestionCount,
+        extractionQuality: updates.extractionQuality,
+      });
+    }
+    if (updates.understandingStatus === "failed") {
+      return createRecord({
+        understandingStatus: "failed",
+        understandingErrorCode: updates.understandingErrorCode ?? "understanding_lifecycle_failed",
+        understandingUpdatedAt: updates.understandingUpdatedAt ?? baseDate,
+      });
+    }
+
+    if (updates.deepPdfStatus) {
+      return createRecord({
+        deepPdfStatus: updates.deepPdfStatus,
+        deepPdfUpdatedAt: updates.deepPdfUpdatedAt ?? baseDate,
+      });
+    }
+
     return createRecord();
   });
 
@@ -137,6 +231,8 @@ function makeRepositories() {
     },
     listFileChunks: vi.fn(async () => []),
     replaceFileChunks: vi.fn(async () => {}),
+    documentUnderstandingOrchestrationService,
+    evaluateDocumentQualityGate: vi.fn(() => defaultQualityGateResult),
     listUploadedFiles: vi.fn(async () => [createRecord({ indexingStatus: "indexed" })]),
     writeDecisionLogEntry,
   };
@@ -298,6 +394,10 @@ describe("uploadedFileApiService.runChunkingLifecycleForFile", () => {
       expect(result.chunkCount).toBeGreaterThan(0);
     }
     expect(repos.replaceFileChunks).toHaveBeenCalled();
+    expect(repos.documentUnderstandingOrchestrationService.runTextOnlyUnderstanding).toHaveBeenCalledWith(
+      "alice",
+      "file-1"
+    );
   });
 
   it("rejects when extraction not completed", async () => {
@@ -307,6 +407,7 @@ describe("uploadedFileApiService.runChunkingLifecycleForFile", () => {
 
     const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
     expect(result).toEqual({ ok: false, code: "extraction_not_completed" });
+    expect(repos.documentUnderstandingOrchestrationService.runTextOnlyUnderstanding).not.toHaveBeenCalled();
   });
 
   it("rejects missing extracted text", async () => {
@@ -316,6 +417,7 @@ describe("uploadedFileApiService.runChunkingLifecycleForFile", () => {
 
     const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
     expect(result).toEqual({ ok: false, code: "missing_extracted_text" });
+    expect(repos.documentUnderstandingOrchestrationService.runTextOnlyUnderstanding).not.toHaveBeenCalled();
   });
 
   it("marks failed when chunk persistence fails", async () => {
@@ -334,6 +436,7 @@ describe("uploadedFileApiService.runChunkingLifecycleForFile", () => {
       expect(result.file.chunkingStatus).toBe("failed");
       expect(result.file.chunkingErrorCode).toBe("chunking_lifecycle_failed");
     }
+    expect(repos.documentUnderstandingOrchestrationService.runTextOnlyUnderstanding).not.toHaveBeenCalled();
   });
 
   it("blocks chunking when chunkingStatus is pending", async () => {
@@ -349,6 +452,7 @@ describe("uploadedFileApiService.runChunkingLifecycleForFile", () => {
 
     const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
     expect(result).toEqual({ ok: false, code: "invalid_transition" });
+    expect(repos.documentUnderstandingOrchestrationService.runTextOnlyUnderstanding).not.toHaveBeenCalled();
   });
 
   it("allows re-chunking when chunkingStatus is completed", async () => {
@@ -369,6 +473,7 @@ describe("uploadedFileApiService.runChunkingLifecycleForFile", () => {
       expect(result.file.chunkingStatus).toBe("completed");
       expect(result.chunkCount).toBeGreaterThan(0);
     }
+    expect(repos.documentUnderstandingOrchestrationService.runTextOnlyUnderstanding).toHaveBeenCalledOnce();
   });
 
   it("blocks chunking when extraction is not_started", async () => {
@@ -380,5 +485,207 @@ describe("uploadedFileApiService.runChunkingLifecycleForFile", () => {
 
     const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
     expect(result).toEqual({ ok: false, code: "extraction_not_completed" });
+    expect(repos.documentUnderstandingOrchestrationService.runTextOnlyUnderstanding).not.toHaveBeenCalled();
+  });
+
+  it("persists text-only understanding metadata after successful chunking", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        sourceType: "pdf",
+        extractionStatus: "completed",
+        extractedText: "שאלה 1\n\nתוכן ראשון\n\nשאלה 2\n\nתוכן שני",
+        extractedTextCharCount: 37,
+      })
+    );
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.file.understandingStatus).toBe("completed");
+    expect(result.file.pageCount).toBe(1);
+    expect(result.file.outlineTitle).toBe("שאלה 1");
+    expect(result.file.detectedQuestionCount).toBe(2);
+    expect(result.file.extractionQuality).toBe("good");
+  });
+
+  it("marks understanding failed without failing chunking when text-only understanding fails", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createRecord({
+          sourceType: "pdf",
+          extractionStatus: "completed",
+          extractedText: "Paragraph one. ".repeat(150),
+        })
+      )
+      .mockResolvedValueOnce(
+        createRecord({
+          sourceType: "pdf",
+          extractionStatus: "completed",
+          extractedText: "Paragraph one. ".repeat(150),
+          chunkingStatus: "completed",
+          chunkCount: 2,
+          understandingStatus: "failed",
+          understandingErrorCode: "understanding_lifecycle_failed",
+          understandingUpdatedAt: baseDate,
+        })
+      );
+    repos.documentUnderstandingOrchestrationService.runTextOnlyUnderstanding = vi.fn(
+      async (_userId: string, _fileId: string) => ({
+        ok: false as const,
+        code: "provider_error" as const,
+      })
+    );
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.file.chunkingStatus).toBe("completed");
+    expect(result.file.understandingStatus).toBe("failed");
+    expect(repos.evaluateDocumentQualityGate).not.toHaveBeenCalled();
+  });
+
+  it("does not run text-only understanding for unsupported sourceType", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        sourceType: "note",
+        extractionStatus: "completed",
+        extractedText: "Paragraph one. ".repeat(120),
+      })
+    );
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
+
+    expect(result.ok).toBe(true);
+    expect(repos.documentUnderstandingOrchestrationService.runTextOnlyUnderstanding).not.toHaveBeenCalled();
+  });
+
+  it("does not run text-only understanding when understandingStatus is pending", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        sourceType: "pdf",
+        extractionStatus: "completed",
+        extractedText: "Paragraph one. ".repeat(120),
+        understandingStatus: "pending",
+      })
+    );
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
+
+    expect(result.ok).toBe(true);
+    expect(repos.documentUnderstandingOrchestrationService.runTextOnlyUnderstanding).not.toHaveBeenCalled();
+  });
+
+  it("does not run text-only understanding when understandingStatus is completed", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        sourceType: "pdf",
+        extractionStatus: "completed",
+        extractedText: "Paragraph one. ".repeat(120),
+        understandingStatus: "completed",
+      })
+    );
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
+
+    expect(result.ok).toBe(true);
+    expect(repos.documentUnderstandingOrchestrationService.runTextOnlyUnderstanding).not.toHaveBeenCalled();
+  });
+
+  it("marks deepPdfStatus recommended from quality gate metadata only", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        sourceType: "pdf",
+        extractionStatus: "completed",
+        extractedText: "שאלה 1\n\nחשב את האינטגרל ∫f(x)dx",
+        extractedTextCharCount: 28,
+      })
+    );
+    repos.documentUnderstandingOrchestrationService.runTextOnlyUnderstanding = vi.fn(
+      async (_userId: string, _fileId: string) => ({
+        ok: true as const,
+        file: createRecord({
+          sourceType: "pdf",
+          extractionStatus: "completed",
+          extractedText: "שאלה 1\n\nחשב את האינטגרל ∫f(x)dx",
+          extractedTextCharCount: 28,
+          chunkingStatus: "completed",
+          chunkCount: 1,
+          understandingStatus: "completed",
+          understandingUpdatedAt: baseDate,
+          pageCount: 1,
+          outlineTitle: "שאלה 1",
+          detectedQuestionCount: 1,
+          extractionQuality: "partial",
+          deepPdfStatus: "not_started",
+        }),
+        output: {
+          providerName: "pdf_parse_outline",
+          providerMode: "text_only" as const,
+          pageCount: 1,
+          pages: [],
+          outline: null,
+          detectedQuestions: [],
+          qualitySignals: {
+            hasExtractedText: true,
+            extractedTextCharCount: 28,
+            likelyHasMath: true,
+            likelyHasVisualContent: false,
+            textQuality: "partial" as const,
+          },
+          extractionQuality: "partial" as const,
+          confidence: "medium" as const,
+          warnings: [],
+          errors: [],
+        },
+      })
+    );
+    vi.mocked(repos.evaluateDocumentQualityGate).mockReturnValue({
+      decision: "recommend_advanced_understanding",
+      recommendedProviderMode: "deep_pdf",
+      reasons: ["math_heavy"],
+      confidence: "high",
+      extractionQuality: "partial",
+      shouldRunAutomatically: false,
+      shouldShowUserNoticeLater: true,
+      safeFallbackProviderMode: "text_only",
+    });
+    const service = createUploadedFileApiService(repos as never);
+
+    const result = await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
+
+    expect(result.ok).toBe(true);
+    expect(repos.evaluateDocumentQualityGate).toHaveBeenCalledOnce();
+    expect(result.ok && result.file.deepPdfStatus).toBe("recommended");
+  });
+
+  it("does not call Gemini provider from chunking runtime path", async () => {
+    const repos = makeRepositories();
+    repos.getUploadedFile = vi.fn(async () =>
+      createRecord({
+        sourceType: "pdf",
+        extractionStatus: "completed",
+        extractedText: "Paragraph one. ".repeat(120),
+      })
+    );
+    const service = createUploadedFileApiService(repos as never);
+
+    await service.runChunkingLifecycleForFile(user, "ws-1", "file-1");
+
+    expect(repos.documentUnderstandingOrchestrationService.runTextOnlyUnderstanding).toHaveBeenCalledOnce();
+    expect(repos.evaluateDocumentQualityGate).toHaveBeenCalledOnce();
   });
 });

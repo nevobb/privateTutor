@@ -7,10 +7,15 @@ import {
   listUploadedFiles,
   updateUploadedFile,
 } from "./uploadedFileRepository";
+import {
+  documentUnderstandingOrchestrationService as defaultDocumentUnderstandingOrchestrationService,
+  type DocumentUnderstandingOrchestrationService,
+} from "./documentUnderstandingOrchestrationService";
 import { fileExtractionProvider as defaultFileExtractionProvider } from "./fileExtractionProvider";
 import { realDocumentExtractionProvider } from "./realDocumentExtractionProvider";
 import type { FileExtractionProvider } from "./fileExtractionProvider";
 import { chunkExtractedText } from "./fileChunker";
+import { evaluateDocumentQualityGate as defaultEvaluateDocumentQualityGate } from "./documentQualityGate";
 import {
   listFileChunks as defaultListFileChunks,
   replaceFileChunks as defaultReplaceFileChunks,
@@ -95,6 +100,8 @@ interface Repositories {
   fileExtractionProvider: typeof defaultFileExtractionProvider;
   listFileChunks: typeof defaultListFileChunks;
   replaceFileChunks: typeof defaultReplaceFileChunks;
+  documentUnderstandingOrchestrationService: DocumentUnderstandingOrchestrationService;
+  evaluateDocumentQualityGate: typeof defaultEvaluateDocumentQualityGate;
 }
 
 function getDefaultExtractionProvider(fileBuffer?: Buffer): FileExtractionProvider {
@@ -115,6 +122,8 @@ function defaultRepositories(): Repositories {
     fileExtractionProvider: defaultFileExtractionProvider,
     listFileChunks: defaultListFileChunks,
     replaceFileChunks: defaultReplaceFileChunks,
+    documentUnderstandingOrchestrationService: defaultDocumentUnderstandingOrchestrationService,
+    evaluateDocumentQualityGate: defaultEvaluateDocumentQualityGate,
   };
 }
 
@@ -513,7 +522,22 @@ export function createUploadedFileApiService(
           workspaceId,
         });
 
-        return { ok: true, file: completed, chunkCount: chunkRecords.length };
+        const fileAfterUnderstanding =
+          (await maybeRunTextOnlyDocumentUnderstandingAfterChunking({
+            repositories,
+            userId: user.userId,
+            workspaceId,
+            fileId,
+            file: {
+              ...current,
+              chunkingStatus: "completed",
+              chunkCount: chunkRecords.length,
+              chunkingErrorCode: null,
+              chunkingUpdatedAt: completed.chunkingUpdatedAt,
+            },
+          })) ?? completed;
+
+        return { ok: true, file: fileAfterUnderstanding, chunkCount: chunkRecords.length };
       } catch {
         const failed = await repositories.updateUploadedFile(user.userId, fileId, {
           chunkingStatus: "failed",
@@ -539,6 +563,97 @@ export function createUploadedFileApiService(
 }
 
 export const uploadedFileApiService: UploadedFileApiService = createUploadedFileApiService();
+
+async function maybeRunTextOnlyDocumentUnderstandingAfterChunking({
+  repositories,
+  userId,
+  workspaceId,
+  fileId,
+  file,
+}: {
+  repositories: Repositories;
+  userId: string;
+  workspaceId: string;
+  fileId: string;
+  file: UploadedFileRecord;
+}): Promise<UploadedFileRecord | null> {
+  if (!shouldRunTextOnlyDocumentUnderstanding(file)) {
+    return null;
+  }
+
+  const understandingResult =
+    await repositories.documentUnderstandingOrchestrationService.runTextOnlyUnderstanding(userId, fileId);
+
+  if (!understandingResult.ok) {
+    return repositories.getUploadedFile(userId, fileId);
+  }
+
+  const qualityGateResult = repositories.evaluateDocumentQualityGate({
+    extractionQuality: understandingResult.file.extractionQuality,
+    extractedTextCharCount: understandingResult.file.extractedTextCharCount,
+    pageCount: understandingResult.file.pageCount,
+    detectedQuestionCount: understandingResult.file.detectedQuestionCount,
+    sourceType: understandingResult.file.sourceType,
+    qualitySignals: understandingResult.output.qualitySignals,
+  });
+
+  if (!shouldRecommendDeepPdf(understandingResult.file.deepPdfStatus, qualityGateResult.decision)) {
+    return understandingResult.file;
+  }
+
+  return (
+    (await repositories.updateUploadedFile(userId, fileId, {
+      deepPdfStatus: "recommended",
+      deepPdfUpdatedAt: new Date(),
+    })) ?? understandingResult.file
+  );
+}
+
+function shouldRunTextOnlyDocumentUnderstanding(file: UploadedFileRecord): boolean {
+  if (file.sourceType !== "pdf" && file.sourceType !== "docx") {
+    return false;
+  }
+
+  if (file.extractionStatus !== "completed") {
+    return false;
+  }
+
+  if (file.chunkingStatus !== "completed") {
+    return false;
+  }
+
+  if (!file.extractedText || file.extractedText.trim().length === 0) {
+    return false;
+  }
+
+  if (file.understandingStatus === "pending" || file.understandingStatus === "completed") {
+    return false;
+  }
+
+  return true;
+}
+
+function shouldRecommendDeepPdf(
+  status: UploadedFileRecord["deepPdfStatus"],
+  decision:
+    | "use_text_only"
+    | "recommend_advanced_understanding"
+    | "requires_user_confirmation_or_higher_cost_mode"
+    | "insufficient_input"
+): boolean {
+  if (
+    decision !== "recommend_advanced_understanding" &&
+    decision !== "requires_user_confirmation_or_higher_cost_mode"
+  ) {
+    return false;
+  }
+
+  if (status === "recommended" || status === "pending" || status === "completed") {
+    return false;
+  }
+
+  return true;
+}
 
 function validateStoragePathOwnership(
   storagePath: string,

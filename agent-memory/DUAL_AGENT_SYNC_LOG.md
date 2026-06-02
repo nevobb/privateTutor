@@ -1262,3 +1262,36 @@ Copy this block and fill all fields:
   - Current state: fit check complete; ready to scope Batch 6B.
   - Next recommended step: implement Batch 6B as text-only post-chunking understanding only, best-effort, metadata/artifact persistence only, with no tutor/UI/Gemini runtime integration.
   - Blockers/Risks: later deep-PDF runtime work still needs a narrow Firebase Storage PDF bytes loader boundary and should not be coupled into Batch 6B.
+
+## 2026-06-02 23:18 (IDT) — Codex
+- Step/Task ID: Batch 6B — text-only document understanding runtime integration
+- Task summary: Wire text-only document understanding into the post-chunking backend lifecycle without connecting Gemini, tutor runtime, retrieval, inventory, or UI.
+- What I changed:
+  - Hooked `uploadedFileApiService.runChunkingLifecycleForFile(...)` to call a best-effort `maybeRunTextOnlyDocumentUnderstandingAfterChunking(...)` helper after successful chunk persistence.
+  - Reused only `documentUnderstandingOrchestrationService.runTextOnlyUnderstanding(...)` and kept the runtime path limited to the `PdfParseOutlineProvider` text-only provider.
+  - Added service-layer guards for supported source types, completed extraction/chunking, non-empty extracted text, and non-duplicate understanding states.
+  - Evaluated `evaluateDocumentQualityGate(...)` only after successful text-only understanding and updated `deepPdfStatus` to `recommended` as metadata only when appropriate.
+  - Extended the orchestration success result to surface provider output so the runtime hook can evaluate the quality gate without rerunning understanding.
+  - Added/updated chunking lifecycle tests and wrote `agent-memory/PDF_READING_BATCH_6B_TEXT_ONLY_RUNTIME_INTEGRATION_REPORT.md`.
+- Files touched:
+  - `src/server/workspaces/documentUnderstandingOrchestrationService.ts`
+  - `src/server/workspaces/uploadedFileApiService.ts`
+  - `tests/server/workspaces/uploadedFileApiService.test.ts`
+  - `agent-memory/PDF_READING_BATCH_6B_TEXT_ONLY_RUNTIME_INTEGRATION_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/workspaces/uploadedFileApiService.test.ts` — passed
+  - `npx vitest run tests/server/workspaces/documentUnderstandingOrchestrationService.test.ts` — passed
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — passed
+- Git status:
+  - Branch: `repair/pdf-text-understanding-runtime-integration`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: Batch 6B complete and validation-clean; text-only document artifacts now persist best-effort after chunking.
+  - Next recommended step: Batch 6C should make inventory artifact-aware with strict fallback to the current chunk-based inventory path.
+  - Blockers/Risks: tutor/runtime still does not consume the new artifacts yet by design; `deepPdfStatus` is metadata-only until a later approved batch surfaces it.
