@@ -28,6 +28,9 @@ type ServiceModule = {
     appendMessage: (userId: string, workspaceId: string, sessionId: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>;
     listUploadedFiles: (userId: string, workspaceId: string) => Promise<Array<Record<string, unknown>>>;
     listFileChunks: (userId: string, workspaceId: string, fileId: string) => Promise<Array<Record<string, unknown>>>;
+    listDocumentPages: (userId: string, fileId: string) => Promise<Array<Record<string, unknown>>>;
+    getDocumentOutline: (userId: string, fileId: string, outlineId?: string) => Promise<Record<string, unknown> | null>;
+    listDetectedQuestions: (userId: string, fileId: string) => Promise<Array<Record<string, unknown>>>;
     writeDecisionLogEntry: (
       userId: string,
       input: {
@@ -157,6 +160,9 @@ function makeRepos(
       },
     ]),
     listFileChunks: vi.fn(async () => []),
+    listDocumentPages: vi.fn(async () => []),
+    getDocumentOutline: vi.fn(async () => null),
+    listDetectedQuestions: vi.fn(async () => []),
     writeDecisionLogEntry: vi.fn(async () => ({ id: "d1" })),
     processMemoryCandidate: vi.fn(async () => {}),
     webSearchProvider: {
@@ -1239,6 +1245,85 @@ describeService("sessionMessageApiService", () => {
       expect(assistant.content).not.toMatch(/אין לי גישה ישירה/i);
     });
 
+    it("uses persisted document artifacts when understandingStatus is completed and artifacts are useful", async () => {
+      const artifactFile = {
+        ...readyFileWithChunks,
+        understandingStatus: "completed" as const,
+        pageCount: 4,
+        outlineTitle: "מטלה 5",
+        detectedQuestionCount: 2,
+        extractionQuality: "good" as const,
+        deepPdfStatus: "not_started" as const,
+      };
+      const repos = makeInventoryRepos({
+        listUploadedFiles: vi.fn(async () => [artifactFile]),
+        listFileChunks: vi.fn(async () => questionChunks),
+        getDocumentOutline: vi.fn(async () => ({
+          outlineId: "v1",
+          userId: "alice",
+          fileId: "file-inv",
+          title: "מטלה 5",
+          sections: [],
+          confidence: "high",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })),
+        listDetectedQuestions: vi.fn(async () => [
+          {
+            questionId: "q-1",
+            userId: "alice",
+            fileId: "file-inv",
+            label: "שאלה 1",
+            questionNumber: 1,
+            summary: "חשב את הפוטנציאל החשמלי.",
+            pageStart: 2,
+            pageEnd: 2,
+            charStart: 0,
+            charEnd: 30,
+            sourceChunkIds: [],
+            subsections: [],
+            confidence: 0.92,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            questionId: "q-2",
+            userId: "alice",
+            fileId: "file-inv",
+            label: "שאלה 2",
+            questionNumber: 2,
+            summary: "מצא את עוצמת השדה.",
+            pageStart: 3,
+            pageEnd: 3,
+            charStart: 31,
+            charEnd: 60,
+            sourceChunkIds: [],
+            subsections: [],
+            confidence: 0.88,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "איזה קבצים העליתי לסביבת העבודה הזאת ומה יש בהם?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect(repos.getDocumentOutline).toHaveBeenCalledWith("alice", "file-inv");
+      expect(repos.listDetectedQuestions).toHaveBeenCalledWith("alice", "file-inv");
+      expect(repos.listFileChunks).not.toHaveBeenCalled();
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toMatch(/מספר עמודים שזוהו: 4/);
+      expect(assistant.content).toMatch(/מספר שאלות\/מקטעים שזוהו: 2/);
+      expect(assistant.content).toContain("חשב את הפוטנציאל החשמלי");
+      expect(assistant.content).not.toContain("0 0 1 2");
+    });
+
     it("inventory response contains extracted-text disclaimer", async () => {
       const repos = makeInventoryRepos();
       const service = mod.createSessionMessageApiService(repos);
@@ -1251,6 +1336,39 @@ describeService("sessionMessageApiService", () => {
 
       const assistant = result.assistantMessage as { content?: string };
       expect(assistant.content).toMatch(/טקסט שחולץ/);
+    });
+
+    it("falls back to chunk-based inventory when understandingStatus is missing", async () => {
+      const repos = makeInventoryRepos({
+        listUploadedFiles: vi.fn(async () => [{ ...readyFileWithChunks, understandingStatus: undefined }]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "מה יש בקבצים שהעליתי?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.listFileChunks).toHaveBeenCalledWith("alice", "ws-1", "file-inv");
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toContain("שאלה 1");
+    });
+
+    it("falls back safely when understandingStatus is failed", async () => {
+      const repos = makeInventoryRepos({
+        listUploadedFiles: vi.fn(async () => [{ ...readyFileWithChunks, understandingStatus: "failed" }]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "תראה לי את הקבצים שהעליתי",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.listFileChunks).toHaveBeenCalledWith("alice", "ws-1", "file-inv");
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
     });
 
     it("inventory: real sections listed, no refusal, offers to start from a question", async () => {
@@ -1349,6 +1467,117 @@ describeService("sessionMessageApiService", () => {
       ).toBe(1);
       expect(assistant.content).toMatch(/שאלה|מקטע|עמוד/);
       expect(assistant.content).not.toMatch(/אני רואה את ה-PDF|יכול לראות את ה-PDF/);
+    });
+
+    it("artifact-aware inventory includes honest quality warning for poor extraction and does not claim reliable formulas", async () => {
+      const repos = makeInventoryRepos({
+        listUploadedFiles: vi.fn(async () => [
+          {
+            ...readyFileWithChunks,
+            understandingStatus: "completed",
+            pageCount: 2,
+            detectedQuestionCount: 1,
+            extractionQuality: "poor",
+            deepPdfStatus: "not_started",
+          },
+        ]),
+        getDocumentOutline: vi.fn(async () => ({
+          outlineId: "v1",
+          userId: "alice",
+          fileId: "file-inv",
+          title: "פיזיקה",
+          sections: [],
+          confidence: "medium",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })),
+        listDetectedQuestions: vi.fn(async () => [
+          {
+            questionId: "q-1",
+            userId: "alice",
+            fileId: "file-inv",
+            label: "שאלה 1",
+            topic: "שדה מגנטי",
+            pageStart: 2,
+            pageEnd: 2,
+            charStart: 0,
+            charEnd: 20,
+            sourceChunkIds: [],
+            subsections: [],
+            confidence: 0.54,
+            extractionNotes: "math_garbled",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "איזה שאלות יש בקובץ?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toMatch(/איכות חלקית|חולצו באיכות חלקית/);
+      expect(assistant.content).not.toMatch(/נוסחה תקינה|אני רואה את ה-PDF/);
+    });
+
+    it("artifact-aware inventory uses deepPdfStatus recommended wording without claiming Gemini ran", async () => {
+      const repos = makeInventoryRepos({
+        listUploadedFiles: vi.fn(async () => [
+          {
+            ...readyFileWithChunks,
+            understandingStatus: "completed",
+            pageCount: 2,
+            detectedQuestionCount: 1,
+            extractionQuality: "partial",
+            deepPdfStatus: "recommended",
+          },
+        ]),
+        getDocumentOutline: vi.fn(async () => ({
+          outlineId: "v1",
+          userId: "alice",
+          fileId: "file-inv",
+          title: "פיזיקה",
+          sections: [],
+          confidence: "medium",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })),
+        listDetectedQuestions: vi.fn(async () => [
+          {
+            questionId: "q-1",
+            userId: "alice",
+            fileId: "file-inv",
+            label: "שאלה 1",
+            summary: "חשב את השדה החשמלי.",
+            pageStart: 1,
+            pageEnd: 1,
+            charStart: 0,
+            charEnd: 20,
+            sourceChunkIds: [],
+            subsections: [],
+            confidence: 0.82,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "איזה שאלות יש בקובץ?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toContain(
+        "המסמך כנראה דורש עיבוד מתקדם יותר כדי להבין נוסחאות/תרשימים בצורה אמינה."
+      );
+      expect(assistant.content).not.toMatch(/Gemini|נותח כבר|נותח באמצעות/);
     });
 
     it("when files exist but not processed, inventory lists them with status", async () => {

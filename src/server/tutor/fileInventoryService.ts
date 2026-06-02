@@ -1,4 +1,9 @@
-import type { FileChunkRecord } from "../workspaces/workspaceTypes";
+import type {
+  DetectedQuestionArtifactRecord,
+  DocumentOutlineArtifactRecord,
+  FileChunkRecord,
+} from "../workspaces/workspaceTypes";
+import type { DeepPdfStatus, ExtractionQuality } from "../../types";
 
 // TODO (Phase C — Document Understanding Layer):
 // Replace INVENTORY_NOT_AVAILABLE_RESPONSE with real structured output read from
@@ -19,6 +24,24 @@ export interface FileInventoryResult {
   fileName: string;
   sections: FileInventorySection[];
   isBestEffort: true;
+}
+
+export interface ArtifactInventoryItem {
+  label: string;
+  detail?: string;
+  pageLabel?: string;
+  isPartial?: boolean;
+}
+
+export interface ArtifactAwareFileInventoryResult {
+  fileName: string;
+  pageCount?: number;
+  outlineTitle?: string;
+  detectedQuestionCount?: number;
+  extractionQuality?: ExtractionQuality;
+  deepPdfStatus?: DeepPdfStatus;
+  items: ArtifactInventoryItem[];
+  isPartial: boolean;
 }
 
 const MAX_SECTIONS = 30;
@@ -165,6 +188,125 @@ function buildSectionLine(section: FileInventorySection): string {
   return detail ? `${parsedHeading.label} — ${detail}` : parsedHeading.label;
 }
 
+function buildPageLabel(pageStart?: number, pageEnd?: number): string | undefined {
+  if (typeof pageStart === "number" && typeof pageEnd === "number") {
+    return pageStart === pageEnd ? `עמוד ${pageStart}` : `עמודים ${pageStart}-${pageEnd}`;
+  }
+  if (typeof pageStart === "number") {
+    return `עמוד ${pageStart}`;
+  }
+  if (typeof pageEnd === "number") {
+    return `עמוד ${pageEnd}`;
+  }
+  return undefined;
+}
+
+function truncateArtifactDetail(text: string): string {
+  return truncateDisplayText(text, 90);
+}
+
+function buildArtifactItemDetail(question: DetectedQuestionArtifactRecord): {
+  detail?: string;
+  isPartial: boolean;
+} {
+  const isPartial =
+    question.confidence < 0.75 ||
+    Boolean(question.extractionNotes) ||
+    (!question.summary && !question.topic);
+
+  if (question.summary) {
+    return {
+      detail: isPartial
+        ? `${truncateArtifactDetail(question.summary)} (זוהה חלקית)`
+        : truncateArtifactDetail(question.summary),
+      isPartial,
+    };
+  }
+
+  if (question.topic) {
+    return {
+      detail: isPartial
+        ? `כנראה עוסק ב-${truncateArtifactDetail(question.topic)} (זוהה חלקית)`
+        : `כנראה עוסק ב-${truncateArtifactDetail(question.topic)}`,
+      isPartial,
+    };
+  }
+
+  if (question.extractionNotes) {
+    return {
+      detail: "זוהה חלקית; הטקסט או הסימונים במקטע הזה לא חולצו בצורה מלאה.",
+      isPartial: true,
+    };
+  }
+
+  return { detail: undefined, isPartial };
+}
+
+function buildArtifactOutlineItems(
+  outline: DocumentOutlineArtifactRecord
+): ArtifactInventoryItem[] {
+  return outline.sections.slice(0, MAX_SECTIONS).map((section) => ({
+    label: section.label,
+    detail: section.title ? truncateArtifactDetail(section.title) : undefined,
+    pageLabel: buildPageLabel(section.pageStart, section.pageEnd),
+    isPartial: section.confidence < 0.75,
+  }));
+}
+
+export function buildArtifactAwareFileInventory(params: {
+  fileName: string;
+  pageCount?: number;
+  outlineTitle?: string;
+  detectedQuestionCount?: number;
+  extractionQuality?: ExtractionQuality;
+  deepPdfStatus?: DeepPdfStatus;
+  outline: DocumentOutlineArtifactRecord | null;
+  detectedQuestions: DetectedQuestionArtifactRecord[];
+}): ArtifactAwareFileInventoryResult | null {
+  const items =
+    params.detectedQuestions.length > 0
+      ? params.detectedQuestions.slice(0, MAX_SECTIONS).map((question) => {
+          const built = buildArtifactItemDetail(question);
+          return {
+            label: question.label,
+            detail: built.detail,
+            pageLabel: buildPageLabel(question.pageStart, question.pageEnd),
+            isPartial: built.isPartial,
+          };
+        })
+      : params.outline && params.outline.sections.length > 0
+        ? buildArtifactOutlineItems(params.outline)
+        : [];
+
+  const pageCount = params.pageCount;
+  const detectedQuestionCount = params.detectedQuestionCount ?? params.detectedQuestions.length;
+  const hasUsefulFacts =
+    items.length > 0 ||
+    typeof pageCount === "number" ||
+    Boolean(params.outlineTitle) ||
+    (typeof detectedQuestionCount === "number" && detectedQuestionCount > 0);
+
+  if (!hasUsefulFacts) {
+    return null;
+  }
+
+  const isPartial =
+    params.extractionQuality === "partial" ||
+    params.extractionQuality === "poor" ||
+    items.some((item) => item.isPartial);
+
+  return {
+    fileName: params.fileName,
+    pageCount,
+    outlineTitle: params.outlineTitle,
+    detectedQuestionCount,
+    extractionQuality: params.extractionQuality,
+    deepPdfStatus: params.deepPdfStatus,
+    items,
+    isPartial,
+  };
+}
+
 export function buildFileInventory(
   fileName: string,
   chunks: FileChunkRecord[]
@@ -199,6 +341,64 @@ export function buildFileInventory(
   }
 
   return { fileName, sections, isBestEffort: true };
+}
+
+export function formatArtifactAwareFileInventoryResponse(
+  result: ArtifactAwareFileInventoryResult
+): string {
+  const disclaimer =
+    "אני עובד עם הטקסט שחולץ מהקובץ, לא עם תצוגה חזותית של ה-PDF.";
+  const extractionWarning =
+    "חשוב: חלק מהנוסחאות, הסימונים המתמטיים, או מבנה המסמך חולצו באיכות חלקית, לכן חלק מהמקטעים מזוהים באופן חלקי.";
+  const deepPdfRecommendation =
+    "המסמך כנראה דורש עיבוד מתקדם יותר כדי להבין נוסחאות/תרשימים בצורה אמינה.";
+
+  const facts = [
+    typeof result.pageCount === "number" ? `מספר עמודים שזוהו: ${result.pageCount}` : undefined,
+    result.outlineTitle ? `כותרת/נושא שזוהה: ${result.outlineTitle}` : undefined,
+    typeof result.detectedQuestionCount === "number"
+      ? `מספר שאלות/מקטעים שזוהו: ${result.detectedQuestionCount}`
+      : undefined,
+  ].filter(Boolean) as string[];
+
+  const listLines = result.items.map((item, index) => {
+    const details = [item.detail, item.pageLabel].filter(Boolean).join(" · ");
+    return details ? `${index + 1}. ${item.label} — ${details}` : `${index + 1}. ${item.label}`;
+  });
+
+  const hasExtractionWarning =
+    result.extractionQuality === "partial" || result.extractionQuality === "poor";
+
+  if (result.items.length === 0) {
+    return [
+      "הקובץ זוהה והטקסט חולץ.",
+      disclaimer,
+      "",
+      ...facts,
+      ...(facts.length > 0 ? [""] : []),
+      ...(hasExtractionWarning ? [extractionWarning, ""] : []),
+      ...(result.deepPdfStatus === "recommended" ? [deepPdfRecommendation, ""] : []),
+      "זוהו פרטי מסמך בסיסיים, אבל עדיין אין מספיק מקטעים מובנים כדי להציג רשימה טובה.",
+      "אפשר לבחור שאלה, עמוד, או נושא ספציפי ונמשיך משם.",
+    ].join("\n");
+  }
+
+  return [
+    "הקובץ זוהה והטקסט חולץ.",
+    disclaimer,
+    "",
+    ...facts,
+    ...(facts.length > 0 ? [""] : []),
+    ...(hasExtractionWarning ? [extractionWarning, ""] : []),
+    ...(result.deepPdfStatus === "recommended" ? [deepPdfRecommendation, ""] : []),
+    result.isPartial ? "שאלות/מקטעים שזוהו חלקית:" : "שאלות/מקטעים שזוהו:",
+    "",
+    ...listLines,
+    "",
+    result.isPartial
+      ? "כדי לעבוד בצורה טובה יותר, בחר שאלה/מקטע מסוים או ציין עמוד/ציטוט קצר ממנו."
+      : "אם תרצה, בחר שאלה/מקטע מסוים ונמשיך משם.",
+  ].join("\n");
 }
 
 export function formatFileInventoryResponse(result: FileInventoryResult): string {

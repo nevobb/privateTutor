@@ -150,6 +150,10 @@ function makeRepos(overrides: Record<string, unknown> = {}) {
           : { ...baseTutorMessage, content: input.content as string, citations: input.citations }
     ),
     listUploadedFiles: vi.fn(async () => []),
+    listFileChunks: vi.fn(async () => []),
+    listDocumentPages: vi.fn(async () => []),
+    getDocumentOutline: vi.fn(async () => null),
+    listDetectedQuestions: vi.fn(async () => []),
     writeDecisionLogEntry: vi.fn(async () => ({ id: "dlog-1" })),
     processMemoryCandidate: vi.fn(async () => {}),
     webSearchProvider: {
@@ -223,6 +227,100 @@ describeMvp("MVP File Learning Pipeline", () => {
       expect(result.assistantMessage.content).toContain("שאלה 1");
       expect(result.assistantMessage.content).not.toMatch(/אין לי גישה ישירה/i);
       expect(result.assistantMessage.content).not.toMatch(/אני רואה את ה-PDF|יכול לראות את ה-PDF/);
+    });
+
+    it("uses artifact-aware inventory when completed document artifacts exist", async () => {
+      const repos = makeRepos({
+        listUploadedFiles: vi.fn(async () => [
+          {
+            id: "file-physics",
+            name: "physics.pdf",
+            originalFileName: "פיזיקה 2 מטלה 5.pdf",
+            extractionStatus: "completed",
+            chunkingStatus: "completed",
+            understandingStatus: "completed",
+            pageCount: 4,
+            outlineTitle: "מטלה 5",
+            detectedQuestionCount: 2,
+            extractionQuality: "good",
+            deepPdfStatus: "not_started",
+            indexingStatus: "indexed",
+          },
+        ]),
+        getDocumentOutline: vi.fn(async () => ({
+          outlineId: "v1",
+          userId: "alice",
+          fileId: "file-physics",
+          title: "מטלה 5",
+          sections: [],
+          confidence: "high",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })),
+        listDetectedQuestions: vi.fn(async () => [
+          {
+            questionId: "q-1",
+            userId: "alice",
+            fileId: "file-physics",
+            label: "שאלה 1",
+            summary: "חשב את הפוטנציאל החשמלי.",
+            pageStart: 2,
+            pageEnd: 2,
+            charStart: 0,
+            charEnd: 30,
+            sourceChunkIds: [],
+            subsections: [],
+            confidence: 0.9,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            questionId: "q-2",
+            userId: "alice",
+            fileId: "file-physics",
+            label: "שאלה 2",
+            summary: "מצא את עוצמת השדה.",
+            pageStart: 3,
+            pageEnd: 3,
+            charStart: 31,
+            charEnd: 60,
+            sourceChunkIds: [],
+            subsections: [],
+            confidence: 0.85,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ]),
+        listFileChunks: vi.fn(async () => [
+          {
+            chunkId: "inv-1",
+            userId: "alice",
+            workspaceId: "ws-physics",
+            fileId: "file-physics",
+            text: "שאלה 1\n0 0 1 2  a B I ",
+            chunkIndex: 0,
+            charStart: 0,
+            charEnd: 24,
+            tokenEstimate: 10,
+            source: "extracted_text",
+            createdAt: new Date(),
+          },
+        ]),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "sess-1", {
+        workspaceId: "ws-physics",
+        userMessage: "איזה קבצים העליתי לסביבת העבודה הזאת ומה יש בהם?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect(repos.listFileChunks).not.toHaveBeenCalled();
+      expect(result.assistantMessage.content).toMatch(/מספר עמודים שזוהו: 4/);
+      expect(result.assistantMessage.content).toContain("חשב את הפוטנציאל החשמלי");
+      expect(result.assistantMessage.content).not.toContain("0 0 1 2  a B I ");
     });
   });
 

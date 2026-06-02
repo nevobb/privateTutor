@@ -1295,3 +1295,38 @@ Copy this block and fill all fields:
   - Current state: Batch 6B complete and validation-clean; text-only document artifacts now persist best-effort after chunking.
   - Next recommended step: Batch 6C should make inventory artifact-aware with strict fallback to the current chunk-based inventory path.
   - Blockers/Risks: tutor/runtime still does not consume the new artifacts yet by design; `deepPdfStatus` is metadata-only until a later approved batch surfaces it.
+
+## 2026-06-02 23:31 (IDT) — Codex
+- Step/Task ID: Batch 6C — artifact-aware file inventory
+- Task summary: Upgrade the deterministic file inventory shortcut to use persisted document-understanding artifacts when useful, while preserving the existing chunk-based fallback and keeping Gemini/runtime retrieval untouched.
+- What I changed:
+  - Added an artifact-aware inventory builder/formatter in `fileInventoryService.ts` that uses detected questions, outline metadata, page facts, extraction quality, and deep-PDF recommendation metadata.
+  - Updated `sessionMessageApiService.ts` so the `file_content_inventory` shortcut first tries `maybeBuildArtifactAwareInventoryContent(...)` when `understandingStatus === "completed"`.
+  - Kept the current chunk-based `buildFileInventory(...)` fallback exactly as the backup path when artifacts are missing, failed, empty, or unreadable.
+  - Added regression tests proving the exact Hebrew inventory phrase still bypasses the model, artifact-aware responses avoid raw noisy chunk previews, poor extraction stays honest, and `deepPdfStatus === "recommended"` is phrased only as a recommendation.
+  - Wrote `agent-memory/PDF_READING_BATCH_6C_ARTIFACT_AWARE_INVENTORY_REPORT.md` and refreshed Graphify.
+- Files touched:
+  - `src/server/tutor/fileInventoryService.ts`
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `tests/server/tutor/fileInventoryService.test.ts`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `tests/behavior/mvpFileLearningPipeline.test.ts`
+  - `agent-memory/PDF_READING_BATCH_6C_ARTIFACT_AWARE_INVENTORY_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/tutor/fileInventoryService.test.ts` — passed
+  - `npx vitest run tests/server/workspaces/sessionMessageApiService.test.ts` — passed
+  - `npx vitest run tests/behavior/mvpFileLearningPipeline.test.ts` — passed
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — passed
+- Git status:
+  - Branch: `repair/artifact-aware-file-inventory`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: Batch 6C complete and validation-clean; inventory now prefers persisted document artifacts when they are present and useful, with chunk fallback preserved.
+  - Next recommended step: Batch 6D should make specific file-question resolution artifact-aware with strict fallback to the current chunk retrieval path.
+  - Blockers/Risks: inventory still targets one ready file at a time and source/page citations are not yet surfaced in the tutor-visible UI.

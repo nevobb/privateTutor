@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildArtifactAwareFileInventory,
   buildFileInventory,
+  formatArtifactAwareFileInventoryResponse,
   formatFileInventoryResponse,
   isLowQualityMathExtractionPreview,
 } from "../../../src/server/tutor/fileInventoryService";
@@ -18,6 +20,55 @@ function makeChunk(chunkIndex: number, text: string) {
     tokenEstimate: Math.ceil(text.length / 4),
     source: "extracted_text" as const,
     createdAt: new Date(),
+  };
+}
+
+function makeDetectedQuestion(overrides: Record<string, unknown> = {}) {
+  return {
+    questionId: "q-1",
+    userId: "u1",
+    fileId: "f-1",
+    label: "שאלה 1",
+    questionNumber: 1,
+    summary: "חשב את הפוטנציאל החשמלי.",
+    pageStart: 2,
+    pageEnd: 2,
+    charStart: 0,
+    charEnd: 40,
+    sourceChunkIds: [],
+    subsections: [],
+    confidence: 0.92,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
+
+function makeOutlineSection(overrides: Record<string, unknown> = {}) {
+  return {
+    sectionId: "s-1",
+    label: "שאלה 1",
+    title: "פוטנציאל חשמלי",
+    charStart: 0,
+    charEnd: 40,
+    sourceChunkIds: [],
+    subsections: [],
+    confidence: 0.9,
+    ...overrides,
+  };
+}
+
+function makeOutline(overrides: Record<string, unknown> = {}) {
+  return {
+    outlineId: "v1",
+    userId: "u1",
+    fileId: "f-1",
+    title: "מטלה 5",
+    sections: [makeOutlineSection()],
+    confidence: "high" as const,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
   };
 }
 
@@ -213,5 +264,104 @@ describe("formatFileInventoryResponse", () => {
     const text = formatFileInventoryResponse(result);
     expect(text).toContain("מקטע");
     expect(text).not.toContain("תצוגת הנוסחה/הסימון הושמטה");
+  });
+});
+
+describe("artifact-aware inventory", () => {
+  it("builds artifact-aware inventory from detected questions when completed artifacts exist", () => {
+    const result = buildArtifactAwareFileInventory({
+      fileName: "פיזיקה 2 מטלה 5.pdf",
+      pageCount: 4,
+      outlineTitle: "מטלה 5",
+      detectedQuestionCount: 2,
+      extractionQuality: "good",
+      deepPdfStatus: "not_started",
+      outline: makeOutline(),
+      detectedQuestions: [
+        makeDetectedQuestion(),
+        makeDetectedQuestion({
+          questionId: "q-2",
+          label: "שאלה 2",
+          questionNumber: 2,
+          summary: "מצא את עוצמת השדה.",
+          pageStart: 3,
+          pageEnd: 3,
+          charStart: 41,
+          charEnd: 80,
+        }),
+      ],
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.items).toHaveLength(2);
+    expect(result?.items[0].label).toBe("שאלה 1");
+    expect(result?.items[0].detail).toContain("חשב את הפוטנציאל החשמלי");
+  });
+
+  it("returns null when artifact data is too empty to be useful", () => {
+    const result = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      outline: null,
+      detectedQuestions: [],
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("formats cleaner artifact-aware inventory without raw noisy chunk preview", () => {
+    const inventory = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      pageCount: 3,
+      outlineTitle: "מטלה בפיזיקה",
+      detectedQuestionCount: 1,
+      extractionQuality: "good",
+      deepPdfStatus: "not_started",
+      outline: makeOutline(),
+      detectedQuestions: [
+        makeDetectedQuestion({
+          summary: "השאלה עוסקת בשדה מגנטי ובפוטנציאל.",
+        }),
+      ],
+    });
+
+    const text = formatArtifactAwareFileInventoryResponse(inventory!);
+    expect(text).toMatch(/מספר עמודים שזוהו: 3/);
+    expect(text).toMatch(/מספר שאלות\/מקטעים שזוהו: 1/);
+    expect(text).toContain("שאלה 1");
+    expect(text).not.toContain("0 0 1 2  a B I ");
+  });
+
+  it("includes honest quality warning for partial/poor artifact extraction", () => {
+    const inventory = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "poor",
+      outline: makeOutline(),
+      detectedQuestions: [
+        makeDetectedQuestion({
+          summary: undefined,
+          topic: "שדה מגנטי",
+          confidence: 0.55,
+          extractionNotes: "math_garbled",
+        }),
+      ],
+    });
+
+    const text = formatArtifactAwareFileInventoryResponse(inventory!);
+    expect(text).toMatch(/איכות חלקית|חולצו באיכות חלקית/);
+    expect(text).toMatch(/זוהו חלקית/);
+  });
+
+  it("includes deepPdfStatus recommendation wording without claiming Gemini already ran", () => {
+    const inventory = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "recommended",
+      outline: makeOutline(),
+      detectedQuestions: [makeDetectedQuestion()],
+    });
+
+    const text = formatArtifactAwareFileInventoryResponse(inventory!);
+    expect(text).toContain("המסמך כנראה דורש עיבוד מתקדם יותר כדי להבין נוסחאות/תרשימים בצורה אמינה.");
+    expect(text).not.toMatch(/Gemini|נותח כבר|נותח באמצעות/);
   });
 });

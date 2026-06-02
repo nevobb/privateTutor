@@ -1,7 +1,17 @@
 import { isInstructionAwarenessQuestion, PUBLIC_TEACHING_CONTRACT_SUMMARY } from "../tutor/teachingContract";
 import { classifyTutorRequest } from "../tutor/requestClassifier";
-import { buildFileInventory, formatFileInventoryResponse } from "../tutor/fileInventoryService";
+import {
+  buildArtifactAwareFileInventory,
+  buildFileInventory,
+  formatArtifactAwareFileInventoryResponse,
+  formatFileInventoryResponse,
+} from "../tutor/fileInventoryService";
 import { listFileChunks as defaultListFileChunks } from "./fileChunkRepository";
+import {
+  getDocumentOutline as defaultGetDocumentOutline,
+  listDetectedQuestions as defaultListDetectedQuestions,
+  listDocumentPages as defaultListDocumentPages,
+} from "./documentArtifactRepository";
 import { getMockTutorResponse as defaultGetMockTutorResponse } from "../../lib/tutor";
 import { getActiveTutorProvider } from "../tutor/providerRegistry";
 import type { ConversationTurn, TutorGroundingContext } from "../tutor/schemas";
@@ -58,6 +68,9 @@ interface Repositories {
   appendMessage: typeof defaultAppendMessage;
   listUploadedFiles: typeof defaultListUploadedFiles;
   listFileChunks: typeof defaultListFileChunks;
+  listDocumentPages: typeof defaultListDocumentPages;
+  getDocumentOutline: typeof defaultGetDocumentOutline;
+  listDetectedQuestions: typeof defaultListDetectedQuestions;
   writeDecisionLogEntry: typeof defaultWriteDecisionLogEntry;
   processMemoryCandidate: typeof defaultLearnerMemoryApiService.processMemoryCandidate;
   webSearchProvider: typeof defaultWebSearchProvider;
@@ -98,6 +111,9 @@ function defaultRepositories(): Repositories {
     appendMessage: defaultAppendMessage,
     listUploadedFiles: defaultListUploadedFiles,
     listFileChunks: defaultListFileChunks,
+    listDocumentPages: defaultListDocumentPages,
+    getDocumentOutline: defaultGetDocumentOutline,
+    listDetectedQuestions: defaultListDetectedQuestions,
     writeDecisionLogEntry: defaultWriteDecisionLogEntry,
     processMemoryCandidate: defaultLearnerMemoryApiService.processMemoryCandidate,
     webSearchProvider: defaultWebSearchProvider,
@@ -217,9 +233,19 @@ export function createSessionMessageApiService(
 
         let content: string;
         if (readyFile) {
-          const chunks = await repositories.listFileChunks(userId, input.workspaceId, readyFile.id);
-          const inventory = buildFileInventory(readyFile.originalFileName ?? readyFile.name, chunks);
-          content = formatFileInventoryResponse(inventory);
+          const artifactAwareContent = await maybeBuildArtifactAwareInventoryContent(
+            repositories,
+            userId,
+            readyFile
+          );
+
+          if (artifactAwareContent) {
+            content = artifactAwareContent;
+          } else {
+            const chunks = await repositories.listFileChunks(userId, input.workspaceId, readyFile.id);
+            const inventory = buildFileInventory(readyFile.originalFileName ?? readyFile.name, chunks);
+            content = formatFileInventoryResponse(inventory);
+          }
         } else if (files.length > 0) {
           const fileStatuses = files
             .map((f) => {
@@ -355,6 +381,74 @@ export function createSessionMessageApiService(
 }
 
 export const sessionMessageApiService: SessionMessageApiService = createSessionMessageApiService();
+
+async function maybeBuildArtifactAwareInventoryContent(
+  repositories: Repositories,
+  userId: string,
+  readyFile: {
+    id: string;
+    name?: string;
+    originalFileName?: string;
+    understandingStatus?: unknown;
+    pageCount?: unknown;
+    outlineTitle?: unknown;
+    detectedQuestionCount?: unknown;
+    extractionQuality?: unknown;
+    deepPdfStatus?: unknown;
+  }
+): Promise<string | null> {
+  if (readyFile.understandingStatus !== "completed") {
+    return null;
+  }
+
+  try {
+    const fileId = String(readyFile.id);
+    const [pages, outline, detectedQuestions] = await Promise.all([
+      repositories.listDocumentPages(userId, fileId),
+      repositories.getDocumentOutline(userId, fileId),
+      repositories.listDetectedQuestions(userId, fileId),
+    ]);
+
+    const inventory = buildArtifactAwareFileInventory({
+      fileName: String(readyFile.originalFileName ?? readyFile.name ?? "הקובץ"),
+      pageCount:
+        typeof readyFile.pageCount === "number"
+          ? readyFile.pageCount
+          : pages.length > 0
+            ? pages.length
+            : undefined,
+      outlineTitle:
+        typeof readyFile.outlineTitle === "string" && readyFile.outlineTitle.trim().length > 0
+          ? readyFile.outlineTitle
+          : undefined,
+      detectedQuestionCount:
+        typeof readyFile.detectedQuestionCount === "number"
+          ? readyFile.detectedQuestionCount
+          : undefined,
+      extractionQuality:
+        readyFile.extractionQuality === "good" ||
+        readyFile.extractionQuality === "partial" ||
+        readyFile.extractionQuality === "poor"
+          ? readyFile.extractionQuality
+          : undefined,
+      deepPdfStatus:
+        readyFile.deepPdfStatus === "not_started" ||
+        readyFile.deepPdfStatus === "recommended" ||
+        readyFile.deepPdfStatus === "pending" ||
+        readyFile.deepPdfStatus === "completed" ||
+        readyFile.deepPdfStatus === "failed" ||
+        readyFile.deepPdfStatus === "skipped"
+          ? readyFile.deepPdfStatus
+          : undefined,
+      outline,
+      detectedQuestions,
+    });
+
+    return inventory ? formatArtifactAwareFileInventoryResponse(inventory) : null;
+  } catch {
+    return null;
+  }
+}
 
 function resolveTrustedUserId(user: AuthenticatedUser | string): string {
   return typeof user === "string" ? user : user.userId;
