@@ -702,6 +702,7 @@ export default function Home() {
           activeTopicName={activeTopicName}
           getToken={getToken}
           developerDiagnosticsEnabled={developerDiagnosticsEnabled}
+          uploadedFileCount={uploadedFiles.length}
         />
       </MainLayout>
     </AuthShell>

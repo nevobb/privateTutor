@@ -38,6 +38,13 @@ interface TutorConversationProps {
   onCostModeChange: (mode: CostMode) => void;
   activeTopicName?: string | null;
   getToken: () => Promise<string | null>;
+  uploadedFileCount?: number;
+}
+
+export function formatSourcesLabel(count: number | undefined): string {
+  if (count === undefined || count === 0) return "No files uploaded";
+  if (count === 1) return "1 file available";
+  return `${count} files available`;
 }
 
 export default function TutorConversation({
@@ -50,6 +57,7 @@ export default function TutorConversation({
   onCostModeChange,
   activeTopicName,
   getToken,
+  uploadedFileCount,
 }: TutorConversationProps) {
   const [messages, setMessages] = useState<TutorMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -280,7 +288,7 @@ export default function TutorConversation({
           Context
         </span>
         <span>
-          Topic: <bdi>{scopeTopicLabel}</bdi> · Mode: {scopeModeLabel} · Sources: not connected yet
+          Topic: <bdi>{scopeTopicLabel}</bdi> · Mode: {scopeModeLabel} · Sources: {formatSourcesLabel(uploadedFileCount)}
         </span>
       </div>
 

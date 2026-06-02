@@ -3,6 +3,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import TutorConversation, {
   DecisionLogPanelBody,
+  formatSourcesLabel,
   hasNewAssistantMessage,
   isTimeoutError,
   normalizeCitations,
@@ -97,6 +98,65 @@ describe("shouldSubmitOnKeyDown", () => {
 
   it("does not submit on Shift+Enter", () => {
     expect(shouldSubmitOnKeyDown("Enter", true)).toBe(false);
+  });
+});
+
+describe("formatSourcesLabel", () => {
+  it("returns 'No files uploaded' when count is undefined", () => {
+    expect(formatSourcesLabel(undefined)).toBe("No files uploaded");
+  });
+
+  it("returns 'No files uploaded' when count is 0", () => {
+    expect(formatSourcesLabel(0)).toBe("No files uploaded");
+  });
+
+  it("returns '1 file available' when count is 1", () => {
+    expect(formatSourcesLabel(1)).toBe("1 file available");
+  });
+
+  it("returns 'N files available' when count > 1", () => {
+    expect(formatSourcesLabel(3)).toBe("3 files available");
+  });
+
+  it("never returns the stale 'not connected yet' placeholder", () => {
+    [undefined, 0, 1, 5].forEach((n) => {
+      expect(formatSourcesLabel(n)).not.toContain("not connected yet");
+    });
+  });
+});
+
+describe("TutorConversation context strip", () => {
+  function renderStrip(uploadedFileCount?: number): string {
+    return renderToStaticMarkup(
+      <TutorConversation
+        activeSessionId={null}
+        activeWorkspaceId={null}
+        developerDiagnosticsEnabled={false}
+        workMode="Learning"
+        onWorkModeChange={() => {}}
+        costMode="Normal Learning"
+        onCostModeChange={() => {}}
+        activeTopicName={null}
+        getToken={async () => null}
+        uploadedFileCount={uploadedFileCount}
+      />
+    );
+  }
+
+  it("does not render 'not connected yet' when no files prop is passed", () => {
+    expect(renderStrip()).not.toContain("not connected yet");
+  });
+
+  it("shows 'No files uploaded' when uploadedFileCount is 0", () => {
+    expect(renderStrip(0)).toContain("No files uploaded");
+  });
+
+  it("shows '1 file available' when uploadedFileCount is 1", () => {
+    expect(renderStrip(1)).toContain("1 file available");
+  });
+
+  it("shows file count when uploadedFileCount is 3", () => {
+    expect(renderStrip(3)).toContain("3 files available");
   });
 });
 
