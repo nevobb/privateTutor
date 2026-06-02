@@ -1213,3 +1213,31 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: wire a narrow app-managed Firebase Storage PDF loader into the provider boundary or orchestration layer in a separate batch, still without attaching Deep PDF to tutor runtime until policy/routing is explicitly approved.
   - Blockers/Risks: current deep-PDF success path depends on inline `pdfBytes` or injected loader; no runtime Storage integration is present yet by design.
+
+## 2026-06-02 23:07 (IDT) — Codex
+- Step/Task ID: Step 83 — Post-Batch 5 provider isolation audit
+- Task summary: Audit whether the committed document-understanding provider batch (`9a66eaa`) remains isolated from runtime flows and safe to build on.
+- What I checked:
+  - Confirmed branch/HEAD and clean working tree before audit.
+  - Traced `GeminiPdfUnderstandingProvider`, `documentUnderstandingOrchestrationService`, and `geminiPdfUnderstandingClient` with Graphify and direct code search.
+  - Verified no runtime caller from tutor messages, upload/extract/chunk flows, retrieval, inventory, UI, or API routes.
+  - Verified server-only env usage (`GEMINI_API_KEY`, optional `GEMINI_DOCUMENT_MODEL`) with no `NEXT_PUBLIC` exposure.
+  - Verified quality gate remains recommendation-only and does not execute Gemini.
+  - Re-ran required validations and wrote `agent-memory/POST_BATCH_5_PROVIDER_ISOLATION_AUDIT.md`.
+- Files touched:
+  - `agent-memory/POST_BATCH_5_PROVIDER_ISOLATION_AUDIT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — passed
+- Git status:
+  - Branch: `repair/gemini-deep-pdf-provider`
+  - Commit(s): no new commit
+  - Pushed: no
+- Handoff status:
+  - Current state: audit complete; provider remains isolated and safe.
+  - Next recommended step: Batch 6 can proceed, but should keep runtime wiring explicit and continue to avoid automatic Gemini execution until storage-loading and policy boundaries are intentionally approved.
+  - Blockers/Risks: no immediate blocker; future runtime integration still needs a narrow Firebase Storage bytes-loader boundary and better non-synthetic source anchoring before retrieval depends on deep-PDF outputs.
