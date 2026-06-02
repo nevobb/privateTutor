@@ -10,9 +10,8 @@ import type { DeepPdfStatus, ExtractionQuality } from "../../types";
 // detectedQuestions subcollection when understandingStatus === "completed".
 // See docs/DOCUMENT_UNDERSTANDING_LAYER.md for the full design.
 export const INVENTORY_NOT_AVAILABLE_RESPONSE =
-  `אני עובד עם הטקסט שחולץ מהקובץ, אבל עדיין אין לי שכבת זיהוי שאלות אמינה לקובץ הזה.\n` +
-  `כרגע אני יכול לחפש לפי מספר שאלה, נושא, או מילת מפתח מתוך הקובץ. ` +
-  `אם תכתוב למשל "שאלה 3" או "השאלה על קיבול", אמצא את המקטע הרלוונטי ואסביר אותו.`;
+  `כן, אני רואה את הקובץ, אבל כרגע אין לי ממנו רשימה מספיק נקייה של שאלות או סעיפים.\n` +
+  `אם תכתוב למשל "שאלה 3", נושא מסוים, או ציטוט קצר מתוך הקובץ — אתמקד בדיוק בחלק הזה ואעזור משם.`;
 
 export interface FileInventorySection {
   heading: string;
@@ -103,6 +102,45 @@ function buildLetterSectionLabel(letter: string): string {
   return `מקטע ${letter}׳`;
 }
 
+function inferInventorySubject(...parts: Array<string | undefined>): string | null {
+  const haystack = parts
+    .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+    .join(" ")
+    .toLowerCase();
+
+  if (/(פיזיק|מגנט|חשמל|אלקטרו)/.test(haystack)) {
+    return "בפיזיקה/אלקטרומגנטיות";
+  }
+
+  if (/(מתמט|אינטגרל|נגזרת|גאומטר|אלגבר)/.test(haystack)) {
+    return "במתמטיקה";
+  }
+
+  if (/(כימ|מולקול|אטומ)/.test(haystack)) {
+    return "בכימיה";
+  }
+
+  return null;
+}
+
+function buildInventoryIntro(...parts: Array<string | undefined>): string[] {
+  const subject = inferInventorySubject(...parts);
+  return [
+    "כן, אני רואה שהעלית קובץ אחד.",
+    subject
+      ? `נראה שזה קובץ ${subject} עם כמה שאלות/סעיפים.`
+      : "נראה שזה קובץ עם כמה שאלות/סעיפים.",
+  ];
+}
+
+function buildWeakExtractionWarning(): string {
+  return "חלק מהנוסחאות לא חולצו מספיק טוב, אז אני לא רוצה להציג אותן כאילו הן ודאיות.";
+}
+
+function buildPracticalNextStep(): string {
+  return "הכי טוב לבחור סעיף/שאלה מסוימים ונעבוד עליהם בזהירות.";
+}
+
 function parseSectionHeading(heading: string): { label: string; detail?: string } {
   const normalized = normalizeDisplayText(heading);
 
@@ -171,18 +209,22 @@ function parseSectionHeading(heading: string): { label: string; detail?: string 
 function buildSectionLine(section: FileInventorySection): string {
   const parsedHeading = parseSectionHeading(section.heading);
   const cleanPreview = truncateDisplayText(section.preview);
-  const previewIsLowQuality = isLowQualityMathExtractionPreview(section.preview);
+  const previewIsLowQuality =
+    isLowQualityMathExtractionPreview(section.preview) || isLowQualityChunkSnippet(cleanPreview);
+  const parsedHeadingDetailIsUseful = Boolean(
+    parsedHeading.detail && !isLowQualityArtifactText(parsedHeading.detail)
+  );
 
   let detail: string | undefined;
   if (previewIsLowQuality) {
-    if (parsedHeading.detail) {
-      detail = `${parsedHeading.detail} (זוהה חלקית)`;
+    if (parsedHeadingDetailIsUseful && parsedHeading.detail) {
+      detail = `${parsedHeading.detail} — אבל הניסוח שם לא נקלט מספיק טוב כדי לסמוך עליו לגמרי.`;
     } else {
-      detail = "זוהה חלקית; התוכן המתמטי במקטע הזה לא נקלט בצורה אמינה.";
+      detail = "הניסוח במקטע הזה לא נקלט מספיק טוב כדי לסכם אותו בביטחון.";
     }
   } else if (cleanPreview.length > 0) {
     detail = cleanPreview;
-  } else if (parsedHeading.detail) {
+  } else if (parsedHeadingDetailIsUseful && parsedHeading.detail) {
     detail = parsedHeading.detail;
   }
 
@@ -220,7 +262,7 @@ function isLowQualityArtifactText(text: string | undefined): boolean {
     return true;
   }
 
-  if (/[,.;:!?]{2,}/.test(normalized)) {
+  if (/(,{2,}|;{2,}|:{2,}|!{2,}|\?{2,})/.test(normalized)) {
     return true;
   }
 
@@ -248,6 +290,46 @@ function isLowQualityArtifactText(text: string | undefined): boolean {
     .map((token) => token.trim())
     .filter((token) => token.length >= 3).length;
   if (normalized.length < 24 && longWordCount < 2) {
+    return true;
+  }
+
+  return false;
+}
+
+function isLowQualityChunkSnippet(text: string | undefined): boolean {
+  if (!text) {
+    return true;
+  }
+
+  const normalized = normalizeDisplayText(text);
+  if (normalized.length === 0) {
+    return true;
+  }
+
+  if (isLowQualityMathExtractionPreview(normalized)) {
+    return true;
+  }
+
+  if (/(,{2,}|;{2,}|:{2,}|!{2,}|\?{2,})/.test(normalized)) {
+    return true;
+  }
+
+  if (/(?:\b[a-zA-Z]\b[\s,]*){3,}/.test(normalized)) {
+    return true;
+  }
+
+  const hebrewTokens = normalized.match(/[א-ת]+/g) ?? [];
+  const singleHebrewTokenCount = hebrewTokens.filter((token) => token.length === 1).length;
+  const multiCharHebrewTokenCount = hebrewTokens.filter((token) => token.length > 1).length;
+  if (singleHebrewTokenCount >= 2 && multiCharHebrewTokenCount <= 1) {
+    return true;
+  }
+
+  if (/(?:^|\s)[א-ת](?:\s+[א-ת]){1,}\s+[א-ת]{2,}(?:\s|$)/.test(normalized)) {
+    return true;
+  }
+
+  if (singleHebrewTokenCount >= 2 && singleHebrewTokenCount >= multiCharHebrewTokenCount) {
     return true;
   }
 
@@ -298,7 +380,7 @@ function buildArtifactItemDetail(question: DetectedQuestionArtifactRecord): {
 
   if (question.extractionNotes) {
     return {
-      detail: "זוהה חלקית; הטקסט או הסימונים במקטע הזה לא חולצו בצורה מלאה.",
+      detail: "הטקסט במקטע הזה לא חולץ מספיק טוב כדי להציג אותו בביטחון.",
       isPartial: true,
     };
   }
@@ -424,6 +506,74 @@ export function buildArtifactAwareFileInventory(params: {
   };
 }
 
+function dedupeChunkSections(sections: FileInventorySection[]): {
+  sections: FileInventorySection[];
+  suppressedCount: number;
+} {
+  const kept: FileInventorySection[] = [];
+  let suppressedCount = 0;
+
+  const scoreSection = (section: FileInventorySection): number => {
+    const parsedHeading = parseSectionHeading(section.heading);
+    const preview = truncateDisplayText(section.preview);
+    const previewIsClean = preview.length > 0 && !isLowQualityChunkSnippet(preview);
+    const headingDetailIsClean = Boolean(
+      parsedHeading.detail && !isLowQualityArtifactText(parsedHeading.detail)
+    );
+    return (previewIsClean ? 4 : 0) + (headingDetailIsClean ? 2 : 0);
+  };
+
+  for (const section of sections) {
+    const label = parseSectionHeading(section.heading).label;
+    const existingIndex = kept.findIndex((candidate) => parseSectionHeading(candidate.heading).label === label);
+    if (existingIndex === -1) {
+      kept.push(section);
+      continue;
+    }
+
+    const existing = kept[existingIndex];
+    const candidatePreview = truncateDisplayText(section.preview);
+    const existingPreview = truncateDisplayText(existing.preview);
+    const candidateCleanDistinct =
+      candidatePreview.length > 0 &&
+      existingPreview.length > 0 &&
+      !isLowQualityChunkSnippet(candidatePreview) &&
+      !isLowQualityChunkSnippet(existingPreview) &&
+      candidatePreview !== existingPreview;
+
+    if (candidateCleanDistinct) {
+      kept.push(section);
+      continue;
+    }
+
+    if (scoreSection(section) > scoreSection(existing)) {
+      kept[existingIndex] = section;
+    }
+    suppressedCount += 1;
+  }
+
+  return { sections: kept, suppressedCount };
+}
+
+function allChunkSectionsLookLowQuality(sections: FileInventorySection[]): boolean {
+  if (sections.length === 0) {
+    return false;
+  }
+
+  return sections.every((section) => {
+    const parsedHeading = parseSectionHeading(section.heading);
+    const cleanPreview = truncateDisplayText(section.preview);
+    const previewLooksWeak =
+      cleanPreview.length === 0 ||
+      isLowQualityMathExtractionPreview(section.preview) ||
+      isLowQualityChunkSnippet(cleanPreview);
+    const headingDetailLooksWeak =
+      !parsedHeading.detail || isLowQualityArtifactText(parsedHeading.detail);
+
+    return previewLooksWeak && headingDetailLooksWeak;
+  });
+}
+
 export function buildFileInventory(
   fileName: string,
   chunks: FileChunkRecord[]
@@ -463,18 +613,19 @@ export function buildFileInventory(
 export function formatArtifactAwareFileInventoryResponse(
   result: ArtifactAwareFileInventoryResult
 ): string {
-  const disclaimer =
-    "אני עובד עם הטקסט שחולץ מהקובץ, לא עם תצוגה חזותית של ה-PDF.";
-  const extractionWarning =
-    "חשוב: חלק מהנוסחאות, הסימונים המתמטיים, או מבנה המסמך חולצו באיכות חלקית, לכן חלק מהמקטעים מזוהים באופן חלקי.";
-  const deepPdfRecommendation =
-    "המסמך כנראה דורש עיבוד מתקדם יותר כדי להבין נוסחאות/תרשימים בצורה אמינה.";
+  const intro = buildInventoryIntro(
+    result.fileName,
+    result.outlineTitle,
+    ...result.items.flatMap((item) => [item.label, item.detail])
+  );
+  const extractionWarning = buildWeakExtractionWarning();
+  const carefulFocusSuggestion =
+    "אם יש שם נוסחה או תרשים שחשובים לך במיוחד, עדיף לבחור שאלה או סעיף מסוים ונתמקד רק בהם.";
 
   const facts = [
-    typeof result.pageCount === "number" ? `מספר עמודים שזוהו: ${result.pageCount}` : undefined,
-    result.outlineTitle ? `כותרת/נושא שזוהה: ${result.outlineTitle}` : undefined,
-    typeof result.detectedQuestionCount === "number"
-      ? `מספר שאלות/מקטעים שזוהו: ${result.detectedQuestionCount}`
+    result.outlineTitle ? `הכיוון הכללי שנראה מהקובץ: ${result.outlineTitle}.` : undefined,
+    typeof result.detectedQuestionCount === "number" && result.detectedQuestionCount > 0
+      ? `אני מצליח לזהות בו בערך ${result.detectedQuestionCount} שאלות/סעיפים.`
       : undefined,
   ].filter(Boolean) as string[];
 
@@ -488,75 +639,84 @@ export function formatArtifactAwareFileInventoryResponse(
 
   if (result.items.length === 0) {
     return [
-      "הקובץ זוהה והטקסט חולץ.",
-      disclaimer,
+      ...intro,
       "",
       ...facts,
       ...(facts.length > 0 ? [""] : []),
       ...(hasExtractionWarning ? [extractionWarning, ""] : []),
-      ...(result.deepPdfStatus === "recommended" ? [deepPdfRecommendation, ""] : []),
+      ...(result.deepPdfStatus === "recommended" ? [carefulFocusSuggestion, ""] : []),
       ...(result.weakArtifactsSuppressed
         ? [
-            "זוהו מקטעים/שאלות בקובץ, אבל איכות החילוץ לא מספיקה כדי להציג אותם כסיכום אמין.",
-            "בחר שאלה, עמוד, או שלח ציטוט קצר מהקובץ ואמשיך משם בזהירות.",
+            "אני כן רואה שיש שם שאלות או סעיפים, אבל החילוץ לא מספיק נקי כדי להציג אותם כסיכום בטוח.",
+            buildPracticalNextStep(),
           ]
         : [
-            "זוהו פרטי מסמך בסיסיים, אבל עדיין אין מספיק מקטעים מובנים כדי להציג רשימה טובה.",
-            "אפשר לבחור שאלה, עמוד, או נושא ספציפי ונמשיך משם.",
+            "כרגע אין לי ממנו רשימה מספיק נקייה של שאלות או סעיפים.",
+            "אם תרצה, אפשר לבחור שאלה, עמוד או ציטוט קצר ונעבוד משם.",
           ]),
     ].join("\n");
   }
 
   return [
-    "הקובץ זוהה והטקסט חולץ.",
-    disclaimer,
+    ...intro,
     "",
     ...facts,
     ...(facts.length > 0 ? [""] : []),
     ...(hasExtractionWarning ? [extractionWarning, ""] : []),
-    ...(result.deepPdfStatus === "recommended" ? [deepPdfRecommendation, ""] : []),
-    result.isPartial ? "שאלות/מקטעים שזוהו חלקית:" : "שאלות/מקטעים שזוהו:",
+    ...(result.deepPdfStatus === "recommended" ? [carefulFocusSuggestion, ""] : []),
+    result.isPartial ? "אלה הדברים שאני מצליח להוציא ממנו בזהירות:" : "אלה הדברים שאני מצליח לראות ממנו כרגע:",
     "",
     ...listLines,
     "",
-    result.isPartial
-      ? "כדי לעבוד בצורה טובה יותר, בחר שאלה/מקטע מסוים או ציין עמוד/ציטוט קצר ממנו."
-      : "אם תרצה, בחר שאלה/מקטע מסוים ונמשיך משם.",
+    buildPracticalNextStep(),
   ].join("\n");
 }
 
 export function formatFileInventoryResponse(result: FileInventoryResult): string {
-  const disclaimer =
-    "אני עובד עם הטקסט שחולץ מהקובץ, לא עם תצוגה חזותית של ה-PDF.";
-  const hasLowQualityMathPreview = result.sections.some((section) =>
-    isLowQualityMathExtractionPreview(section.preview)
+  const intro = buildInventoryIntro(
+    result.fileName,
+    ...result.sections.flatMap((section) => [section.heading, section.preview])
   );
-  const extractionQualityWarning =
-    "חשוב: חלק מהנוסחאות והסימונים המתמטיים חולצו באיכות נמוכה, לכן אני לא מציג אותם כאילו הם נוסחה תקינה.";
+  const extractionQualityWarning = buildWeakExtractionWarning();
 
   if (result.sections.length === 0) {
     return [
-      "הקובץ זוהה והטקסט חולץ.",
-      disclaimer,
+      ...intro,
       "",
-      "מהטקסט שחולץ לא זיהיתי מספור מסודר של שאלות/תרגילים — הקובץ עשוי להכיל חומר רציף ללא כותרות ממוספרות.",
-      "תוכל לשאול על נושא ספציפי ואמצא את החלק הרלוונטי בטקסט.",
+      "כרגע אני לא מצליח להוציא ממנו רשימה נקייה של שאלות או סעיפים.",
+      "אם תרצה, אפשר ללכת לפי נושא, מספר שאלה או ציטוט קצר מתוך הקובץ.",
     ].join("\n");
   }
 
-  const listLines = result.sections.map((s, i) => `${i + 1}. ${buildSectionLine(s)}`);
+  const { sections, suppressedCount } = dedupeChunkSections(result.sections);
+  const hasLowQualityMathPreview = sections.some((section) =>
+    isLowQualityMathExtractionPreview(section.preview) ||
+    isLowQualityChunkSnippet(truncateDisplayText(section.preview))
+  );
+  const allSectionsWeak = allChunkSectionsLookLowQuality(sections);
+
+  if (sections.length === 0 || allSectionsWeak) {
+    return [
+      ...intro,
+      "",
+      extractionQualityWarning,
+      "",
+      "אני כן רואה שיש שם שאלות או סעיפים, אבל הטקסט שיצא מהם לא מספיק נקי כדי לסכם אותם בביטחון.",
+      ...(suppressedCount > 0 ? ["יש שם גם כמה שורות שבורות או כפולות, אז העדפתי לא להציג אותן כמו שהן."] : []),
+      buildPracticalNextStep(),
+    ].join("\n");
+  }
+
+  const listLines = sections.map((s, i) => `${i + 1}. ${buildSectionLine(s)}`);
 
   return [
-    "הקובץ זוהה והטקסט חולץ.",
-    disclaimer,
+    ...intro,
     ...(hasLowQualityMathPreview ? ["", extractionQualityWarning] : []),
     "",
-    hasLowQualityMathPreview ? "מקטעים שזוהו חלקית:" : "מקטעים שזוהו:",
+    hasLowQualityMathPreview ? "אלה הסעיפים שאני מצליח לקרוא ממנו בזהירות:" : "אלה הסעיפים שאני מצליח לראות ממנו כרגע:",
     "",
     ...listLines,
     "",
-    hasLowQualityMathPreview
-      ? "כדי לעבוד בצורה טובה יותר, בחר שאלה/מקטע מסוים או ציין עמוד/ציטוט קצר ממנו."
-      : "אם תרצה, בחר שאלה/מקטע מסוים ונמשיך משם.",
+    buildPracticalNextStep(),
   ].join("\n");
 }

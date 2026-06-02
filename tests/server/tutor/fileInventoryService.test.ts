@@ -169,12 +169,13 @@ describe("formatFileInventoryResponse", () => {
     expect(isLowQualityMathExtractionPreview("0 0 1 2  a B I ")).toBe(true);
   });
 
-  it("starts with file-detected statement and text-based extraction disclaimer", () => {
+  it("opens in natural tutor phrasing instead of backend status language", () => {
     const result = buildFileInventory("f.pdf", [makeChunk(0, "שאלה 1\nתוכן")]);
     const text = formatFileInventoryResponse(result);
-    expect(text).toMatch(/הקובץ זוהה והטקסט חולץ/);
-    expect(text).toMatch(/טקסט שחולץ/);
-    expect(text).toMatch(/חזותית/i);
+    expect(text).toMatch(/כן, אני רואה|נראה שזה קובץ/);
+    expect(text).not.toMatch(/הקובץ זוהה והטקסט חולץ/);
+    expect(text).not.toMatch(/אני עובד עם הטקסט שחולץ/);
+    expect(text).not.toMatch(/תצוגה חזותית|חזותית/);
   });
 
   it("lists detected sections by number", () => {
@@ -211,13 +212,14 @@ describe("formatFileInventoryResponse", () => {
     expect(text).not.toContain("0 0 1 2  a B I ");
   });
 
-  it("includes one clear extraction-quality warning when math extraction preview looks garbled", () => {
+  it("explains weak extraction conversationally when math extraction looks garbled", () => {
     const result = buildFileInventory("f.pdf", [
       makeChunk(0, "שאלה 1\n0 0 1 2  a B I "),
     ]);
     const text = formatFileInventoryResponse(result);
-    expect(text).toMatch(/איכות נמוכה|חולצו באיכות נמוכה|הנוסחאות\/הסימונים המתמטיים/);
-    expect(text.match(/איכות נמוכה|חולצו באיכות נמוכה|הנוסחאות\/הסימונים המתמטיים/g)?.length).toBe(1);
+    expect(text).toMatch(/חלק מהנוסחאות.*לא חולצו מספיק טוב/);
+    expect(text).toMatch(/אני לא רוצה להציג אותן כאילו הן ודאיות/);
+    expect(text).not.toMatch(/הקובץ זוהה והטקסט חולץ|מקטעים שזוהו חלקית/);
   });
 
   it("does not insert low-quality placeholder mid-sentence in the broken preview line", () => {
@@ -234,17 +236,18 @@ describe("formatFileInventoryResponse", () => {
     ]);
     const text = formatFileInventoryResponse(result);
     expect(text).not.toMatch(/אני לא יכול לתת רשימה/i);
-    expect(text).toMatch(/טקסט שחולץ/);
+    expect(text).toMatch(/אם תרצה, אפשר ללכת לפי נושא|אפשר לבחור/);
   });
 
-  it("includes invite to start with a specific question at the end", () => {
+  it("ends with one practical tutor-style next step", () => {
     const chunks = [
       makeChunk(0, "שאלה 1\nתוכן"),
       makeChunk(1, "שאלה 2\nתוכן"),
     ];
     const result = buildFileInventory("f.pdf", chunks);
     const text = formatFileInventoryResponse(result);
-    expect(text).toMatch(/שאלה|מקטע|עמוד|תרצה/);
+    expect(text).toMatch(/הכי טוב לבחור|אפשר לבחור|עדיף לבחור/);
+    expect(text).toMatch(/שאלה|סעיף|עמוד|ציטוט/);
   });
 
   it("keeps clean extracted Hebrew/English preview visible when text is readable", () => {
@@ -264,6 +267,30 @@ describe("formatFileInventoryResponse", () => {
     const text = formatFileInventoryResponse(result);
     expect(text).toContain("מקטע");
     expect(text).not.toContain("תצוגת הנוסחה/הסימון הושמטה");
+  });
+
+  it("suppresses the exact smoke-failure chunk snippets instead of presenting them as clean sections", () => {
+    const result = buildFileInventory("f.pdf", [
+      makeChunk(0, "ג.\nא ת השטף המגנטי"),
+      makeChunk(1, "ג.\nפרמטרים,,, a b R I"),
+    ]);
+    const text = formatFileInventoryResponse(result);
+    expect(text).not.toContain("א ת השטף המגנטי");
+    expect(text).not.toContain("פרמטרים,,, a b R I");
+    expect(text).toMatch(/חלק מהנוסחאות.*לא חולצו מספיק טוב|אני לא רוצה להציג/);
+    expect(text.match(/מקטע ג׳/g)?.length ?? 0).toBeLessThanOrEqual(1);
+  });
+
+  it("keeps clean chunk fallback summaries visible when the extracted text is readable", () => {
+    const result = buildFileInventory("f.pdf", [
+      makeChunk(0, "ג.\nחשב את השטף המגנטי דרך המסגרת."),
+      makeChunk(1, "ד.\nמצא את הזרם הדרוש כדי לאפס את השדה."),
+    ]);
+    const text = formatFileInventoryResponse(result);
+    expect(text).toContain("חשב את השטף המגנטי דרך המסגרת");
+    expect(text).toContain("מצא את הזרם הדרוש כדי לאפס את השדה");
+    expect(text).not.toMatch(/איכות החילוץ לא מספיקה כדי להציג אותם כסיכום אמין/);
+    expect(text).toMatch(/כן, אני רואה|נראה שזה קובץ/);
   });
 });
 
@@ -325,8 +352,7 @@ describe("artifact-aware inventory", () => {
     });
 
     const text = formatArtifactAwareFileInventoryResponse(inventory!);
-    expect(text).toMatch(/מספר עמודים שזוהו: 3/);
-    expect(text).toMatch(/מספר שאלות\/מקטעים שזוהו: 1/);
+    expect(text).toMatch(/כן, אני רואה|נראה שזה קובץ/);
     expect(text).toContain("שאלה 1");
     expect(text).not.toContain("0 0 1 2  a B I ");
   });
@@ -347,8 +373,8 @@ describe("artifact-aware inventory", () => {
     });
 
     const text = formatArtifactAwareFileInventoryResponse(inventory!);
-    expect(text).toMatch(/איכות חלקית|חולצו באיכות חלקית/);
-    expect(text).toMatch(/זוהו חלקית/);
+    expect(text).toMatch(/חלק מהנוסחאות.*לא חולצו מספיק טוב/);
+    expect(text).toMatch(/אלה הדברים שאני מצליח להוציא ממנו בזהירות/);
   });
 
   it("includes deepPdfStatus recommendation wording without claiming Gemini already ran", () => {
@@ -361,7 +387,7 @@ describe("artifact-aware inventory", () => {
     });
 
     const text = formatArtifactAwareFileInventoryResponse(inventory!);
-    expect(text).toContain("המסמך כנראה דורש עיבוד מתקדם יותר כדי להבין נוסחאות/תרשימים בצורה אמינה.");
+    expect(text).toMatch(/אם יש שם נוסחה או תרשים|עדיף לבחור שאלה או סעיף מסוים/);
     expect(text).not.toMatch(/Gemini|נותח כבר|נותח באמצעות/);
   });
 
@@ -384,7 +410,7 @@ describe("artifact-aware inventory", () => {
 
     const text = formatArtifactAwareFileInventoryResponse(inventory!);
     expect(text).not.toContain("א ת השטף המגנטי");
-    expect(text).toMatch(/איכות החילוץ לא מספיקה כדי להציג אותם כסיכום אמין/);
+    expect(text).toMatch(/החילוץ לא מספיק נקי כדי להציג אותם כסיכום בטוח/);
   });
 
   it("de-duplicates duplicate low-quality labels like 'מקטע ג׳'", () => {
@@ -436,7 +462,7 @@ describe("artifact-aware inventory", () => {
 
     const text = formatArtifactAwareFileInventoryResponse(inventory!);
     expect(text).not.toContain("פרמטרים,,, a b R I");
-    expect(text).toMatch(/איכות החילוץ לא מספיקה כדי להציג אותם כסיכום אמין/);
+    expect(text).toMatch(/החילוץ לא מספיק נקי כדי להציג אותם כסיכום בטוח/);
   });
 
   it("keeps clean artifacts visible normally", () => {

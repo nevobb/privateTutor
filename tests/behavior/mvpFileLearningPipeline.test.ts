@@ -222,11 +222,10 @@ describeMvp("MVP File Learning Pipeline", () => {
       });
 
       expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
-      expect(result.assistantMessage.content).toMatch(/הקובץ זוהה והטקסט חולץ/);
-      expect(result.assistantMessage.content).toMatch(/מקטעים שזוהו/);
+      expect(result.assistantMessage.content).toMatch(/כן, אני רואה|נראה שזה קובץ/);
       expect(result.assistantMessage.content).toContain("שאלה 1");
       expect(result.assistantMessage.content).not.toMatch(/אין לי גישה ישירה/i);
-      expect(result.assistantMessage.content).not.toMatch(/אני רואה את ה-PDF|יכול לראות את ה-PDF/);
+      expect(result.assistantMessage.content).not.toMatch(/אני רואה את ה-PDF|יכול לראות את ה-PDF|Gemini|הקובץ זוהה והטקסט חולץ/);
     });
 
     it("uses artifact-aware inventory when completed document artifacts exist", async () => {
@@ -318,7 +317,7 @@ describeMvp("MVP File Learning Pipeline", () => {
 
       expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
       expect(repos.listFileChunks).not.toHaveBeenCalled();
-      expect(result.assistantMessage.content).toMatch(/מספר עמודים שזוהו: 4/);
+      expect(result.assistantMessage.content).toMatch(/כן, אני רואה|נראה שזה קובץ/);
       expect(result.assistantMessage.content).toContain("חשב את הפוטנציאל החשמלי");
       expect(result.assistantMessage.content).not.toContain("0 0 1 2  a B I ");
     });

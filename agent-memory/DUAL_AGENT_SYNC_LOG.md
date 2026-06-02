@@ -1363,3 +1363,74 @@ Copy this block and fill all fields:
   - Current state: Batch 6C.1 complete and validation-clean; weak artifact snippets are now filtered or suppressed instead of being shown as if they were clean section summaries.
   - Next recommended step: manual smoke on the specific physics/math PDFs that produced duplicated `מקטע ג׳` and parameter-list noise, then Batch 6D can focus on artifact-aware specific-question resolution.
   - Blockers/Risks: artifact quality filtering is still heuristic and may need another small pass after real-PDF smoke, but the current behavior is now much safer and less misleading.
+
+## 2026-06-03 00:55 (IDT) — Codex
+- Step/Task ID: Batch 6C.2 — inventory smoke failure trace and fix
+- Task summary: Trace the actual runtime inventory path and fix the real leak so weak artifact/chunk inventory does not show broken snippets in smoke output.
+- What I changed:
+  - Traced the runtime inventory branch and confirmed the real leak path was the chunk fallback (`buildFileInventory(...)` + `formatFileInventoryResponse(...)`) after artifact-aware inventory returned `null`.
+  - Hardened chunk fallback formatting in `fileInventoryService.ts` to suppress broken Hebrew spacing fragments, repeated punctuation corruption, corrupted parameter-list snippets, and duplicate weak labels.
+  - Preserved clean chunk fallback for readable files while making fully weak/noisy files return a conservative warning-style summary instead of fake-clean section summaries.
+  - Added regression tests for the exact smoke-style failures (`א ת השטף המגנטי`, `פרמטרים,,, a b R I`, duplicated `מקטע ג׳`) and updated the session-level expectation for the new conservative weak-document wording.
+  - Wrote `agent-memory/PDF_READING_BATCH_6C2_INVENTORY_SMOKE_FAILURE_FIX_REPORT.md` and refreshed Graphify.
+- Files touched:
+  - `src/server/tutor/fileInventoryService.ts`
+  - `tests/server/tutor/fileInventoryService.test.ts`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `agent-memory/PDF_READING_BATCH_6C2_INVENTORY_SMOKE_FAILURE_FIX_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `graphify query "file inventory artifact fallback chunk snippets low quality"` — passed
+  - `graphify query "maybeBuildArtifactAwareInventoryContent fallback buildFileInventory"` — passed
+  - `graphify query "buildFileInventory low quality math snippets"` — passed
+  - `graphify query "sessionMessageApiService file_content_inventory response"` — passed
+  - `npx vitest run tests/server/tutor/fileInventoryService.test.ts` — passed
+  - `npx vitest run tests/server/workspaces/sessionMessageApiService.test.ts` — passed
+  - `npx vitest run tests/behavior/mvpFileLearningPipeline.test.ts` — passed
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — passed
+- Git status:
+  - Branch: `repair/artifact-aware-file-inventory`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: Batch 6C.2 complete and validation-clean; both artifact-aware inventory and chunk fallback now avoid leaking the exact weak smoke snippets, while clean inventory output remains intact.
+  - Next recommended step: rerun the real PDF smoke that originally showed duplicated `מקטע ג׳` and weak parameter text, then only move on to later artifact-aware question retrieval if the real document output now matches the conservative wording.
+  - Blockers/Risks: quality filtering is still heuristic, so another small pass may be needed if a new real PDF exposes a different corruption pattern.
+
+## 2026-06-03 02:07 (IDT) — Codex
+- Step/Task ID: Batch 6C.2 — inventory response tone + weak snippet suppression
+- Task summary: Keep the inventory logic intact but make the user-facing response sound like a real Hebrew tutor instead of a backend processing report.
+- What I changed:
+  - Reworked `fileInventoryService.ts` response wording for both artifact-aware inventory and chunk fallback so the reply now opens conversationally (`כן, אני רואה שהעלית קובץ אחד`) and guides the user like a tutor.
+  - Removed backend/status phrasing such as `הקובץ זוהה והטקסט חולץ`, `אני עובד עם הטקסט שחולץ`, and `מקטעים שזוהו חלקית` from the main inventory response path.
+  - Kept weak-snippet suppression in place for broken Hebrew fragments, repeated punctuation, corrupted parameter lists, and duplicate weak section labels.
+  - Updated unit, service, and behavior tests to assert natural Hebrew phrasing, no pipeline-status wording, honest weak-extraction guidance, and continued model bypass for the exact Hebrew inventory phrase.
+  - Updated `agent-memory/PDF_READING_BATCH_6C2_INVENTORY_SMOKE_FAILURE_FIX_REPORT.md` and refreshed Graphify.
+- Files touched:
+  - `src/server/tutor/fileInventoryService.ts`
+  - `tests/server/tutor/fileInventoryService.test.ts`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `tests/behavior/mvpFileLearningPipeline.test.ts`
+  - `agent-memory/PDF_READING_BATCH_6C2_INVENTORY_SMOKE_FAILURE_FIX_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run tests/server/tutor/fileInventoryService.test.ts` — passed
+  - `npx vitest run tests/server/workspaces/sessionMessageApiService.test.ts` — passed
+  - `npx vitest run tests/behavior/mvpFileLearningPipeline.test.ts` — passed
+  - `npx vitest run` — passed
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — passed
+- Git status:
+  - Branch: `repair/artifact-aware-file-inventory`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: Batch 6C.2 now fixes both the snippet leak and the robotic tone problem; the inventory path stays deterministic/local but reads like a tutor reply.
+  - Next recommended step: rerun the real Hebrew physics/math smoke on the same PDFs and confirm the live wording now feels calm and useful in chat.
+  - Blockers/Risks: subject inference is intentionally lightweight, so unusual files may still get the generic `נראה שזה קובץ עם כמה שאלות/סעיפים` phrasing.

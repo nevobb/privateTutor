@@ -1239,10 +1239,10 @@ describeService("sessionMessageApiService", () => {
       expect(repos.listUploadedFiles).toHaveBeenCalledWith("alice", "ws-1");
       expect(repos.listFileChunks).toHaveBeenCalledWith("alice", "ws-1", "file-inv");
       const assistant = result.assistantMessage as { content?: string };
-      expect(assistant.content).toMatch(/הקובץ זוהה והטקסט חולץ/);
-      expect(assistant.content).toMatch(/מקטעים שזוהו/);
+      expect(assistant.content).toMatch(/כן, אני רואה|נראה שזה קובץ/);
       expect(assistant.content).toContain("שאלה 1");
       expect(assistant.content).not.toMatch(/אין לי גישה ישירה/i);
+      expect(assistant.content).not.toMatch(/הקובץ זוהה והטקסט חולץ|מקטעים שזוהו|אני עובד עם הטקסט שחולץ/);
     });
 
     it("uses persisted document artifacts when understandingStatus is completed and artifacts are useful", async () => {
@@ -1318,13 +1318,13 @@ describeService("sessionMessageApiService", () => {
       expect(repos.listDetectedQuestions).toHaveBeenCalledWith("alice", "file-inv");
       expect(repos.listFileChunks).not.toHaveBeenCalled();
       const assistant = result.assistantMessage as { content?: string };
-      expect(assistant.content).toMatch(/מספר עמודים שזוהו: 4/);
-      expect(assistant.content).toMatch(/מספר שאלות\/מקטעים שזוהו: 2/);
+      expect(assistant.content).toMatch(/כן, אני רואה|נראה שזה קובץ/);
       expect(assistant.content).toContain("חשב את הפוטנציאל החשמלי");
       expect(assistant.content).not.toContain("0 0 1 2");
+      expect(assistant.content).not.toMatch(/מספר עמודים שזוהו|מספר שאלות\/מקטעים שזוהו/);
     });
 
-    it("inventory response contains extracted-text disclaimer", async () => {
+    it("inventory response avoids backend status-report wording", async () => {
       const repos = makeInventoryRepos();
       const service = mod.createSessionMessageApiService(repos);
       const result = await service.sendMessageForUser("alice", "s-1", {
@@ -1335,7 +1335,7 @@ describeService("sessionMessageApiService", () => {
       });
 
       const assistant = result.assistantMessage as { content?: string };
-      expect(assistant.content).toMatch(/טקסט שחולץ/);
+      expect(assistant.content).not.toMatch(/הקובץ זוהה והטקסט חולץ|אני עובד עם הטקסט שחולץ|מקטעים שזוהו חלקית/);
     });
 
     it("falls back to chunk-based inventory when understandingStatus is missing", async () => {
@@ -1385,8 +1385,7 @@ describeService("sessionMessageApiService", () => {
       expect(assistant.content).not.toMatch(/אני לא יכול/i);
       // must not dump raw chunk artifacts
       expect(assistant.content).not.toMatch(/-- \d+ of \d+/);
-      // must include extracted-text disclaimer
-      expect(assistant.content).toMatch(/טקסט שחולץ/);
+      expect(assistant.content).toMatch(/כן, אני רואה|נראה שזה קובץ/);
       // must include real section headings found in the chunks
       expect(assistant.content).toMatch(/שאלה [12]|נתחיל משאלה/);
     });
@@ -1457,16 +1456,13 @@ describeService("sessionMessageApiService", () => {
       const assistant = result.assistantMessage as { content?: string };
       expect(assistant.content).not.toMatch(/אין לי גישה ישירה/i);
       expect(assistant.content).not.toContain("0 0 1 2  a B I ");
-      expect(assistant.content).toMatch(/הקובץ זוהה והטקסט חולץ/);
-      expect(assistant.content).toMatch(/מקטעים שזוהו חלקית/);
-      expect(assistant.content).toMatch(/איכות נמוכה|חולצו באיכות נמוכה|הנוסחאות\/הסימונים המתמטיים/);
+      expect(assistant.content).toMatch(/כן, אני רואה|נראה שזה קובץ/);
+      expect(assistant.content).toMatch(/חלק מהנוסחאות.*לא חולצו מספיק טוב/);
+      expect(assistant.content).toMatch(/אני לא רוצה להציג אותן כאילו הן ודאיות/);
       expect(assistant.content).not.toContain("תצוגת הנוסחה/הסימון הושמטה");
-      expect(
-        assistant.content?.match(/איכות נמוכה|חולצו באיכות נמוכה|הנוסחאות\/הסימונים המתמטיים/g)
-          ?.length
-      ).toBe(1);
+      expect(assistant.content).not.toMatch(/הקובץ זוהה והטקסט חולץ|מקטעים שזוהו חלקית|אני עובד עם הטקסט שחולץ/);
       expect(assistant.content).toMatch(/שאלה|מקטע|עמוד/);
-      expect(assistant.content).not.toMatch(/אני רואה את ה-PDF|יכול לראות את ה-PDF/);
+      expect(assistant.content).not.toMatch(/אני רואה את ה-PDF|יכול לראות את ה-PDF|Gemini/);
     });
 
     it("artifact-aware inventory includes honest quality warning for poor extraction and does not claim reliable formulas", async () => {
@@ -1520,8 +1516,8 @@ describeService("sessionMessageApiService", () => {
       });
 
       const assistant = result.assistantMessage as { content?: string };
-      expect(assistant.content).toMatch(/איכות חלקית|חולצו באיכות חלקית/);
-      expect(assistant.content).not.toMatch(/נוסחה תקינה|אני רואה את ה-PDF/);
+      expect(assistant.content).toMatch(/חלק מהנוסחאות.*לא חולצו מספיק טוב/);
+      expect(assistant.content).not.toMatch(/נוסחה תקינה|אני רואה את ה-PDF|Gemini|אני עובד עם הטקסט שחולץ/);
     });
 
     it("artifact-aware inventory uses deepPdfStatus recommended wording without claiming Gemini ran", async () => {
@@ -1574,9 +1570,7 @@ describeService("sessionMessageApiService", () => {
       });
 
       const assistant = result.assistantMessage as { content?: string };
-      expect(assistant.content).toContain(
-        "המסמך כנראה דורש עיבוד מתקדם יותר כדי להבין נוסחאות/תרשימים בצורה אמינה."
-      );
+      expect(assistant.content).toMatch(/כדאי לבחור|הכי טוב לבחור|עדיף לבחור/);
       expect(assistant.content).not.toMatch(/Gemini|נותח כבר|נותח באמצעות/);
     });
 
@@ -1650,7 +1644,7 @@ describeService("sessionMessageApiService", () => {
       expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
       expect(repos.listFileChunks).not.toHaveBeenCalled();
       const assistant = result.assistantMessage as { content?: string };
-      expect(assistant.content).toMatch(/איכות החילוץ לא מספיקה כדי להציג אותם כסיכום אמין/);
+      expect(assistant.content).toMatch(/חלק מהנוסחאות.*לא חולצו מספיק טוב|אני לא רוצה להציג/);
       expect(assistant.content).not.toContain("א ת השטף המגנטי");
       expect(assistant.content).not.toContain("פרמטרים,,, a b R I");
       expect(assistant.content?.match(/מקטע ג׳/g)?.length ?? 0).toBeLessThanOrEqual(1);
@@ -1708,6 +1702,56 @@ describeService("sessionMessageApiService", () => {
       const assistant = result.assistantMessage as { content?: string };
       expect(assistant.content).toMatch(/עדיין בעיבוד|בעיבוד/);
       expect(assistant.content).toContain("כימיה תרגול.pdf");
+    });
+
+    it("suppresses weak chunk fallback snippets when artifact-aware inventory is unavailable", async () => {
+      const repos = makeInventoryRepos({
+        listUploadedFiles: vi.fn(async () => [
+          {
+            ...readyFileWithChunks,
+            understandingStatus: "failed",
+          },
+        ]),
+        listFileChunks: vi.fn(async () => [
+          {
+            chunkId: "c-1",
+            userId: "alice",
+            workspaceId: "ws-1",
+            fileId: "file-inv",
+            chunkIndex: 0,
+            text: "ג.\nא ת השטף המגנטי",
+            embedding: [],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            chunkId: "c-2",
+            userId: "alice",
+            workspaceId: "ws-1",
+            fileId: "file-inv",
+            chunkIndex: 1,
+            text: "ג.\nפרמטרים,,, a b R I",
+            embedding: [],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "איזה קבצים העליתי לסביבת העבודה הזאת ומה יש בהם?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect(repos.listFileChunks).toHaveBeenCalled();
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toMatch(/הטקסט שיצא מהם לא מספיק נקי כדי לסכם אותם בביטחון/);
+      expect(assistant.content).not.toContain("א ת השטף המגנטי");
+      expect(assistant.content).not.toContain("פרמטרים,,, a b R I");
+      expect(assistant.content?.match(/מקטע ג׳/g)?.length ?? 0).toBeLessThanOrEqual(1);
     });
 
     it("when no uploaded files exist, uploaded-file inventory phrasing reports no files", async () => {
