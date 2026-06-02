@@ -39,6 +39,38 @@ describe("classifyTutorRequest — file_access_status", () => {
 });
 
 describe("classifyTutorRequest — file_content_inventory", () => {
+  it("classifies 'איזה קבצים העליתי לסביבת העבודה הזאת ומה יש בהם?' as file_content_inventory", () => {
+    expect(intent("איזה קבצים העליתי לסביבת העבודה הזאת ומה יש בהם?")).toBe(
+      "file_content_inventory"
+    );
+  });
+
+  it("classifies 'איזה קבצים העליתי?' as file_content_inventory", () => {
+    expect(intent("איזה קבצים העליתי?")).toBe("file_content_inventory");
+  });
+
+  it("classifies 'אילו קבצים העליתי?' as file_content_inventory", () => {
+    expect(intent("אילו קבצים העליתי?")).toBe("file_content_inventory");
+  });
+
+  it("classifies 'איזה קבצים יש לי בסביבת העבודה?' as file_content_inventory", () => {
+    expect(intent("איזה קבצים יש לי בסביבת העבודה?")).toBe("file_content_inventory");
+  });
+
+  it("classifies 'מה יש בקבצים שהעליתי?' as file_content_inventory", () => {
+    expect(intent("מה יש בקבצים שהעליתי?")).toBe("file_content_inventory");
+  });
+
+  it("classifies 'תראה לי את הקבצים שהעליתי' as file_content_inventory", () => {
+    expect(intent("תראה לי את הקבצים שהעליתי")).toBe("file_content_inventory");
+  });
+
+  it("classifies 'תגיד לי איזה קבצים העליתי ומה התוכן שלהם' as file_content_inventory", () => {
+    expect(intent("תגיד לי איזה קבצים העליתי ומה התוכן שלהם")).toBe(
+      "file_content_inventory"
+    );
+  });
+
   it("classifies 'איזה שאלות אתה יכול לראות בקובץ?' as file_content_inventory", () => {
     expect(intent("איזה שאלות אתה יכול לראות בקובץ?")).toBe("file_content_inventory");
   });
@@ -141,6 +173,10 @@ describe("classifyTutorRequest — general_tutor_question", () => {
 
   it("classifies 'explain electric potential' as general_tutor_question", () => {
     expect(intent("explain electric potential")).toBe("general_tutor_question");
+  });
+
+  it("does not classify generic file theory question as file_content_inventory", () => {
+    expect(intent("איך מסבירים תוכן של קובץ טוב יותר?")).toBe("general_tutor_question");
   });
 });
 

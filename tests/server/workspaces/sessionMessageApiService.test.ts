@@ -1219,6 +1219,25 @@ describeService("sessionMessageApiService", () => {
       expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
     });
 
+    it("routes uploaded-file inventory phrasing to local inventory response and bypasses model", async () => {
+      const repos = makeInventoryRepos();
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "איזה קבצים העליתי לסביבת העבודה הזאת ומה יש בהם?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect(repos.listUploadedFiles).toHaveBeenCalledWith("alice", "ws-1");
+      expect(repos.listFileChunks).toHaveBeenCalledWith("alice", "ws-1", "file-inv");
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toMatch(/טקסט שחולץ/);
+      expect(assistant.content).toContain("שאלה 1");
+      expect(assistant.content).not.toMatch(/אין לי גישה ישירה/i);
+    });
+
     it("inventory response contains extracted-text disclaimer", async () => {
       const repos = makeInventoryRepos();
       const service = mod.createSessionMessageApiService(repos);
@@ -1303,7 +1322,7 @@ describeService("sessionMessageApiService", () => {
       const service = mod.createSessionMessageApiService(repos);
       const result = await service.sendMessageForUser("alice", "s-1", {
         workspaceId: "ws-1",
-        userMessage: "איזה שאלות יש בקובץ?",
+        userMessage: "מה יש בקבצים שהעליתי?",
         workMode: "Learning",
         costMode: "Normal Learning",
       });
@@ -1313,6 +1332,51 @@ describeService("sessionMessageApiService", () => {
       const assistant = result.assistantMessage as { content?: string };
       expect(assistant.content).toMatch(/עדיין בעיבוד|בעיבוד/);
       expect(assistant.content).toContain("מתמטיקה שיעורי בית.pdf");
+    });
+
+    it("when uploaded files exist but chunks are not ready, uploaded-file inventory phrasing reports processing state", async () => {
+      const processingFile = {
+        id: "file-proc-2",
+        name: "chem_hw.pdf",
+        originalFileName: "כימיה תרגול.pdf",
+        extractionStatus: "completed" as const,
+        chunkingStatus: "pending" as const,
+        indexingStatus: "uploaded",
+      };
+      const repos = makeInventoryRepos({
+        listUploadedFiles: vi.fn(async () => [processingFile]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "תראה לי את הקבצים שהעליתי",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect(repos.listFileChunks).not.toHaveBeenCalled();
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toMatch(/עדיין בעיבוד|בעיבוד/);
+      expect(assistant.content).toContain("כימיה תרגול.pdf");
+    });
+
+    it("when no uploaded files exist, uploaded-file inventory phrasing reports no files", async () => {
+      const repos = makeInventoryRepos({
+        listUploadedFiles: vi.fn(async () => []),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "איזה קבצים העליתי?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect(repos.listFileChunks).not.toHaveBeenCalled();
+      const assistant = result.assistantMessage as { content?: string };
+      expect(assistant.content).toMatch(/לא נמצאו קבצים/);
     });
 
     it("does not route specific question 'תסביר שאלה 3' to inventory", async () => {

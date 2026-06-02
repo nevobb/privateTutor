@@ -51,6 +51,10 @@ const FILE_CONTENT_INVENTORY_PATTERNS: RegExp[] = [
   /what questions (are|is)/i,
   /list (the |all )?(questions|exercises|problems)/i,
   /show me the (questions|exercises|problems)/i,
+  /(?:איזה|אילו)\s+קבצים\s+(?:העליתי|יש לי)(?:\s+בסביבת העבודה(?:\s+הזאת)?)?/i,
+  /מה\s+יש\s+בקבצים\s+שהעליתי/i,
+  /תראה לי את הקבצים שהעליתי/i,
+  /תגיד לי\s+(?:איזה|אילו)\s+קבצים\s+העליתי(?:\s+ומה\s+(?:יש\s+בהם|התוכן\s+שלהם))?/i,
 ];
 
 const FILE_ACCESS_STATUS_PATTERNS: RegExp[] = [
@@ -134,7 +138,7 @@ export function classifyTutorRequest(message: string): TutorRequestClassificatio
       shouldUseFileInventory: true,
       shouldAnswerFromSystemState: false,
       needsClarification: false,
-      reason: "message asks to enumerate questions/exercises/sections in the file",
+      reason: "message asks for uploaded-file inventory or to enumerate questions/exercises/sections in the file",
     };
   }
 
