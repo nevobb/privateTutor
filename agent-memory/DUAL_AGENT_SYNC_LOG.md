@@ -2419,3 +2419,40 @@ Copy this block and fill all fields:
   - Current state: rename late-success false-failure window reduced by aligning the session client timeout with the safer grounded-message timeout budget
   - Next recommended step: Nevo manual smoke on real rename flow, then move to the signed-in UI/settings smoke or the upload-with-session-context design batch
   - Blockers/Risks: this is a timeout-budget repair, not an optimistic-UI redesign; extremely slow rename operations could still exceed the new budget
+
+## 2026-06-03 20:06 (Asia/Jerusalem) — Codex
+- Step/Task ID: Product Batch C0 — Conversation file attachment / upload-with-message fit check
+- Task summary: Diagnose the current composer upload path versus the desired ChatGPT/Gemini-style attached-file conversation flow, and recommend the safest MVP model without changing runtime behavior.
+- What I changed:
+  - Followed the Project Brain preflight before analysis.
+  - Traced the current composer upload flow, session message API shape, message persistence model, and retrieval/file-awareness paths.
+  - Confirmed there is currently no message attachment model, no session primary-file model, and no session attached-files model.
+  - Wrote `agent-memory/CONVERSATION_FILE_ATTACHMENT_FIT_CHECK.md` with option analysis and a staged implementation roadmap.
+- Files touched:
+  - `agent-memory/CONVERSATION_FILE_ATTACHMENT_FIT_CHECK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git branch --show-current`
+  - `git status --short`
+  - `git log --oneline -15`
+  - `graphify query "TutorConversation onFileSelected upload composer message send"`
+  - `graphify query "sendSessionMessage session message request file context"`
+  - `graphify query "SessionRecord primaryFileId attachedFileIds"`
+  - `graphify query "message attachments uploaded file id"`
+  - `graphify query "workspaceFilesApiClient upload file route"`
+  - `graphify query "fileChunkRetrievalService workspace uploaded files retrieval"`
+  - `graphify query "sessionMessageApiService file inventory retrieval grounding"`
+  - `graphify query "uploaded file context current conversation"`
+  - `npx tsc --noEmit`
+  - `npx vitest run`
+  - `npm run build`
+  - `git diff --check`
+  - `graphify update .`
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: the safest MVP is message-level `attachedFileIds` plus derived active conversation file context from the latest attachment-bearing user message
+  - Next recommended step: C1 data model/schema for message attachments only, then staged composer UX and retrieval prioritization
+  - Blockers/Risks: upload-with-message cannot be faked at UI level; it requires real message persistence and retrieval prioritization while preserving workspace-wide upload and soft-delete boundaries
