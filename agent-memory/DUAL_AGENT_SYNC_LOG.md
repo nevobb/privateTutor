@@ -1584,3 +1584,127 @@ Copy this block and fill all fields:
   - Current state: Batch 8B now provides the metadata and deterministic cache-decision layer needed to avoid rerunning Deep PDF on unchanged files once runtime wiring is added.
   - Next recommended step: Batch 8C should add the guarded server-only bytes loader and controlled post-text-only-understanding runtime seam, using this cache policy before any Deep PDF execution.
   - Blockers/Risks: the final source-identity rule and runtime update policy for legacy completed Deep PDF records still need to be locked before execution wiring.
+
+---
+
+## Entry: Batch 8C — Server-side PDF Bytes Loader
+
+- Agent: Claude
+- Date: 2026-06-03
+- Branch: `repair/deep-pdf-cache-metadata`
+- HEAD at start: `8b2d595`
+- Task summary: Add a narrow server-side PDF bytes loader that reads app-managed PDFs from Firebase Storage using firebase-admin, with full ownership validation, size guards, and rich metadata output (hash + generation) ready for Batch 8B cache policy.
+- What I changed:
+  - Added `src/server/workspaces/firebaseStoragePdfBytesLoader.ts`:
+    - `FirebaseStoragePdfBytesLoader` interface (extends `PdfBytesLoader` with `loadPdfBytesWithMetadata`)
+    - `PdfLoadResult` discriminated union (ok/error with code)
+    - `PdfLoadErrorCode` type (8 distinct codes)
+    - `createFirebaseStoragePdfBytesLoader(deps?)` factory — fully mockable
+    - `firebaseStoragePdfBytesLoader` singleton export
+    - Path validation: ownership, traversal guard, format check
+    - Guards: source type, size (20 MB), content type, empty bytes
+    - Identity metadata: `inputHash` (sha256 hex), `storageGeneration` from GCS metadata
+    - Firebase Admin Storage via `firebase-admin/storage` (already in deps)
+    - Emulator mode guard requiring `FIREBASE_STORAGE_EMULATOR_HOST`
+  - Added `tests/server/workspaces/firebaseStoragePdfBytesLoader.test.ts` — 32 tests, all mocked storage
+  - Added `agent-memory/PDF_READING_BATCH_8C_SERVER_PDF_BYTES_LOADER_REPORT.md`
+- Files touched:
+  - `src/server/workspaces/firebaseStoragePdfBytesLoader.ts` (new)
+  - `tests/server/workspaces/firebaseStoragePdfBytesLoader.test.ts` (new)
+  - `agent-memory/PDF_READING_BATCH_8C_SERVER_PDF_BYTES_LOADER_REPORT.md` (new)
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md` (this entry)
+- Tests/checks run:
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed (65 files, 760 tests)
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — passed (4130 nodes, 5664 edges)
+- Git status:
+  - Branch: `repair/deep-pdf-cache-metadata`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done — loader ready
+  - Next recommended step: Batch 8D — Controlled Deep PDF Execution. Inject `createFirebaseStoragePdfBytesLoader(...)` into `GeminiPdfUnderstandingProvider` via its `pdfBytesLoader` dep slot. Add Deep PDF orchestration method in orchestration service. Wire after quality-gate recommendation in post-chunking lifecycle. Use `loadPdfBytesWithMetadata` to capture `inputHash` + `storageGeneration` for cache policy before/after provider execution.
+  - Blockers/Risks: needs `FIREBASE_STORAGE_BUCKET` + `FIREBASE_STORAGE_EMULATOR_HOST` env vars for emulator; PDF magic bytes validation not yet implemented (should not block Batch 8D).
+
+---
+
+## Entry: Batch 8D — Controlled Deep PDF Execution
+
+- Agent: Claude
+- Date: 2026-06-03
+- Branch: `repair/controlled-deep-pdf-execution`
+- Task summary: Add controlled backend Deep PDF execution after text-only understanding + quality gate recommendation. Prevent repeated Gemini runs via cache policy. Default cost mode "Normal Learning" at post-chunking lifecycle point.
+- What I changed:
+  - Added `src/server/workspaces/deepPdfOrchestrationService.ts`:
+    - `DeepPdfOrchestrationService` interface + `DeepPdfRunResult` type
+    - `createDeepPdfOrchestrationService(deps?)` factory — fully injectable
+    - `deepPdfOrchestrationService` singleton export
+    - Guards: sourceType, storagePath, API key, cache policy (all before Gemini call)
+    - `deepPdfStatus = "pending"` before provider call (optimistic duplicate prevention)
+    - Loads PDF bytes via `firebaseStoragePdfBytesLoader.loadPdfBytesWithMetadata` (hash + generation)
+    - Calls `GeminiPdfUnderstandingProvider` with inline `pdfBytes`
+    - Persists artifacts via `documentArtifactRepository` (replaces text-only artifacts)
+    - Marks completed with full identity metadata (provider, model, hash, generation, artifactVersion)
+    - Marks failed safely on any error (loader, provider errors, throws) — never throws
+    - Error messages truncated to 120 chars, no raw bytes/content
+  - Modified `src/server/workspaces/uploadedFileApiService.ts`:
+    - Added `deepPdfOrchestrationService?: DeepPdfOrchestrationService` to `Repositories` interface (optional — existing tests unaffected)
+    - Added to `defaultRepositories()` with real singleton
+    - Called from `maybeRunTextOnlyDocumentUnderstandingAfterChunking` after quality gate marks `deepPdfStatus = "recommended"`, wrapped in try/catch for full isolation
+    - Default costMode = "Normal Learning" at this lifecycle point (documented in report)
+  - Added `tests/server/workspaces/deepPdfOrchestrationService.test.ts` — 34 tests, all mocked
+- Files touched:
+  - `src/server/workspaces/deepPdfOrchestrationService.ts` (new)
+  - `src/server/workspaces/uploadedFileApiService.ts` (modified)
+  - `tests/server/workspaces/deepPdfOrchestrationService.test.ts` (new)
+  - `agent-memory/PDF_READING_BATCH_8D_CONTROLLED_DEEP_PDF_EXECUTION_REPORT.md` (new)
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md` (this entry)
+- Tests/checks run:
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed (66 files, 794 tests)
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — passed (4175 nodes, 5751 edges)
+- Git status:
+  - Branch: `repair/controlled-deep-pdf-execution`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: Batch 8E — update tutor inventory/Q&A routing to prefer Deep PDF artifacts when deepPdfStatus === "completed". Add honest messaging for pending/recommended states. Add on-demand triggering for existing older files when user asks about them. Propagate per-session costMode into lifecycle if needed.
+  - Blockers/Risks: costMode hardcoded to Normal Learning at post-chunking point; optimistic pending lock has small race window; text-only artifacts replaced (no rollback); missing API key silently skips.
+
+---
+
+## Entry: Post-8D Deep PDF Runtime Safety Audit
+
+- Agent: Claude
+- Date: 2026-06-03
+- Branch: `repair/controlled-deep-pdf-execution`
+- Task summary: Read-only safety audit of Batch 8D controlled Deep PDF execution. No code changed.
+- Audit findings summary:
+  - Trigger safety: PASS — exactly one production call site (post-chunking/post-quality-gate)
+  - Guard enforcement: PASS — all 9 guard conditions verified in code
+  - Cache/reuse: PASS — Gemini not called for completed reusable files
+  - Pending prevention: ACCEPTABLE — optimistic lock with documented race window
+  - Failure isolation: PASS — two layers (service-level + caller-level try/catch)
+  - Artifact persistence: PASS — conditional writes, correct metadata, truncated error codes
+  - API key safety: PASS — server-only, never logged, never stored in Firestore
+  - No raw bytes logged: PASS — zero console calls in new files
+  - No UI/wording/retrieval changes: PASS — confirmed by code inspection
+  - Cost mode default: ACCEPTABLE — Normal Learning hardcoded with documented rationale
+  - Old file safety: PASS — only triggered by chunking lifecycle, not bulk
+- Risks identified: optimistic lock race window (Low), GEMINI_API_KEY checked before cache (Negligible), hardcoded Normal Learning (Low), partial artifact write on throw (Low), text-only artifact overwrite without rollback (Low-Med), recommended wording shown after completion (UX), no provider output sanity guard (Low)
+- Files created: `agent-memory/POST_8D_DEEP_PDF_RUNTIME_SAFETY_AUDIT.md`
+- Files touched (audit, no code changes): none
+- Validation:
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed (66 files, 794 tests)
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — passed (no topology changes)
+- Handoff status:
+  - Ready for Batch 8E: YES
+  - Batch 8E scope: inventory/Q&A routing for deepPdfStatus completed/pending; wording updates for pending state; on-demand Deep PDF trigger for old files; costMode propagation through chunking lifecycle.
