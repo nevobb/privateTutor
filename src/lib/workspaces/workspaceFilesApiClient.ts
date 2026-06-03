@@ -1,4 +1,5 @@
 import type { WorkspaceFileItem, WorkspaceFileSourceType } from "./workspaceFilesApiTypes";
+import type { CostMode } from "../../types/index";
 
 const REQUEST_TIMEOUT_MS = 15000;
 
@@ -101,6 +102,7 @@ export async function runWorkspaceFileChunking(input: {
   workspaceId: string;
   fileId: string;
   idToken: string;
+  costMode?: CostMode;
 }): Promise<{ file: WorkspaceFileItem; chunkCount: number }> {
   const res = await runWorkspaceFilesRequest(
     `/api/workspaces/${input.workspaceId}/files/${input.fileId}/chunks`,
@@ -108,7 +110,9 @@ export async function runWorkspaceFileChunking(input: {
       method: "POST",
       headers: {
         Authorization: `Bearer ${input.idToken}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({ costMode: input.costMode }),
     }
   );
 

@@ -41,13 +41,38 @@ beforeEach(() => {
   mockIsUnavailable.mockReturnValue(false);
 });
 
+function jsonRequest(url: string, body?: Record<string, unknown>): Request {
+  return new Request(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body ?? {}),
+  });
+}
+
+function emptyRequest(url: string): Request {
+  return new Request(url, { method: "POST" });
+}
+
+const CHUNKS_URL = "http://localhost/api/workspaces/ws-1/files/file-1/chunks";
+
+const SUCCESS_FILE = {
+  id: "file-1",
+  userId: "alice",
+  workspaceId: "ws-1",
+  name: "doc.pdf",
+  url: "",
+  uploadedAt: new Date(),
+  assignmentStatus: "assigned",
+  indexingStatus: "indexed",
+  sourceType: "pdf",
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
 describe("POST /api/workspaces/[workspaceId]/files/[fileId]/chunks", () => {
   it("returns 401 on auth failure", async () => {
     const handler = createWorkspaceFileChunksPostHandler(failAuth());
-    const response = await handler(
-      new Request("http://localhost/api/workspaces/ws-1/files/file-1/chunks", { method: "POST" }),
-      context("ws-1", "file-1")
-    );
+    const response = await handler(emptyRequest(CHUNKS_URL), context("ws-1", "file-1"));
 
     expect(response.status).toBe(401);
   });
@@ -55,10 +80,7 @@ describe("POST /api/workspaces/[workspaceId]/files/[fileId]/chunks", () => {
   it("returns 400 for invalid state", async () => {
     mockRunChunking.mockResolvedValueOnce({ ok: false, code: "extraction_not_completed" });
     const handler = createWorkspaceFileChunksPostHandler(okAuth());
-    const response = await handler(
-      new Request("http://localhost/api/workspaces/ws-1/files/file-1/chunks", { method: "POST" }),
-      context("ws-1", "file-1")
-    );
+    const response = await handler(emptyRequest(CHUNKS_URL), context("ws-1", "file-1"));
 
     expect(response.status).toBe(400);
   });
@@ -66,42 +88,96 @@ describe("POST /api/workspaces/[workspaceId]/files/[fileId]/chunks", () => {
   it("returns 404 for missing file/workspace", async () => {
     mockRunChunking.mockResolvedValueOnce({ ok: false, code: "file_not_found" });
     const handler = createWorkspaceFileChunksPostHandler(okAuth());
-    const response = await handler(
-      new Request("http://localhost/api/workspaces/ws-1/files/file-1/chunks", { method: "POST" }),
-      context("ws-1", "file-1")
-    );
+    const response = await handler(emptyRequest(CHUNKS_URL), context("ws-1", "file-1"));
 
     expect(response.status).toBe(404);
   });
 
   it("returns chunkCount on success", async () => {
-    const now = new Date();
-    mockRunChunking.mockResolvedValueOnce({
-      ok: true,
-      chunkCount: 3,
-      file: {
-        id: "file-1",
-        userId: "alice",
-        workspaceId: "ws-1",
-        name: "doc.pdf",
-        url: "",
-        uploadedAt: now,
-        assignmentStatus: "assigned",
-        indexingStatus: "indexed",
-        sourceType: "pdf",
-        createdAt: now,
-        updatedAt: now,
-      },
-    } as never);
+    mockRunChunking.mockResolvedValueOnce({ ok: true, chunkCount: 3, file: SUCCESS_FILE } as never);
     mockSerialize.mockReturnValueOnce({ id: "file-1" } as never);
 
     const handler = createWorkspaceFileChunksPostHandler(okAuth());
-    const response = await handler(
-      new Request("http://localhost/api/workspaces/ws-1/files/file-1/chunks", { method: "POST" }),
-      context("ws-1", "file-1")
-    );
+    const response = await handler(emptyRequest(CHUNKS_URL), context("ws-1", "file-1"));
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ file: { id: "file-1" }, chunkCount: 3 });
+  });
+
+  // ── Cost mode forwarding ────────────────────────────────────────────────────
+
+  it("forwards Cheap Practice costMode to runChunkingLifecycleForFile", async () => {
+    mockRunChunking.mockResolvedValueOnce({ ok: true, chunkCount: 1, file: SUCCESS_FILE } as never);
+    mockSerialize.mockReturnValueOnce({ id: "file-1" } as never);
+
+    const handler = createWorkspaceFileChunksPostHandler(okAuth());
+    await handler(jsonRequest(CHUNKS_URL, { costMode: "Cheap Practice" }), context("ws-1", "file-1"));
+
+    expect(mockRunChunking).toHaveBeenCalledWith(
+      expect.anything(),
+      "ws-1",
+      "file-1",
+      { costMode: "Cheap Practice" }
+    );
+  });
+
+  it("forwards Normal Learning costMode to runChunkingLifecycleForFile", async () => {
+    mockRunChunking.mockResolvedValueOnce({ ok: true, chunkCount: 1, file: SUCCESS_FILE } as never);
+    mockSerialize.mockReturnValueOnce({ id: "file-1" } as never);
+
+    const handler = createWorkspaceFileChunksPostHandler(okAuth());
+    await handler(jsonRequest(CHUNKS_URL, { costMode: "Normal Learning" }), context("ws-1", "file-1"));
+
+    expect(mockRunChunking).toHaveBeenCalledWith(
+      expect.anything(),
+      "ws-1",
+      "file-1",
+      { costMode: "Normal Learning" }
+    );
+  });
+
+  it("forwards Deep Research costMode to runChunkingLifecycleForFile", async () => {
+    mockRunChunking.mockResolvedValueOnce({ ok: true, chunkCount: 1, file: SUCCESS_FILE } as never);
+    mockSerialize.mockReturnValueOnce({ id: "file-1" } as never);
+
+    const handler = createWorkspaceFileChunksPostHandler(okAuth());
+    await handler(jsonRequest(CHUNKS_URL, { costMode: "Deep Research" }), context("ws-1", "file-1"));
+
+    expect(mockRunChunking).toHaveBeenCalledWith(
+      expect.anything(),
+      "ws-1",
+      "file-1",
+      { costMode: "Deep Research" }
+    );
+  });
+
+  it("passes undefined costMode when no body is sent (old client compat)", async () => {
+    mockRunChunking.mockResolvedValueOnce({ ok: true, chunkCount: 1, file: SUCCESS_FILE } as never);
+    mockSerialize.mockReturnValueOnce({ id: "file-1" } as never);
+
+    const handler = createWorkspaceFileChunksPostHandler(okAuth());
+    await handler(emptyRequest(CHUNKS_URL), context("ws-1", "file-1"));
+
+    expect(mockRunChunking).toHaveBeenCalledWith(
+      expect.anything(),
+      "ws-1",
+      "file-1",
+      { costMode: undefined }
+    );
+  });
+
+  it("passes undefined costMode for unknown/invalid costMode value (falls back safely)", async () => {
+    mockRunChunking.mockResolvedValueOnce({ ok: true, chunkCount: 1, file: SUCCESS_FILE } as never);
+    mockSerialize.mockReturnValueOnce({ id: "file-1" } as never);
+
+    const handler = createWorkspaceFileChunksPostHandler(okAuth());
+    await handler(jsonRequest(CHUNKS_URL, { costMode: "InvalidMode" }), context("ws-1", "file-1"));
+
+    expect(mockRunChunking).toHaveBeenCalledWith(
+      expect.anything(),
+      "ws-1",
+      "file-1",
+      { costMode: undefined }
+    );
   });
 });

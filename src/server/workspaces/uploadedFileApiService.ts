@@ -1,4 +1,5 @@
 import type { AuthenticatedUser } from "../auth/authTypes";
+import type { CostMode } from "../../types/index";
 import { writeDecisionLogEntry } from "./decisionLogRepository";
 import { getWorkspace } from "./workspaceRepository";
 import {
@@ -11,6 +12,10 @@ import {
   documentUnderstandingOrchestrationService as defaultDocumentUnderstandingOrchestrationService,
   type DocumentUnderstandingOrchestrationService,
 } from "./documentUnderstandingOrchestrationService";
+import {
+  deepPdfOrchestrationService as defaultDeepPdfOrchestrationService,
+  type DeepPdfOrchestrationService,
+} from "./deepPdfOrchestrationService";
 import { fileExtractionProvider as defaultFileExtractionProvider } from "./fileExtractionProvider";
 import { realDocumentExtractionProvider } from "./realDocumentExtractionProvider";
 import type { FileExtractionProvider } from "./fileExtractionProvider";
@@ -79,7 +84,8 @@ export interface UploadedFileApiService {
   runChunkingLifecycleForFile(
     user: AuthenticatedUser,
     workspaceId: string,
-    fileId: string
+    fileId: string,
+    options?: { costMode?: CostMode }
   ): Promise<ChunkingRunResult>;
 }
 
@@ -102,6 +108,7 @@ interface Repositories {
   replaceFileChunks: typeof defaultReplaceFileChunks;
   documentUnderstandingOrchestrationService: DocumentUnderstandingOrchestrationService;
   evaluateDocumentQualityGate: typeof defaultEvaluateDocumentQualityGate;
+  deepPdfOrchestrationService?: DeepPdfOrchestrationService;
 }
 
 function getDefaultExtractionProvider(fileBuffer?: Buffer): FileExtractionProvider {
@@ -124,6 +131,7 @@ function defaultRepositories(): Repositories {
     replaceFileChunks: defaultReplaceFileChunks,
     documentUnderstandingOrchestrationService: defaultDocumentUnderstandingOrchestrationService,
     evaluateDocumentQualityGate: defaultEvaluateDocumentQualityGate,
+    deepPdfOrchestrationService: defaultDeepPdfOrchestrationService,
   };
 }
 
@@ -455,7 +463,7 @@ export function createUploadedFileApiService(
       }
     },
 
-    async runChunkingLifecycleForFile(user, workspaceId, fileId) {
+    async runChunkingLifecycleForFile(user, workspaceId, fileId, options) {
       const workspace = await repositories.getWorkspace(user.userId, workspaceId);
       if (!workspace) {
         return { ok: false, code: "workspace_not_found" };
@@ -543,6 +551,7 @@ export function createUploadedFileApiService(
               chunkingErrorCode: null,
               chunkingUpdatedAt: completed.chunkingUpdatedAt,
             },
+            costMode: options?.costMode,
           })) ?? completed;
 
         return { ok: true, file: fileAfterUnderstanding, chunkCount: chunkRecords.length };
@@ -578,12 +587,14 @@ async function maybeRunTextOnlyDocumentUnderstandingAfterChunking({
   workspaceId,
   fileId,
   file,
+  costMode,
 }: {
   repositories: Repositories;
   userId: string;
   workspaceId: string;
   fileId: string;
   file: UploadedFileRecord;
+  costMode?: CostMode;
 }): Promise<UploadedFileRecord | null> {
   if (!shouldRunTextOnlyDocumentUnderstanding(file)) {
     return null;
@@ -609,12 +620,38 @@ async function maybeRunTextOnlyDocumentUnderstandingAfterChunking({
     return understandingResult.file;
   }
 
-  return (
+  const recommendedFile =
     (await repositories.updateUploadedFile(userId, fileId, {
       deepPdfStatus: "recommended",
       deepPdfUpdatedAt: new Date(),
-    })) ?? understandingResult.file
-  );
+    })) ?? understandingResult.file;
+
+  // Attempt controlled Deep PDF execution (best-effort, non-blocking).
+  // costMode is threaded from runChunkingLifecycleForFile. When not provided by the caller
+  // (e.g. the /chunks API route does not send a cost mode), it defaults to "Normal Learning",
+  // which is the app-wide default (page.tsx). Cheap Practice is blocked by the cache policy.
+  //
+  // TODO (Batch 8D.1): propagate per-session cost mode from the client when the chunks API
+  // route is extended to accept and forward it. Until then, callers that need strict cost mode
+  // enforcement must pass it explicitly via runChunkingLifecycleForFile options.
+  const effectiveCostMode: CostMode = costMode ?? "Normal Learning";
+
+  if (repositories.deepPdfOrchestrationService) {
+    try {
+      const deepPdfResult = await repositories.deepPdfOrchestrationService.runDeepPdfUnderstanding(
+        userId,
+        fileId,
+        { costMode: effectiveCostMode }
+      );
+      if (deepPdfResult.status === "completed" && deepPdfResult.file) {
+        return deepPdfResult.file;
+      }
+    } catch {
+      // Deep PDF failure must never fail the chunking lifecycle.
+    }
+  }
+
+  return recommendedFile;
 }
 
 function shouldRunTextOnlyDocumentUnderstanding(file: UploadedFileRecord): boolean {

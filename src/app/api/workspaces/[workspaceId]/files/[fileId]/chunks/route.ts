@@ -3,12 +3,24 @@ import { isFirestoreEmulatorUnavailableError } from "../../../../../../../server
 import { uploadedFileApiService } from "../../../../../../../server/workspaces/uploadedFileApiService";
 import { toUploadedFileApiResponse } from "../../../../../../../server/workspaces/uploadedFileApiSchemas";
 import type { AuthResult } from "../../../../../../../server/auth/authTypes";
+import type { CostMode } from "../../../../../../../types/index";
 
 type AuthResolver = (request: Request) => Promise<AuthResult>;
 type WorkspaceFileChunksContext = { params: Promise<{ workspaceId: string; fileId: string }> };
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function parseCostMode(value: unknown): CostMode | undefined {
+  if (
+    value === "Cheap Practice" ||
+    value === "Normal Learning" ||
+    value === "Deep Research"
+  ) {
+    return value;
+  }
+  return undefined;
 }
 
 export function createWorkspaceFileChunksPostHandler(authResolver: AuthResolver = resolveAuthenticatedUser) {
@@ -23,11 +35,24 @@ export function createWorkspaceFileChunksPostHandler(authResolver: AuthResolver 
       return Response.json({ error: "Missing workspace ID or file ID." }, { status: 400 });
     }
 
+    // Parse optional costMode from JSON body. Old clients that send no body are handled safely.
+    let costMode: CostMode | undefined;
+    try {
+      const contentType = request.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        const body = (await request.json()) as Record<string, unknown>;
+        costMode = parseCostMode(body?.costMode);
+      }
+    } catch {
+      // Malformed body — ignore, costMode remains undefined → defaults to Normal Learning
+    }
+
     try {
       const result = await uploadedFileApiService.runChunkingLifecycleForFile(
         authResult.user,
         workspaceId,
-        fileId
+        fileId,
+        { costMode }
       );
 
       if (!result.ok) {
