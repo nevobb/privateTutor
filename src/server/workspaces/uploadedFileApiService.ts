@@ -6,6 +6,7 @@ import {
   createUploadedFile,
   getUploadedFile,
   listUploadedFiles,
+  softDeleteUploadedFile,
   updateUploadedFile,
 } from "./uploadedFileRepository";
 import {
@@ -87,6 +88,11 @@ export interface UploadedFileApiService {
     fileId: string,
     options?: { costMode?: CostMode }
   ): Promise<ChunkingRunResult>;
+  softDeleteFileForWorkspace(
+    user: AuthenticatedUser,
+    workspaceId: string,
+    fileId: string
+  ): Promise<UploadedFileRecord | null>;
 }
 
 export class UploadedFileValidationError extends Error {
@@ -102,6 +108,7 @@ interface Repositories {
   getUploadedFile: typeof getUploadedFile;
   updateUploadedFile: typeof updateUploadedFile;
   listUploadedFiles: typeof listUploadedFiles;
+  softDeleteUploadedFile?: typeof softDeleteUploadedFile;
   writeDecisionLogEntry: typeof writeDecisionLogEntry;
   fileExtractionProvider: typeof defaultFileExtractionProvider;
   listFileChunks: typeof defaultListFileChunks;
@@ -125,6 +132,7 @@ function defaultRepositories(): Repositories {
     getUploadedFile,
     updateUploadedFile,
     listUploadedFiles,
+    softDeleteUploadedFile,
     writeDecisionLogEntry,
     fileExtractionProvider: defaultFileExtractionProvider,
     listFileChunks: defaultListFileChunks,
@@ -575,6 +583,31 @@ export function createUploadedFileApiService(
         }
         return { ok: true, file: failed, chunkCount: failed.chunkCount ?? 0 };
       }
+    },
+
+    async softDeleteFileForWorkspace(user, workspaceId, fileId) {
+      if (!repositories.softDeleteUploadedFile) {
+        return null;
+      }
+
+      const workspace = await repositories.getWorkspace(user.userId, workspaceId);
+      if (!workspace) {
+        return null;
+      }
+
+      // Read file BEFORE soft-deleting to verify workspace ownership.
+      // getUploadedFile already verifies userId ownership and excludes deleted files.
+      const existingFile = await repositories.getUploadedFile(user.userId, fileId);
+      if (!existingFile) {
+        return null;
+      }
+
+      if (existingFile.workspaceId !== workspaceId) {
+        // File exists but belongs to a different workspace — do not delete it.
+        return null;
+      }
+
+      return repositories.softDeleteUploadedFile(user.userId, fileId);
     },
   };
 }

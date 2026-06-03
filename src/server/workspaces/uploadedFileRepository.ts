@@ -83,7 +83,7 @@ export async function getUploadedFile(userId: string, fileId: string): Promise<U
     }
 
     const data = snapshot.data() as Record<string, unknown>;
-    if (getOwnerUserId(data) !== userId) {
+    if (getOwnerUserId(data) !== userId || data.isDeleted === true) {
       return null;
     }
 
@@ -98,9 +98,40 @@ export async function listUploadedFiles(userId: string, workspaceId: string): Pr
     return snapshot.docs
       .filter((item) => {
         const data = item.data() as Record<string, unknown>;
-        return getOwnerUserId(data) === userId && data.workspaceId === workspaceId;
+        return getOwnerUserId(data) === userId && data.workspaceId === workspaceId && data.isDeleted !== true;
       })
       .map((item) => mapUploadedFileRecord(item.id, item.data() as Record<string, unknown>));
+  });
+}
+
+export async function softDeleteUploadedFile(
+  userId: string,
+  fileId: string
+): Promise<UploadedFileRecord | null> {
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
+    const ref = db.doc(uploadedFilePath(userId, fileId).join("/"));
+    const snapshot = await ref.get();
+
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    const data = snapshot.data() as Record<string, unknown>;
+    if (getOwnerUserId(data) !== userId) {
+      return null;
+    }
+
+    if (data.isDeleted === true) {
+      return mapUploadedFileRecord(snapshot.id, data);
+    }
+
+    const now = new Date();
+    await ref.update({ isDeleted: true, deletedAt: now, updatedAt: now });
+
+    return mapUploadedFileRecord(
+      snapshot.id,
+      { ...data, isDeleted: true, deletedAt: now, updatedAt: now }
+    );
   });
 }
 
@@ -275,6 +306,8 @@ function mapUploadedFileRecord(id: string, data: Record<string, unknown>): Uploa
     understandingMode: mapUnderstandingMode(data.understandingMode),
     embeddingStatus: mapFileEmbeddingStatus(data.embeddingStatus),
     embeddingUpdatedAt: data.embeddingUpdatedAt ? toDate(data.embeddingUpdatedAt) : null,
+    isDeleted: data.isDeleted === true,
+    deletedAt: data.deletedAt ? toDate(data.deletedAt) : null,
     createdAt: toDate(data.createdAt),
     updatedAt: toDate(data.updatedAt),
   };

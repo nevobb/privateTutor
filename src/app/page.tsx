@@ -39,6 +39,7 @@ import type { CostMode, WorkMode } from "../types";
 import type { UploadedFile } from "../types";
 import {
   createWorkspaceFileMetadata,
+  deleteWorkspaceFile,
   fetchWorkspaceFiles,
   runWorkspaceFileChunking,
   runWorkspaceFileEmbeddings,
@@ -436,6 +437,19 @@ export default function Home() {
     ]
   );
 
+  const handleDeleteFile = useCallback(
+    async (fileId: string): Promise<void> => {
+      if (authState.status !== "signed-in" || !activeWorkspaceId) return;
+      const token = await getToken();
+      if (!token) throw new Error("לא ניתן לאמת את המשתמש.");
+
+      await deleteWorkspaceFile({ workspaceId: activeWorkspaceId, fileId, idToken: token });
+
+      setUploadedFiles((prev) => prev.filter((f) => f.id !== fileId));
+    },
+    [activeWorkspaceId, authState.status, getToken]
+  );
+
   const handleCreateWorkspace = useCallback(
     async (name: string): Promise<void> => {
       const token = await getToken();
@@ -665,6 +679,7 @@ export default function Home() {
             uploadStatus={fileUploadStatus}
             onContinueProcessing={handleContinueProcessing}
             processingStatusByFileId={fileProcessingStatusById}
+            onDeleteFile={handleDeleteFile}
           />
         </CollapsiblePanel>
         <CollapsiblePanel

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
+  deleteWorkspaceFile,
   runWorkspaceFileExtraction,
   WorkspaceFilesApiError,
 } from "../../../src/lib/workspaces/workspaceFilesApiClient";
@@ -150,5 +151,56 @@ describe("runWorkspaceFileExtraction", () => {
     const formData = init.body as FormData;
     const sentFile = formData.get("file") as File;
     expect(sentFile.name).toBe("notes.docx");
+  });
+});
+
+describe("deleteWorkspaceFile", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  it("sends DELETE to correct URL with Authorization header", async () => {
+    mockFetch.mockResolvedValue(makeOkResponse({ deleted: true, fileId: "file-1" }));
+
+    await deleteWorkspaceFile({ workspaceId: "ws-1", fileId: "file-1", idToken: TOKEN });
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/workspaces/ws-1/files/file-1");
+    expect(init.method).toBe("DELETE");
+    expect((init.headers as Record<string, string>)["Authorization"]).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it("returns deleted:true and fileId on success", async () => {
+    mockFetch.mockResolvedValue(makeOkResponse({ deleted: true, fileId: "file-42" }));
+
+    const result = await deleteWorkspaceFile({ workspaceId: "ws-1", fileId: "file-42", idToken: TOKEN });
+
+    expect(result.deleted).toBe(true);
+    expect(result.fileId).toBe("file-42");
+  });
+
+  it("throws WorkspaceFilesApiError on 404", async () => {
+    mockFetch.mockResolvedValue(makeErrorResponse(404, "File not found."));
+
+    await expect(
+      deleteWorkspaceFile({ workspaceId: "ws-1", fileId: "missing", idToken: TOKEN })
+    ).rejects.toThrow(WorkspaceFilesApiError);
+  });
+
+  it("throws WorkspaceFilesApiError on 403", async () => {
+    mockFetch.mockResolvedValue(makeErrorResponse(403, "Forbidden."));
+
+    await expect(
+      deleteWorkspaceFile({ workspaceId: "ws-1", fileId: "file-1", idToken: TOKEN })
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("sends no body (DELETE has no body)", async () => {
+    mockFetch.mockResolvedValue(makeOkResponse({ deleted: true, fileId: "file-1" }));
+
+    await deleteWorkspaceFile({ workspaceId: "ws-1", fileId: "file-1", idToken: TOKEN });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(init.body).toBeUndefined();
   });
 });

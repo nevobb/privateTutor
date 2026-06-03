@@ -124,6 +124,29 @@ export async function runWorkspaceFileChunking(input: {
   return (await res.json()) as { file: WorkspaceFileItem; chunkCount: number };
 }
 
+export async function deleteWorkspaceFile(input: {
+  workspaceId: string;
+  fileId: string;
+  idToken: string;
+}): Promise<{ deleted: boolean; fileId: string }> {
+  const res = await runWorkspaceFilesRequest(
+    `/api/workspaces/${input.workspaceId}/files/${input.fileId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${input.idToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new WorkspaceFilesApiError(body.error ?? "Failed to delete file.", res.status);
+  }
+
+  return (await res.json()) as { deleted: boolean; fileId: string };
+}
+
 export async function runWorkspaceFileEmbeddings(input: {
   workspaceId: string;
   fileId: string;

@@ -170,6 +170,8 @@ export interface UploadedFile {
   understandingMode?: DocumentUnderstandingMode;
   embeddingStatus?: "not_started" | "completed" | "failed";
   embeddingUpdatedAt?: Date | null;
+  isDeleted?: boolean;
+  deletedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
 }

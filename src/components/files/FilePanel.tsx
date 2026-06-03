@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { UploadedFile } from "../../types";
 
 export type FileUploadStatus =
@@ -16,6 +16,7 @@ interface FilePanelProps {
   uploadStatus?: FileUploadStatus;
   onContinueProcessing?: (fileId: string) => Promise<void>;
   processingStatusByFileId?: Record<string, string | undefined>;
+  onDeleteFile?: (fileId: string) => Promise<void>;
 }
 
 export default function FilePanel({
@@ -25,14 +26,23 @@ export default function FilePanel({
   uploadStatus = { state: "idle" },
   onContinueProcessing,
   processingStatusByFileId = {},
+  onDeleteFile,
 }: FilePanelProps) {
+  const [confirmDeleteFileId, setConfirmDeleteFileId] = useState<string | null>(null);
+  const [deleteFileError, setDeleteFileError] = useState<string | null>(null);
+
   return renderPanelBody(
     files,
     disabled,
     onFileSelected,
     uploadStatus,
     onContinueProcessing,
-    processingStatusByFileId
+    processingStatusByFileId,
+    onDeleteFile,
+    confirmDeleteFileId,
+    setConfirmDeleteFileId,
+    deleteFileError,
+    setDeleteFileError
   );
 }
 
@@ -42,7 +52,12 @@ function renderPanelBody(
   onFileSelected: FilePanelProps["onFileSelected"],
   uploadStatus: FileUploadStatus,
   onContinueProcessing: FilePanelProps["onContinueProcessing"],
-  processingStatusByFileId: Record<string, string | undefined>
+  processingStatusByFileId: Record<string, string | undefined>,
+  onDeleteFile: FilePanelProps["onDeleteFile"],
+  confirmDeleteFileId: string | null,
+  setConfirmDeleteFileId: (id: string | null) => void,
+  deleteFileError: string | null,
+  setDeleteFileError: (err: string | null) => void
 ) {
   return (
     <div className="space-y-2" dir="rtl">
@@ -157,6 +172,66 @@ function renderPanelBody(
                     {action.label}
                   </button>
                 ) : null}
+                {onDeleteFile && confirmDeleteFileId !== file.id && (
+                  <button
+                    type="button"
+                    title="מחק קובץ"
+                    aria-label={`מחק קובץ: ${file.name}`}
+                    className="px-2 py-1 rounded text-[10px]"
+                    style={{
+                      background: "var(--tutor-sidebar-hover)",
+                      color: "var(--tutor-text-muted)",
+                    }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setConfirmDeleteFileId(file.id);
+                      setDeleteFileError(null);
+                    }}
+                  >
+                    מחק
+                  </button>
+                )}
+                {onDeleteFile && confirmDeleteFileId === file.id && (
+                  <div className="space-y-1 w-full" dir="rtl">
+                    <p className="text-[10px]" style={{ color: "var(--tutor-text-secondary)" }}>
+                      למחוק את &ldquo;{file.name}&rdquo;?
+                    </p>
+                    {deleteFileError && (
+                      <p className="text-[10px]" style={{ color: "#e87070" }}>{deleteFileError}</p>
+                    )}
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        className="flex-1 px-2 py-1 rounded text-[10px] font-medium text-white"
+                        style={{ background: "#c0392b" }}
+                        onClick={async (event) => {
+                          event.stopPropagation();
+                          setDeleteFileError(null);
+                          try {
+                            await onDeleteFile(file.id);
+                            setConfirmDeleteFileId(null);
+                          } catch (err: unknown) {
+                            setDeleteFileError(err instanceof Error ? err.message : "מחיקה נכשלה.");
+                          }
+                        }}
+                      >
+                        מחק
+                      </button>
+                      <button
+                        type="button"
+                        className="flex-1 px-2 py-1 rounded text-[10px]"
+                        style={{ border: "1px solid var(--tutor-border)", color: "var(--tutor-text-muted)" }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setConfirmDeleteFileId(null);
+                          setDeleteFileError(null);
+                        }}
+                      >
+                        ביטול
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           );

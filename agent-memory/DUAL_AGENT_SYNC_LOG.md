@@ -1938,3 +1938,41 @@ Copy this block and fill all fields:
 - Message route blocking: inherited from `getSession` returning null — no code change needed
 - Validation: 72 files, 896 tests, build clean
 - Deferred: uploaded file soft delete (9D), retrieval filter (9E), hard delete (9F)
+
+---
+
+## Entry: Batch 9D — Soft Delete Uploaded File
+
+- Agent: Claude
+- Date: 2026-06-03
+- Branch: `repair/workspace-cleanup-fit-check`
+- Task summary: Add soft-delete support for uploaded files. Deleted files disappear from file panel and all retrieval/inventory/grounding paths. No physical deletion.
+- What I changed:
+  - `src/types/index.ts`: added `isDeleted?: boolean`, `deletedAt?: Date | null` to `UploadedFile`
+  - `uploadedFileRepository.ts`: added `softDeleteUploadedFile(userId, fileId)`; updated `getUploadedFile` to return null for `isDeleted === true`; updated `listUploadedFiles` to filter `isDeleted !== true`; updated `mapUploadedFileRecord` to map new fields (backward compat: missing → false)
+  - `uploadedFileApiService.ts`: added `softDeleteFileForWorkspace` to interface + implementation; added optional `softDeleteUploadedFile` to Repositories (optional to avoid breaking existing tests)
+  - `src/app/api/workspaces/[workspaceId]/files/[fileId]/route.ts`: new DELETE handler — 400/404/503, returns `{ deleted: true, fileId }`
+  - `workspaceFilesApiClient.ts`: added `deleteWorkspaceFile({ workspaceId, fileId, idToken })`
+  - `FilePanel.tsx`: converted to stateful component; added `onDeleteFile` prop, `confirmDeleteFileId` + `deleteFileError` state, "מחק" button, inline Hebrew confirmation
+  - `page.tsx`: imports `deleteWorkspaceFile`, adds `handleDeleteFile` callback (removes from uploadedFiles state), passes `onDeleteFile` to FilePanel
+  - 2 new test files (soft delete contract + route) + 5 new client tests
+- Key design: `getUploadedFile` now blocks deleted files → extract/chunks/embeddings/Deep PDF all inherit the guard without code changes
+- `listUploadedFiles` filter → tutor inventory/retrieval/grounding all inherit without code changes
+- Validation: 74 files, 925 tests, build clean
+- Deferred: explicit retrieval filter audit (9E), hard delete (9F)
+
+---
+
+## Entry: Batch 9D.1 — Uploaded File Soft Delete Boundary Verification
+
+- Agent: Claude
+- Date: 2026-06-03
+- Branch: `repair/workspace-cleanup-fit-check`
+- Task summary: Found and fixed workspace boundary bug in softDeleteFileForWorkspace. Added boundary verification tests.
+- Bug: Service called softDeleteUploadedFile BEFORE checking file.workspaceId === route workspaceId, meaning a file could be deleted with wrong workspaceId
+- Fix: Read file via getUploadedFile first, check workspaceId, only then call softDeleteUploadedFile
+- New test file: tests/server/workspaces/uploadedFileSoftDeleteBoundary.test.ts (24 tests)
+- Added 3 more tests to uploadedFileSoftDeleteRoute.test.ts (workspace boundary at route level)
+- Filter semantics confirmed correct: listUploadedFiles uses !== true (includes missing/null/false), getUploadedFile uses === true (strict, blocks only true)
+- Validation: 75 files, 947 tests, build clean
+- Ready for Batch 9D commit: YES
