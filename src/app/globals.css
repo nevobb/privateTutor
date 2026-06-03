@@ -5,41 +5,49 @@
 /* ── Tutor workspace design tokens ── */
 :root {
   /* Main area */
-  --tutor-bg: #F8F4EF;
+  --tutor-bg: #F7F2EA;
+  --tutor-bg-elevated: #FCF7F0;
   --tutor-surface: #FFFFFF;
-  --tutor-surface-raised: #FDFBF8;
-  --tutor-border: #D8CFBF;
-  --tutor-border-subtle: #EAE4D9;
-  --tutor-text: #2A1F14;
-  --tutor-text-secondary: #6B5B4C;
-  --tutor-text-muted: #9E9185;
+  --tutor-surface-raised: #FDF9F3;
+  --tutor-surface-tint: rgba(255, 255, 255, 0.82);
+  --tutor-border: #D9CFBF;
+  --tutor-border-subtle: #ECE4D7;
+  --tutor-text: #2C2218;
+  --tutor-text-secondary: #6A5C4D;
+  --tutor-text-muted: #9C8D7E;
 
   /* Sidebar surface — Navy default */
-  --tutor-sidebar: #1a2235;
-  --tutor-sidebar-hover: #243050;
-  --tutor-sidebar-active: #1e2d48;
-  --tutor-sidebar-border: #1e2a3e;
+  --tutor-sidebar: #20283B;
+  --tutor-sidebar-hover: #2B354C;
+  --tutor-sidebar-active: #313D57;
+  --tutor-sidebar-border: rgba(255, 255, 255, 0.08);
 
   /* Sidebar text — new tokens (light values for dark/navy sidebar) */
-  --tutor-sidebar-text: #8896b3;
-  --tutor-sidebar-text-active: #a5b4e8;
-  --tutor-sidebar-text-muted: #4a5568;
+  --tutor-sidebar-text: #9EA9C1;
+  --tutor-sidebar-text-active: #F6F0E8;
+  --tutor-sidebar-text-muted: #67748E;
 
   /* Accent — Navy blue-purple */
-  --tutor-accent: #7b8fd4;
-  --tutor-accent-hover: #6a7ec3;
-  --tutor-accent-light: #e1e0ff;
-  --tutor-accent-text: #3b4fa8;
+  --tutor-accent: #7D8FB9;
+  --tutor-accent-hover: #6B7FA8;
+  --tutor-accent-light: #E4EAF7;
+  --tutor-accent-text: #40547E;
+  --tutor-danger: #c5624f;
+  --tutor-danger-soft: rgba(197, 98, 79, 0.12);
 
   /* Chat bubbles */
-  --tutor-user-bubble: #c5cde8;
-  --tutor-user-border: #a5b4e8;
+  --tutor-user-bubble: #E5E9F4;
+  --tutor-user-border: #C6D1E5;
 
   /* Shadows + radius */
-  --tutor-shadow-sm: 0 1px 2px rgba(26,34,53,0.08);
-  --tutor-shadow: 0 2px 8px rgba(26,34,53,0.12);
-  --tutor-radius: 10px;
-  --tutor-sidebar-width: 296px;
+  --tutor-shadow-sm: 0 1px 2px rgba(26,34,53,0.06);
+  --tutor-shadow: 0 12px 32px rgba(44, 34, 24, 0.08);
+  --tutor-menu-shadow: 0 20px 44px rgba(27, 24, 20, 0.12), 0 4px 12px rgba(32, 40, 59, 0.08);
+  --tutor-card-shadow: 0 10px 28px rgba(44, 34, 24, 0.06);
+  --tutor-radius: 14px;
+  --tutor-radius-menu: 16px;
+  --tutor-radius-card: 22px;
+  --tutor-sidebar-width: 304px;
 
   /* Chat readability — overridable by Settings */
   --tutor-chat-font-size: 15px;
@@ -58,8 +66,28 @@
 body {
   background: var(--tutor-bg);
   color: var(--tutor-text);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Manrope', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+a,
+button,
+input,
+textarea {
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease,
+    transform 160ms ease;
 }
 
 /* Display serif for sidebar headings and labels */
@@ -93,18 +121,18 @@ body {
 
 /* WorkspaceSelector nav utilities */
 .section-nav-label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.16em;
   color: var(--tutor-sidebar-text-muted);
-  padding: 10px 16px 4px;
+  padding: 18px 18px 8px;
   user-select: none;
 }
 
 .nav-state-text {
   font-size: 11px;
-  padding: 4px 16px;
+  padding: 4px 18px;
   color: var(--tutor-sidebar-text-muted);
 }
 
@@ -153,6 +181,10 @@ body {
 
 .message-content p:last-child {
   margin-bottom: 0;
+}
+
+.message-content strong {
+  color: var(--tutor-text);
 }
 
 .message-content ul,

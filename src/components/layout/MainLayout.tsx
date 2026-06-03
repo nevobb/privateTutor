@@ -27,7 +27,10 @@ export default function MainLayout({ children, sidebar, activeTopicName }: MainL
     <div
       dir="ltr"
       className="flex h-screen w-full overflow-hidden"
-      style={{ background: "var(--tutor-bg)" }}
+      style={{
+        background:
+          "radial-gradient(circle at top left, rgba(255,255,255,0.82), transparent 24%), linear-gradient(180deg, rgba(255,255,255,0.34), transparent 18%), var(--tutor-bg)",
+      }}
     >
       {/* Left sidebar */}
       <aside
@@ -35,8 +38,10 @@ export default function MainLayout({ children, sidebar, activeTopicName }: MainL
         style={{
           width: collapsed ? "48px" : "var(--tutor-sidebar-width)",
           transition: "width 200ms ease",
-          background: "var(--tutor-sidebar)",
-          borderRight: "1px solid var(--tutor-border)",
+          background:
+            "linear-gradient(180deg, rgba(255,255,255,0.02), transparent 18%), var(--tutor-sidebar)",
+          borderRight: "1px solid var(--tutor-sidebar-border)",
+          boxShadow: "18px 0 36px rgba(13, 18, 29, 0.10)",
           overflow: "visible",
         }}
       >
@@ -84,17 +89,18 @@ export default function MainLayout({ children, sidebar, activeTopicName }: MainL
               className="flex items-center justify-center"
               style={{
                 position: "absolute",
-                top: "14px",
-                right: "52px",
-                width: "28px",
-                height: "28px",
+                top: "16px",
+                right: "20px",
+                width: "30px",
+                height: "30px",
                 background: "var(--tutor-sidebar-hover)",
                 color: "var(--tutor-sidebar-text-active)",
                 border: "1px solid var(--tutor-sidebar-border)",
-                borderRadius: "8px",
+                borderRadius: "12px",
                 cursor: "pointer",
                 zIndex: 20,
                 fontSize: "14px",
+                boxShadow: "var(--tutor-shadow-sm)",
               }}
               aria-label="Collapse sidebar"
               title="Collapse sidebar"

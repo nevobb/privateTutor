@@ -13,26 +13,26 @@ export const THEMES: Record<ThemeKey, ThemePreset> = {
   navy: {
     label: "Navy",
     vars: {
-      "--tutor-bg": "#F8F4EF",
-      "--tutor-sidebar": "#1a2235",
-      "--tutor-sidebar-hover": "#243050",
-      "--tutor-sidebar-active": "#1e2d48",
-      "--tutor-sidebar-border": "#1e2a3e",
-      "--tutor-sidebar-text": "#8896b3",
-      "--tutor-sidebar-text-active": "#a5b4e8",
-      "--tutor-sidebar-text-muted": "#4a5568",
+      "--tutor-bg": "#F7F2EA",
+      "--tutor-sidebar": "#20283B",
+      "--tutor-sidebar-hover": "#2B354C",
+      "--tutor-sidebar-active": "#313D57",
+      "--tutor-sidebar-border": "rgba(255, 255, 255, 0.08)",
+      "--tutor-sidebar-text": "#9EA9C1",
+      "--tutor-sidebar-text-active": "#F6F0E8",
+      "--tutor-sidebar-text-muted": "#67748E",
       "--tutor-surface": "#FFFFFF",
-      "--tutor-border": "#D8CFBF",
-      "--tutor-border-subtle": "#EAE4D9",
-      "--tutor-text": "#2A1F14",
-      "--tutor-text-secondary": "#6B5B4C",
-      "--tutor-text-muted": "#9E9185",
-      "--tutor-accent": "#7b8fd4",
-      "--tutor-accent-hover": "#6a7ec3",
-      "--tutor-accent-light": "#e1e0ff",
-      "--tutor-accent-text": "#3b4fa8",
-      "--tutor-user-bubble": "#c5cde8",
-      "--tutor-user-border": "#a5b4e8",
+      "--tutor-border": "#D9CFBF",
+      "--tutor-border-subtle": "#ECE4D7",
+      "--tutor-text": "#2C2218",
+      "--tutor-text-secondary": "#6A5C4D",
+      "--tutor-text-muted": "#9C8D7E",
+      "--tutor-accent": "#7D8FB9",
+      "--tutor-accent-hover": "#6B7FA8",
+      "--tutor-accent-light": "#E4EAF7",
+      "--tutor-accent-text": "#40547E",
+      "--tutor-user-bubble": "#E5E9F4",
+      "--tutor-user-border": "#C6D1E5",
     },
   },
   sage: {
@@ -286,39 +286,57 @@ export default function ThemePicker() {
 
   return (
     <>
-      {/* ── Sidebar footer button ── */}
       <button
         type="button"
         onClick={handleOpen}
-        className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg transition-colors"
+        data-testid="theme-picker-trigger"
+        className="w-full flex items-center justify-between gap-4 px-4 py-4 rounded-[18px] transition-colors"
         style={{
-          background: "var(--tutor-sidebar-hover)",
-          border: "1px solid rgba(255,255,255,0.06)",
+          background: "var(--tutor-surface-raised)",
+          border: "1px solid var(--tutor-border-subtle)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.45)",
         }}
-        aria-label="Customize colors"
+        aria-label="Customize workspace palette"
+        onMouseEnter={(event) => {
+          (event.currentTarget as HTMLButtonElement).style.borderColor = "var(--tutor-border)";
+          (event.currentTarget as HTMLButtonElement).style.boxShadow = "var(--tutor-shadow-sm)";
+        }}
+        onMouseLeave={(event) => {
+          (event.currentTarget as HTMLButtonElement).style.borderColor = "var(--tutor-border-subtle)";
+          (event.currentTarget as HTMLButtonElement).style.boxShadow =
+            "inset 0 1px 0 rgba(255,255,255,0.45)";
+        }}
       >
-        <span className="flex gap-1 flex-shrink-0">
+        <span className="flex items-center gap-3 min-w-0">
+          <span className="flex gap-1.5 flex-shrink-0">
+            <span
+              className="w-3 h-3 rounded-full"
+              style={{ background: accentColor }}
+              aria-hidden="true"
+            />
+            <span
+              className="w-3 h-3 rounded-full"
+              style={{ background: bgColor, border: "1px solid var(--tutor-border)" }}
+              aria-hidden="true"
+            />
+            <span
+              className="w-3 h-3 rounded-full"
+              style={{ background: sidebarColor, border: "1px solid rgba(0,0,0,0.06)" }}
+              aria-hidden="true"
+            />
+          </span>
           <span
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ background: accentColor }}
-            aria-hidden="true"
-          />
-          <span
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ background: bgColor, border: "1px solid rgba(255,255,255,0.15)" }}
-            aria-hidden="true"
-          />
-          <span
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ background: sidebarColor, border: "1px solid rgba(255,255,255,0.15)" }}
-            aria-hidden="true"
-          />
+            className="min-w-0 text-left"
+            style={{ color: "var(--tutor-text)" }}
+          >
+            <span className="block text-sm font-medium">Customize palette</span>
+            <span className="block text-xs mt-1" style={{ color: "var(--tutor-text-muted)" }}>
+              Accent, background, and sidebar tones
+            </span>
+          </span>
         </span>
-        <span
-          className="text-xs font-medium"
-          style={{ color: "var(--tutor-sidebar-text)" }}
-        >
-          Customize colors
+        <span className="text-xs font-medium" style={{ color: "var(--tutor-accent-text)" }}>
+          Edit
         </span>
       </button>
 
@@ -335,12 +353,12 @@ export default function ThemePicker() {
           aria-label="Customize Colors"
         >
           <div
-            className="rounded-2xl overflow-hidden"
+            className="rounded-[24px] overflow-hidden"
             style={{
               background: "var(--tutor-surface)",
               border: "1px solid var(--tutor-border-subtle)",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-              width: "400px",
+              boxShadow: "0 30px 70px rgba(26,34,53,0.22)",
+              width: "440px",
               maxHeight: "90vh",
               overflowY: "auto",
             }}

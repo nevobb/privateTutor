@@ -15,6 +15,13 @@ import {
 } from "../../lib/diagnostics/decisionLogApiClient";
 import type { DecisionLogListItem } from "../../lib/diagnostics/decisionLogApiTypes";
 import type { SourceCitation } from "../../types";
+import {
+  ActionMenu,
+  ActionMenuItem,
+  ChatStatusCard,
+  IconButton,
+  StatusPill,
+} from "../ui/TutorUI";
 
 const WORK_MODES: WorkMode[] = ["Learning", "Practice", "Research", "Build", "Temporary Chat"];
 const COST_MODES: CostMode[] = ["Normal Learning", "Cheap Practice", "Deep Research"];
@@ -43,6 +50,12 @@ interface TutorConversationProps {
   uploadedFileCount?: number;
   onFileSelected?: (file: File) => Promise<void>;
 }
+
+export type ChatUploadFeedback = {
+  state: "uploading" | "processing" | "error";
+  fileName: string;
+  errorMessage?: string;
+};
 
 export function formatSourcesLabel(count: number | undefined): string {
   if (count === undefined || count === 0) return "No files uploaded";
@@ -79,9 +92,11 @@ export default function TutorConversation({
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [workModeMenuOpen, setWorkModeMenuOpen] = useState(false);
   const [costModeMenuOpen, setCostModeMenuOpen] = useState(false);
+  const [chatUploadFeedback, setChatUploadFeedback] = useState<ChatUploadFeedback | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const plusMenuContainerRef = useRef<HTMLDivElement>(null);
+  const uploadDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -259,6 +274,25 @@ export default function TutorConversation({
     ]
   );
 
+  const handleUploadWithFeedback = useCallback(
+    async (file: File) => {
+      if (!onFileSelected) return;
+      if (uploadDismissTimerRef.current) clearTimeout(uploadDismissTimerRef.current);
+      setChatUploadFeedback({ state: "uploading", fileName: file.name });
+      try {
+        await onFileSelected(file);
+        setChatUploadFeedback({ state: "processing", fileName: file.name });
+        uploadDismissTimerRef.current = setTimeout(() => {
+          setChatUploadFeedback(null);
+        }, 6000);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Upload failed.";
+        setChatUploadFeedback({ state: "error", fileName: file.name, errorMessage: msg });
+      }
+    },
+    [onFileSelected]
+  );
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (shouldSubmitOnKeyDown(e.key, e.shiftKey)) {
       e.preventDefault();
@@ -274,32 +308,24 @@ export default function TutorConversation({
       style={{ background: "var(--tutor-bg)" }}
       dir="ltr"
     >
-      {/* Slim context strip */}
       <div
-        className="px-6 py-2 flex-shrink-0 flex items-center gap-2 text-xs"
+        className="px-8 py-4 flex-shrink-0 flex items-center gap-2 text-xs"
         style={{
           color: "var(--tutor-text-secondary)",
-          background: "var(--tutor-surface)",
+          background: "rgba(255,255,255,0.56)",
           borderBottom: "1px solid var(--tutor-border-subtle)",
+          backdropFilter: "blur(14px)",
         }}
         dir="ltr"
       >
-        <span
-          className="px-1.5 py-0.5 rounded font-semibold flex-shrink-0"
-          style={{
-            fontSize: "10px",
-            background: "var(--tutor-border-subtle)",
-            color: "var(--tutor-text-muted)",
-            letterSpacing: "0.04em",
-          }}
-        >
-          {SCOPE_MODE_LABELS[workMode]}
-        </span>
-        <span className="truncate">
+        <StatusPill label={SCOPE_MODE_LABELS[workMode]} tone="neutral" />
+        <span className="truncate text-sm" style={{ color: "var(--tutor-text-secondary)" }}>
           <bdi>{scopeTopicLabel}</bdi>
         </span>
         <span style={{ color: "var(--tutor-border)" }} aria-hidden="true">·</span>
-        <span className="flex-shrink-0">{formatSourcesLabel(uploadedFileCount)}</span>
+        <span className="flex-shrink-0 text-sm" style={{ color: "var(--tutor-text-muted)" }}>
+          {formatSourcesLabel(uploadedFileCount)}
+        </span>
       </div>
 
       {/* No-session notice */}
@@ -331,55 +357,74 @@ export default function TutorConversation({
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} msg={msg} />
-        ))}
+      <div
+        className="flex-1 overflow-y-auto px-8 py-8"
+        style={{
+          background:
+            "radial-gradient(circle at top right, rgba(255,255,255,0.62), transparent 22%), transparent",
+        }}
+      >
+        <div className="mx-auto w-full max-w-[1100px] space-y-6">
+          {messages.map((msg) => (
+            <MessageBubble key={msg.id} msg={msg} />
+          ))}
 
-        {isTyping && (
-          <div className="flex justify-start">
-            <div
-              className="flex items-center gap-1.5 px-4 py-3 rounded-2xl rounded-tl-sm"
-              style={{
-                background: "var(--tutor-surface)",
-                border: "1px solid var(--tutor-border-subtle)",
-                maxWidth: "200px",
+          {chatUploadFeedback && (
+            <ChatUploadCard
+              feedback={chatUploadFeedback}
+              onDismiss={() => {
+                if (uploadDismissTimerRef.current) clearTimeout(uploadDismissTimerRef.current);
+                setChatUploadFeedback(null);
               }}
-            >
-              <TypingDot delay={0} />
-              <TypingDot delay={160} />
-              <TypingDot delay={320} />
-            </div>
-          </div>
-        )}
+            />
+          )}
 
-        {!isTyping && composerNotice && (
-          <div className="flex justify-start">
-            <div
-              className="px-4 py-2.5 rounded-2xl rounded-tl-sm text-xs"
-              style={{
-                background: "var(--tutor-surface)",
-                border: "1px solid var(--tutor-border-subtle)",
-                color: "var(--tutor-text-muted)",
-              }}
-              dir="rtl"
-            >
-              {composerNotice}
+          {isTyping && (
+            <div className="flex justify-start">
+              <div
+                className="flex items-center gap-1.5 px-4 py-3 rounded-2xl rounded-tl-sm"
+                style={{
+                  background: "var(--tutor-surface)",
+                  border: "1px solid var(--tutor-border-subtle)",
+                  maxWidth: "200px",
+                }}
+              >
+                <TypingDot delay={0} />
+                <TypingDot delay={160} />
+                <TypingDot delay={320} />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <div ref={bottomRef} />
+          {!isTyping && composerNotice && (
+            <div className="flex justify-start">
+              <div
+                className="px-4 py-2.5 rounded-2xl rounded-tl-sm text-xs"
+                style={{
+                  background: "var(--tutor-surface)",
+                  border: "1px solid var(--tutor-border-subtle)",
+                  color: "var(--tutor-text-muted)",
+                }}
+                dir="rtl"
+              >
+                {composerNotice}
+              </div>
+            </div>
+          )}
+
+          <div ref={bottomRef} />
+        </div>
       </div>
 
       {/* Diagnostics panel */}
       {developerDiagnosticsEnabled && (
-        <div className="px-6 pb-3 flex-shrink-0" dir="ltr">
+        <div className="px-7 pb-3 flex-shrink-0" dir="ltr">
           <div
-            className="rounded-xl overflow-hidden"
+            className="rounded-[18px] overflow-hidden"
             style={{
               border: "1px solid var(--tutor-border-subtle)",
               background: "var(--tutor-surface-raised)",
+              boxShadow: "var(--tutor-card-shadow)",
             }}
           >
             <CollapsiblePanel title="Diagnostics" defaultOpen={false}>
@@ -391,30 +436,30 @@ export default function TutorConversation({
 
       {/* Input bar */}
       <div
-        className="px-6 pb-5 pt-3 flex-shrink-0"
-        style={{ borderTop: "1px solid var(--tutor-border-subtle)" }}
+        className="px-8 pb-7 pt-5 flex-shrink-0"
+        style={{ borderTop: "1px solid rgba(236,228,215,0.8)" }}
       >
-        <form onSubmit={handleSubmit} className="flex items-end gap-2.5">
-          {/* Plus button + menu */}
+        <form
+          onSubmit={handleSubmit}
+          className="mx-auto flex max-w-[1100px] items-end gap-3 rounded-[30px] p-3.5"
+          style={{
+            background: "var(--tutor-surface-tint)",
+            border: "1px solid var(--tutor-border)",
+            boxShadow: "var(--tutor-card-shadow)",
+            backdropFilter: "blur(16px)",
+          }}
+        >
           <div ref={plusMenuContainerRef} className="relative flex-shrink-0">
-            <button
-              type="button"
-              data-testid="plus-menu-button"
-              aria-label="More options"
-              aria-expanded={plusMenuOpen}
-              aria-haspopup="true"
+            <IconButton
+              testId="plus-menu-button"
+              label="More options"
               disabled={!activeSessionId}
-              onMouseDown={(e) => e.stopPropagation()}
+              active={plusMenuOpen}
+              size={46}
               onClick={() => setPlusMenuOpen(!plusMenuOpen)}
-              className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-40"
-              style={{
-                background: plusMenuOpen ? "var(--tutor-accent)" : "var(--tutor-border-subtle)",
-                color: plusMenuOpen ? "#FFFFFF" : "var(--tutor-text-muted)",
-                border: "1px solid var(--tutor-border)",
-              }}
             >
               <PlusIcon />
-            </button>
+            </IconButton>
             {plusMenuOpen && (
               <PlusMenu
                 workMode={workMode}
@@ -433,50 +478,59 @@ export default function TutorConversation({
                 setWorkModeMenuOpen={setWorkModeMenuOpen}
                 costModeMenuOpen={costModeMenuOpen}
                 setCostModeMenuOpen={setCostModeMenuOpen}
-                onUploadFile={onFileSelected}
+                onUploadFile={onFileSelected ? handleUploadWithFeedback : undefined}
                 onMenuClose={() => setPlusMenuOpen(false)}
               />
             )}
           </div>
 
-          {/* Textarea */}
-          <textarea
-            ref={inputRef}
-            rows={1}
-            placeholder={activeSessionId ? "Type a message..." : "Create or select a conversation first..."}
-            className="flex-1 resize-none rounded-2xl px-5 py-3.5 outline-none transition-all"
+          <div
+            className="flex-1 rounded-[24px] px-2"
             style={{
               background: "var(--tutor-surface)",
-              border: "1px solid var(--tutor-border)",
-              color: "var(--tutor-text)",
-              boxShadow: "var(--tutor-shadow-sm)",
-              fontSize: "var(--tutor-chat-font-size)",
-              minHeight: "60px",
-              maxHeight: "160px",
+              border: "1px solid var(--tutor-border-subtle)",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)",
             }}
-            value={inputValue}
-            onChange={(e) => {
-              setInputValue(e.target.value);
-              e.target.style.height = "auto";
-              e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
-            }}
-            onKeyDown={handleKeyDown}
-            disabled={isTyping || !activeSessionId}
-            dir="auto"
-            data-testid="message-textarea"
-          />
+          >
+            <textarea
+              ref={inputRef}
+              rows={1}
+              placeholder={activeSessionId ? "Type a message..." : "Create or select a conversation first..."}
+              className="flex-1 w-full resize-none outline-none transition-all"
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "var(--tutor-text)",
+                fontSize: "var(--tutor-chat-font-size)",
+                lineHeight: "1.65",
+                padding: "17px 16px",
+                minHeight: "66px",
+                maxHeight: "160px",
+              }}
+              value={inputValue}
+              onChange={(e) => {
+                setInputValue(e.target.value);
+                e.target.style.height = "auto";
+                e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+              }}
+              onKeyDown={handleKeyDown}
+              disabled={isTyping || !activeSessionId}
+              dir="auto"
+              data-testid="message-textarea"
+            />
+          </div>
 
-          {/* Send button */}
           <button
             type="submit"
             disabled={isTyping || !inputValue.trim() || !activeSessionId}
-            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-40 flex-shrink-0"
+            className="w-12 h-12 rounded-[18px] flex items-center justify-center transition-all disabled:opacity-40 flex-shrink-0"
             style={{
               background:
                 inputValue.trim() && activeSessionId
-                  ? "var(--tutor-accent)"
-                  : "var(--tutor-border)",
+                  ? "var(--tutor-text)"
+                  : "rgba(216, 207, 191, 0.85)",
               color: "#FFFFFF",
+              boxShadow: inputValue.trim() && activeSessionId ? "0 16px 28px rgba(44,34,24,0.14)" : "none",
             }}
             aria-label="Send"
             data-testid="send-button"
@@ -537,21 +591,15 @@ export function PlusMenu({
   onMenuClose,
 }: PlusMenuProps) {
   return (
-    <div
-      role="menu"
-      aria-label="Composer options"
-      data-testid="plus-menu"
-      className="absolute bottom-full left-0 mb-2 z-50 w-56 rounded-xl overflow-hidden"
-      style={{
-        background: "var(--tutor-surface)",
-        border: "1px solid var(--tutor-border-subtle)",
-        boxShadow: "var(--tutor-shadow)",
-      }}
+    <ActionMenu
+      align="left"
+      width={272}
+      placement="top"
     >
-      {/* Upload file */}
+      <div aria-label="Composer options" data-testid="plus-menu">
       <label
         data-testid="plus-upload-file"
-        className="flex items-center gap-3 px-3 py-2.5 text-sm cursor-pointer transition-colors"
+        className="flex items-center gap-3 px-3.5 py-3 text-sm cursor-pointer transition-colors"
         style={{
           color: onUploadFile ? "var(--tutor-text)" : "var(--tutor-text-muted)",
           opacity: onUploadFile ? 1 : 0.45,
@@ -562,10 +610,10 @@ export function PlusMenu({
         }}
         onMouseLeave={(e) => {
           (e.currentTarget as HTMLLabelElement).style.background = "transparent";
-        }}
-      >
-        <UploadFileIcon />
-        <span>Upload file</span>
+          }}
+        >
+          <UploadFileIcon />
+          <span>Upload file</span>
         <input
           type="file"
           className="hidden"
@@ -582,57 +630,35 @@ export function PlusMenu({
         />
       </label>
 
-      {/* Upload image — future */}
-      <div
-        className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm opacity-40 cursor-not-allowed"
-        style={{ color: "var(--tutor-text-muted)" }}
+      <ActionMenuItem
+        icon={<UploadImageIcon />}
+        disabled
+        trailing={<StatusPill label="Soon" tone="neutral" />}
       >
-        <div className="flex items-center gap-3">
-          <UploadImageIcon />
-          <span>Upload image</span>
-        </div>
-        <span
-          className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
-          style={{ background: "var(--tutor-border-subtle)", color: "var(--tutor-text-muted)" }}
-        >
-          Soon
-        </span>
-      </div>
+        Upload image
+      </ActionMenuItem>
 
       <div style={{ borderTop: "1px solid var(--tutor-border-subtle)", margin: "2px 0" }} />
 
-      {/* Work Mode */}
       <div>
-        <button
-          type="button"
-          role="menuitem"
+        <ActionMenuItem
+          icon={<WorkModeIcon />}
           onClick={() => {
             setWorkModeMenuOpen(!workModeMenuOpen);
             setCostModeMenuOpen(false);
           }}
-          className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-sm transition-colors"
-          style={{ color: "var(--tutor-text)" }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "var(--tutor-border-subtle)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-          }}
+          trailing={<ChevronIcon open={workModeMenuOpen} />}
         >
-          <div className="flex items-center gap-3">
-            <WorkModeIcon />
-            <span>Mode: <strong>{workMode}</strong></span>
-          </div>
-          <ChevronIcon open={workModeMenuOpen} />
-        </button>
+          Mode: <strong>{workMode}</strong>
+        </ActionMenuItem>
         {workModeMenuOpen && (
-          <div className="pb-1">
+          <div className="px-2 pb-2">
             {WORK_MODES.map((mode) => (
               <button
                 key={mode}
                 type="button"
                 onClick={() => onWorkModeChange(mode)}
-                className="w-full text-left px-10 py-1.5 text-xs transition-colors"
+                className="w-full text-left px-9 py-2 text-xs rounded-xl transition-colors"
                 style={{
                   color: mode === workMode ? "var(--tutor-accent)" : "var(--tutor-text-secondary)",
                   fontWeight: mode === workMode ? 600 : 400,
@@ -651,38 +677,25 @@ export function PlusMenu({
         )}
       </div>
 
-      {/* Cost Mode */}
       <div>
-        <button
-          type="button"
-          role="menuitem"
+        <ActionMenuItem
+          icon={<CostModeIcon />}
           onClick={() => {
             setCostModeMenuOpen(!costModeMenuOpen);
             setWorkModeMenuOpen(false);
           }}
-          className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-sm transition-colors"
-          style={{ color: "var(--tutor-text)" }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "var(--tutor-border-subtle)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-          }}
+          trailing={<ChevronIcon open={costModeMenuOpen} />}
         >
-          <div className="flex items-center gap-3">
-            <CostModeIcon />
-            <span>Cost: <strong>{costMode.split(" ")[0]}</strong></span>
-          </div>
-          <ChevronIcon open={costModeMenuOpen} />
-        </button>
+          Cost: <strong>{costMode.split(" ")[0]}</strong>
+        </ActionMenuItem>
         {costModeMenuOpen && (
-          <div className="pb-1">
+          <div className="px-2 pb-2">
             {COST_MODES.map((mode) => (
               <button
                 key={mode}
                 type="button"
                 onClick={() => onCostModeChange(mode)}
-                className="w-full text-left px-10 py-1.5 text-xs transition-colors"
+                className="w-full text-left px-9 py-2 text-xs rounded-xl transition-colors"
                 style={{
                   color: mode === costMode ? "var(--tutor-accent)" : "var(--tutor-text-secondary)",
                   fontWeight: mode === costMode ? 600 : 400,
@@ -700,7 +713,8 @@ export function PlusMenu({
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </ActionMenu>
   );
 }
 
@@ -721,6 +735,15 @@ function UploadImageIcon() {
       <rect x="1.5" y="2.5" width="11" height="9" rx="1.5" />
       <circle cx="5" cy="5.5" r="1" />
       <path d="M1.5 9.5l2.5-2.5 2 2 2-2.5 3 3.5" />
+    </svg>
+  );
+}
+
+function ErrorTriangleIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M7 2l5 9H2l5-9z" />
+      <path d="M7 5.1v2.8M7 10h.01" />
     </svg>
   );
 }
@@ -771,7 +794,7 @@ function MessageBubble({ msg }: { msg: TutorMessage }) {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className="rounded-2xl px-4 py-3 leading-relaxed"
+        className="rounded-[22px] px-5 py-4 leading-relaxed"
         style={
           isUser
             ? {
@@ -780,16 +803,17 @@ function MessageBubble({ msg }: { msg: TutorMessage }) {
                 background: "var(--tutor-user-bubble)",
                 border: "1px solid var(--tutor-user-border)",
                 color: "var(--tutor-text)",
-                borderBottomRightRadius: "4px",
+                borderBottomRightRadius: "8px",
+                boxShadow: "0 10px 22px rgba(64,84,126,0.08)",
               }
             : {
                 maxWidth: "var(--tutor-chat-max-width)",
                 fontSize: "var(--tutor-chat-font-size)",
-                background: "var(--tutor-surface)",
+                background: "rgba(255,255,255,0.9)",
                 border: "1px solid var(--tutor-border-subtle)",
                 color: "var(--tutor-text)",
-                borderBottomLeftRadius: "4px",
-                boxShadow: "var(--tutor-shadow-sm)",
+                borderBottomLeftRadius: "8px",
+                boxShadow: "var(--tutor-card-shadow)",
               }
         }
       >
@@ -797,7 +821,10 @@ function MessageBubble({ msg }: { msg: TutorMessage }) {
           content={msg.content}
           dir={isUser ? "auto" : "rtl"}
           lang={isUser ? undefined : "he"}
-          style={{ fontFamily: isUser ? undefined : "'Lora', Georgia, serif" }}
+          style={{
+            fontFamily: isUser ? undefined : "'Lora', Georgia, serif",
+            lineHeight: 1.8,
+          }}
         />
 
         {normalizedSources.length > 0 && (
@@ -824,24 +851,25 @@ export function SourcesSection({ citations }: { citations: NormalizedCitation[] 
   return (
     <details className="group">
       <summary
-        className="cursor-pointer select-none text-[10px] font-semibold tracking-wide"
+        className="cursor-pointer select-none text-[11px] font-semibold tracking-wide"
         style={{ color: "var(--tutor-text-muted)" }}
         dir="ltr"
       >
         Sources ({citations.length})
       </summary>
-      <div className="mt-2 space-y-1.5">
+      <div className="mt-2 space-y-2">
         {citations.map((cite) => (
           <div
             key={cite.renderKey}
-            className="text-[11px] px-2.5 py-1.5 rounded-lg space-y-0.5"
+            className="text-[11px] px-3 py-2.5 rounded-xl space-y-1"
             style={{
-              background: "var(--tutor-border-subtle)",
+              background: "var(--tutor-bg-elevated)",
+              border: "1px solid var(--tutor-border-subtle)",
               color: "var(--tutor-text-secondary)",
             }}
             dir="auto"
           >
-            <div className="text-[10px]" style={{ color: "var(--tutor-text-muted)" }} dir="ltr">
+            <div className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--tutor-text-muted)" }} dir="ltr">
               {cite.sourceLabel}
             </div>
             <div
@@ -883,8 +911,44 @@ export function normalizeCitations(citations: SourceCitation[] | undefined): Nor
 }
 
 function formatSourceLabel(citation: SourceCitation, index: number): string {
-  if (citation.originalFileName) return citation.originalFileName;
+  if (citation.originalFileName?.trim()) return citation.originalFileName.trim();
   return `Source ${index + 1}`;
+}
+
+/* ── ChatUploadCard ── */
+
+export function ChatUploadCard({
+  feedback,
+  onDismiss,
+}: {
+  feedback: ChatUploadFeedback;
+  onDismiss?: () => void;
+}) {
+  const isError = feedback.state === "error";
+
+  return (
+    <div data-testid="chat-upload-card" data-upload-state={feedback.state}>
+      <div data-testid={`chat-upload-${feedback.state}`}>
+        <ChatStatusCard
+          icon={
+            feedback.state === "uploading" ? <UploadFileIcon /> :
+            feedback.state === "processing" ? <CostModeIcon /> :
+            <ErrorTriangleIcon />
+          }
+          title={
+            feedback.state === "uploading"
+              ? <>מעלה את &ldquo;{feedback.fileName}&rdquo;...</>
+              : feedback.state === "processing"
+                ? <>מכין את הקובץ לעבודה...</>
+                : <>ההעלאה נכשלה</>
+          }
+          description={feedback.state === "error" ? feedback.errorMessage : undefined}
+          tone={isError ? "danger" : "neutral"}
+          dismiss={onDismiss}
+        />
+      </div>
+    </div>
+  );
 }
 
 /* ── DecisionLog ── */

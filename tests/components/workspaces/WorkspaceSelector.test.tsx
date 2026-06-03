@@ -126,7 +126,7 @@ describe("WorkspaceSelector session hierarchy", () => {
 
   it("applies active background to the selected session", () => {
     const html = renderSelector({ selectedSessionId: "session-0" });
-    expect(html).toContain("tutor-sidebar-active");
+    expect(html).toContain("background:rgba(255,255,255,0.09)");
   });
 
   it("inactive session items use font-weight 400", () => {

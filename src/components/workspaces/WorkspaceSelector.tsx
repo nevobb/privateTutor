@@ -3,6 +3,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import type { WorkspaceListItem } from "../../lib/workspaces/workspaceApiTypes";
 import type { SessionApiSession } from "../../lib/sessions/sessionApiTypes";
+import { ActionMenu, ActionMenuItem, IconButton } from "../ui/TutorUI";
 
 export type WorkspaceLoadState =
   | { status: "loading" }
@@ -111,7 +112,7 @@ export default function WorkspaceSelector({
           {loadState.workspaces.length === 0 ? (
             <p className="nav-state-text nav-state-empty">No courses yet</p>
           ) : (
-            <ul className="space-y-0.5 px-2">
+            <ul className="space-y-2 px-3">
               {loadState.workspaces.map((ws) => {
                 const isSelected = selectedWorkspaceId === ws.id;
                 return (
@@ -126,10 +127,12 @@ export default function WorkspaceSelector({
                     {isSelected && (
                       <div
                         data-testid="sessions-under-course"
-                        className="ml-3 mt-0.5"
+                        className="mt-2 mb-3 rounded-[18px] px-1 py-2"
                         style={{
-                          borderLeft: "1px solid var(--tutor-sidebar-border)",
-                          paddingLeft: "8px",
+                          marginLeft: "16px",
+                          borderLeft: "1px solid rgba(255,255,255,0.08)",
+                          paddingLeft: "12px",
+                          background: "rgba(255,255,255,0.03)",
                         }}
                       >
                         {sessionState.status === "loading" && (
@@ -151,7 +154,7 @@ export default function WorkspaceSelector({
                             {sessionState.sessions.length === 0 ? (
                               <p className="nav-state-text nav-state-empty py-1">No conversations</p>
                             ) : (
-                              <ul className="space-y-0.5">
+                              <ul className="space-y-1.5">
                                 {sessionState.sessions.map((session, index) => {
                                   const isActive = selectedSessionId === session.id;
                                   const label =
@@ -283,7 +286,7 @@ export default function WorkspaceSelector({
                                   }
 
                                   return (
-                                    <li key={session.id} className="group relative flex items-center">
+                                    <li key={session.id} className="group relative flex items-center gap-1.5">
                                       <SessionNavItem
                                         label={label}
                                         active={isActive}
@@ -292,36 +295,26 @@ export default function WorkspaceSelector({
                                       {hasMenuActions && (
                                         <div
                                           ref={isMenuOpen ? openMenuRef : undefined}
-                                          className="flex-shrink-0 relative pr-1"
+                                          className="flex-shrink-0 relative"
                                         >
-                                          <button
-                                            type="button"
-                                            aria-label={`Conversation options: ${label}`}
-                                            aria-expanded={isMenuOpen}
-                                            aria-haspopup="true"
-                                            data-testid="conversation-menu-trigger"
+                                          <IconButton
+                                            label={`Conversation options: ${label}`}
+                                            testId="conversation-menu-trigger"
+                                            active={isMenuOpen}
+                                            size={28}
+                                            hasPopup={true}
+                                            expanded={isMenuOpen}
                                             onClick={() =>
                                               setOpenMenuSessionId(isMenuOpen ? null : session.id)
                                             }
-                                            className={`w-6 h-6 flex items-center justify-center rounded transition-opacity ${
+                                            className={`transition-opacity ${
                                               isMenuOpen
                                                 ? "opacity-100"
                                                 : "opacity-0 group-hover:opacity-100"
                                             }`}
-                                            style={{ color: "var(--tutor-sidebar-text-muted)" }}
-                                            onMouseEnter={(e) => {
-                                              (
-                                                e.currentTarget as HTMLButtonElement
-                                              ).style.background = "var(--tutor-sidebar-hover)";
-                                            }}
-                                            onMouseLeave={(e) => {
-                                              (
-                                                e.currentTarget as HTMLButtonElement
-                                              ).style.background = "transparent";
-                                            }}
                                           >
                                             <ThreeDots />
-                                          </button>
+                                          </IconButton>
                                           {isMenuOpen && (
                                             <ConversationMenu
                                               label={label}
@@ -354,7 +347,7 @@ export default function WorkspaceSelector({
                               </ul>
                             )}
 
-                            <div className="mt-0.5">
+                            <div className="mt-1.5">
                               <NewAction
                                 label={creatingSession ? "Creating..." : "+ New conversation"}
                                 disabled={creatingSession}
@@ -379,7 +372,7 @@ export default function WorkspaceSelector({
             </ul>
           )}
 
-          <div className="px-2 mt-0.5">
+          <div className="px-3 mt-1">
             {!showCreate ? (
               <NewAction label="+ New course" onClick={() => setShowCreate(true)} />
             ) : (
@@ -472,54 +465,20 @@ interface ConversationMenuProps {
 
 export function ConversationMenu({ onRename, onDelete }: ConversationMenuProps) {
   return (
-    <div
-      role="menu"
-      aria-label="Conversation options"
-      data-testid="conversation-menu"
-      className="absolute right-0 top-full mt-0.5 z-50 min-w-[120px] rounded-lg overflow-hidden"
-      style={{
-        background: "var(--tutor-surface)",
-        border: "1px solid var(--tutor-border-subtle)",
-        boxShadow: "var(--tutor-shadow)",
-      }}
-    >
-      {onRename && (
-        <button
-          type="button"
-          role="menuitem"
-          onClick={onRename}
-          className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs transition-colors"
-          style={{ color: "var(--tutor-sidebar-text)" }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "var(--tutor-sidebar-hover)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-          }}
-        >
-          <RenameIcon />
-          <span>Rename</span>
-        </button>
-      )}
-      {onDelete && (
-        <button
-          type="button"
-          role="menuitem"
-          onClick={onDelete}
-          className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs transition-colors"
-          style={{ color: "#c0392b" }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "rgba(192,57,43,0.08)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-          }}
-        >
-          <DeleteIcon />
-          <span>Delete</span>
-        </button>
-      )}
-    </div>
+    <ActionMenu align="right" width={160}>
+      <div aria-label="Conversation options" data-testid="conversation-menu">
+        {onRename ? (
+          <ActionMenuItem icon={<RenameIcon />} onClick={onRename}>
+            Rename
+          </ActionMenuItem>
+        ) : null}
+        {onDelete ? (
+          <ActionMenuItem icon={<DeleteIcon />} onClick={onDelete} destructive>
+            Delete
+          </ActionMenuItem>
+        ) : null}
+      </div>
+    </ActionMenu>
   );
 }
 
@@ -555,18 +514,20 @@ function CourseNavItem({
       type="button"
       onClick={onClick}
       data-testid="course-nav-item"
-      className="w-full text-left flex items-center gap-2 px-3 rounded-lg transition-colors"
+      className="w-full text-left flex items-center gap-3 rounded-[18px] transition-colors"
       style={{
-        padding: "7px 10px",
+        padding: "13px 14px",
         fontSize: "13px",
-        background: active ? "var(--tutor-sidebar-active)" : "transparent",
+        background: active ? "rgba(255,255,255,0.07)" : "transparent",
         color: active ? "var(--tutor-sidebar-text-active)" : "var(--tutor-sidebar-text)",
-        fontWeight: active ? 500 : 400,
-        borderLeft: active ? "2px solid var(--tutor-accent)" : "2px solid transparent",
+        fontWeight: active ? 600 : 400,
+        border: active ? "1px solid rgba(255,255,255,0.06)" : "1px solid transparent",
+        letterSpacing: active ? "-0.01em" : undefined,
+        boxShadow: active ? "var(--tutor-shadow-sm)" : "none",
       }}
       onMouseEnter={(e) => {
         if (!active)
-          (e.currentTarget as HTMLButtonElement).style.background = "var(--tutor-sidebar-hover)";
+          (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
       }}
       onMouseLeave={(e) => {
         if (!active)
@@ -576,8 +537,7 @@ function CourseNavItem({
       <span
         className="flex-shrink-0"
         style={{
-          color: active ? "var(--tutor-accent)" : "var(--tutor-sidebar-text-muted)",
-          opacity: 0.8,
+          color: active ? "var(--tutor-sidebar-text-active)" : "var(--tutor-sidebar-text-muted)",
         }}
       >
         <FolderIcon />
@@ -602,17 +562,18 @@ function SessionNavItem({
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left flex items-center px-2 rounded-md transition-colors"
+      className="w-full text-left flex items-center rounded-[16px] transition-colors"
       style={{
-        padding: "4px 8px",
-        fontSize: "11.5px",
-        background: active ? "var(--tutor-sidebar-active)" : "transparent",
+        padding: "10px 12px",
+        fontSize: "12px",
+        background: active ? "rgba(255,255,255,0.09)" : "transparent",
         color: active ? "var(--tutor-sidebar-text-active)" : "var(--tutor-sidebar-text)",
         fontWeight: active ? 500 : 400,
+        border: active ? "1px solid rgba(255,255,255,0.05)" : "1px solid transparent",
       }}
       onMouseEnter={(e) => {
         if (!active)
-          (e.currentTarget as HTMLButtonElement).style.background = "var(--tutor-sidebar-hover)";
+          (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
       }}
       onMouseLeave={(e) => {
         if (!active)
@@ -640,13 +601,20 @@ function NewAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="w-full text-left flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors disabled:opacity-40"
-      style={{ color: "var(--tutor-sidebar-text-muted)" }}
+      className="w-full text-left flex items-center gap-1 px-3.5 py-2.5 rounded-[16px] text-xs transition-colors disabled:opacity-40"
+      style={{
+        color: "var(--tutor-sidebar-text-muted)",
+        border: "1px dashed rgba(255,255,255,0.08)",
+      }}
       onMouseEnter={(e) => {
-        if (!disabled) (e.currentTarget as HTMLButtonElement).style.color = "var(--tutor-accent)";
+        if (!disabled) {
+          (e.currentTarget as HTMLButtonElement).style.color = "var(--tutor-sidebar-text-active)";
+          (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
+        }
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLButtonElement).style.color = "var(--tutor-sidebar-text-muted)";
+        (e.currentTarget as HTMLButtonElement).style.background = "transparent";
       }}
     >
       {label}

@@ -18,14 +18,29 @@ export default function CollapsiblePanel({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div style={{ borderTop: "1px solid var(--tutor-sidebar-border)" }}>
+    <div className="px-3 pb-2">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-medium transition-colors hover:bg-[var(--tutor-sidebar-hover)]"
-        style={{ color: "var(--tutor-sidebar-text)" }}
+        className="w-full flex items-center justify-between px-4 py-3 text-xs font-medium transition-colors"
+        style={{
+          color: "var(--tutor-sidebar-text)",
+          borderRadius: "16px",
+          background: open ? "rgba(255,255,255,0.06)" : "transparent",
+          border: "1px solid transparent",
+        }}
+        onMouseEnter={(event) => {
+          (event.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.06)";
+          (event.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.05)";
+        }}
+        onMouseLeave={(event) => {
+          (event.currentTarget as HTMLButtonElement).style.background = open
+            ? "rgba(255,255,255,0.06)"
+            : "transparent";
+          (event.currentTarget as HTMLButtonElement).style.borderColor = "transparent";
+        }}
       >
-        <span className="flex items-center gap-1.5">
+        <span className="flex items-center gap-2">
           <span
             className="transition-transform duration-200"
             style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)", display: "inline-block" }}
@@ -35,8 +50,11 @@ export default function CollapsiblePanel({
           {title}
           {itemCount !== undefined && (
             <span
-              className="text-[10px] px-1.5 py-0.5 rounded-full"
-              style={{ background: "var(--tutor-sidebar-active)", color: "var(--tutor-sidebar-text-muted)" }}
+              className="text-[10px] px-2 py-0.5 rounded-full"
+              style={{
+                background: "rgba(123, 143, 212, 0.14)",
+                color: "var(--tutor-sidebar-text-active)",
+              }}
             >
               {itemCount}
             </span>
@@ -44,7 +62,7 @@ export default function CollapsiblePanel({
         </span>
       </button>
       {open && (
-        <div className="px-3 pb-3">
+        <div className="px-1 pt-2 pb-1">
           {children}
         </div>
       )}

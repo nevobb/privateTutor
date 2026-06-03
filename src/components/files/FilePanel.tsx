@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { UploadedFile } from "../../types";
+import { ActionMenu, ActionMenuItem, IconButton, StatusPill } from "../ui/TutorUI";
 
 export type FileUploadStatus =
   | { state: "idle" }
@@ -52,13 +53,20 @@ export default function FilePanel({
   }, [openFileMenuId]);
 
   return (
-    <div className="space-y-2" dir="rtl">
-      <div className="space-y-1">
+    <div className="space-y-3" dir="rtl">
+      <div
+        className="space-y-2 rounded-[18px] p-3.5"
+        style={{
+          background: "rgba(255,255,255,0.045)",
+          border: "1px solid rgba(255,255,255,0.05)",
+        }}
+      >
         <label
-          className="inline-flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs cursor-pointer transition-colors"
+          className="inline-flex items-center gap-2.5 px-3.5 py-2.5 rounded-[16px] text-xs cursor-pointer transition-colors"
           style={{
-            color: "var(--tutor-text-secondary)",
-            background: "var(--tutor-sidebar-hover)",
+            color: "var(--tutor-sidebar-text-active)",
+            background: "rgba(255,255,255,0.08)",
+            border: "1px solid rgba(255,255,255,0.06)",
             opacity: disabled || !onFileSelected ? 0.6 : 1,
           }}
         >
@@ -77,7 +85,7 @@ export default function FilePanel({
             }}
           />
         </label>
-        <p className="text-[11px]" style={{ color: statusColor(uploadStatus) }}>
+        <p className="text-[11px] px-1" style={{ color: statusColor(uploadStatus) }}>
           {statusText(uploadStatus)}
         </p>
       </div>
@@ -113,26 +121,30 @@ export default function FilePanel({
           return (
             <div
               key={file.id}
-              className="px-2 py-2 rounded-lg transition-colors text-xs space-y-2"
-              style={{ color: "var(--tutor-text-secondary)" }}
+              className="px-3.5 py-3.5 rounded-[18px] transition-colors text-xs space-y-2.5"
+              style={{
+                color: "var(--tutor-sidebar-text)",
+                border: "1px solid rgba(255,255,255,0.05)",
+                background: "rgba(255,255,255,0.03)",
+              }}
               onMouseEnter={(e) =>
                 ((e.currentTarget as HTMLDivElement).style.background =
-                  "var(--tutor-sidebar-hover)")
+                  "rgba(255,255,255,0.055)")
               }
               onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLDivElement).style.background = "transparent")
+                ((e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.03)")
               }
             >
               {/* File name + status + three-dot menu */}
               <div className="flex items-start gap-2 min-w-0" dir="rtl">
-                <span style={{ fontSize: "12px" }} aria-hidden="true">
+                <span style={{ fontSize: "12px", color: "var(--tutor-sidebar-text-active)" }} aria-hidden="true">
                   {getFileIcon(file.sourceType)}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate" title={file.name}>
+                  <div className="truncate text-[13px] font-medium" style={{ color: "var(--tutor-sidebar-text-active)" }} title={file.name}>
                     {file.name}
                   </div>
-                  <div className="mt-0.5">
+                  <div className="mt-1">
                     <FileStatusLabel
                       extractionStatus={extractionStatus}
                       chunkingStatus={chunkingStatus}
@@ -145,26 +157,15 @@ export default function FilePanel({
                 {/* Three-dot menu button */}
                 {onDeleteFile && (
                   <div ref={isMenuOpen ? openFileMenuRef : undefined} className="flex-shrink-0 relative" dir="ltr">
-                    <button
-                      type="button"
-                      aria-label={`File options: ${file.name}`}
-                      aria-expanded={isMenuOpen}
-                      aria-haspopup="true"
-                      data-testid="file-menu-trigger"
-                      onMouseDown={(e) => e.stopPropagation()}
+                    <IconButton
+                      label={`File options: ${file.name}`}
+                      testId="file-menu-trigger"
+                      active={isMenuOpen}
+                      size={28}
                       onClick={() => setOpenFileMenuId(isMenuOpen ? null : file.id)}
-                      className="w-5 h-5 flex items-center justify-center rounded"
-                      style={{ color: "var(--tutor-text-muted)" }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.background =
-                          "var(--tutor-sidebar-hover)";
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                      }}
                     >
                       <FileThreeDots />
-                    </button>
+                    </IconButton>
                     {isMenuOpen && !isConfirmingDelete && (
                       <FileRowMenu
                         onDelete={() => {
@@ -183,11 +184,12 @@ export default function FilePanel({
                 <div className="flex flex-wrap items-center gap-1.5" dir="rtl">
                   <button
                     type="button"
-                    className="px-2 py-1 rounded text-[10px]"
+                    className="px-3 py-1.5 rounded-full text-[10px] font-medium"
                     style={{
-                      background: "var(--tutor-sidebar-hover)",
-                      color: "var(--tutor-text-secondary)",
+                      background: "rgba(255,255,255,0.08)",
+                      color: "var(--tutor-sidebar-text-active)",
                       opacity: action.disabled ? 0.45 : 1,
+                      border: "1px solid rgba(255,255,255,0.06)",
                     }}
                     disabled={action.disabled}
                     title={action.hint}
@@ -280,15 +282,7 @@ export function FileStatusLabel({
   isReadyForLearning,
 }: FileStatusLabelProps) {
   if (isReadyForLearning) {
-    return (
-      <span
-        data-testid="file-status-ready"
-        className="text-[10px] font-medium"
-        style={{ color: "var(--tutor-accent)" }}
-      >
-        ✓ Ready
-      </span>
-    );
+    return <span data-testid="file-status-ready"><StatusPill label="✓ Ready" tone="accent" /></span>;
   }
 
   const hasFailed =
@@ -297,26 +291,10 @@ export function FileStatusLabel({
     embeddingStatus === "failed";
 
   if (hasFailed) {
-    return (
-      <span
-        data-testid="file-status-failed"
-        className="text-[10px]"
-        style={{ color: "#c0392b" }}
-      >
-        Failed
-      </span>
-    );
+    return <span data-testid="file-status-failed"><StatusPill label="Failed" tone="danger" /></span>;
   }
 
-  return (
-    <span
-      data-testid="file-status-processing"
-      className="text-[10px]"
-      style={{ color: "var(--tutor-text-muted)" }}
-    >
-      Processing…
-    </span>
-  );
+  return <span data-testid="file-status-processing"><StatusPill label="Processing" tone="neutral" /></span>;
 }
 
 /* ── FileRowMenu ── */
@@ -327,70 +305,23 @@ interface FileRowMenuProps {
 
 export function FileRowMenu({ onDelete }: FileRowMenuProps) {
   return (
-    <div
-      role="menu"
-      aria-label="File options"
-      data-testid="file-row-menu"
-      className="absolute right-0 top-full mt-0.5 z-50 min-w-[152px] rounded-lg overflow-hidden"
-      style={{
-        background: "var(--tutor-surface)",
-        border: "1px solid var(--tutor-border-subtle)",
-        boxShadow: "var(--tutor-shadow)",
-      }}
-    >
-      <button
-        type="button"
-        role="menuitem"
-        onClick={onDelete}
-        disabled={!onDelete}
-        className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs transition-colors"
-        style={{ color: "#c0392b" }}
-        onMouseEnter={(e) => {
-          if (onDelete) (e.currentTarget as HTMLButtonElement).style.background = "rgba(192,57,43,0.08)";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-        }}
-      >
-        <FileDeleteIcon />
-        <span>Delete</span>
-      </button>
-
-      <div style={{ borderTop: "1px solid var(--tutor-border-subtle)", margin: "2px 0" }} />
-
-      <button
-        type="button"
-        role="menuitem"
-        disabled
-        className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs opacity-40 cursor-not-allowed"
-        style={{ color: "var(--tutor-sidebar-text)" }}
-      >
-        <FileSummarizeIcon />
-        <span>Summarize</span>
-      </button>
-
-      <button
-        type="button"
-        role="menuitem"
-        disabled
-        className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs opacity-40 cursor-not-allowed"
-        style={{ color: "var(--tutor-sidebar-text)" }}
-      >
-        <FileAskIcon />
-        <span>Ask about file</span>
-      </button>
-
-      <button
-        type="button"
-        role="menuitem"
-        disabled
-        className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs opacity-40 cursor-not-allowed"
-        style={{ color: "var(--tutor-sidebar-text)" }}
-      >
-        <FileLearnIcon />
-        <span>Start learning</span>
-      </button>
-    </div>
+    <ActionMenu align="right" width={170}>
+      <div aria-label="File options" data-testid="file-row-menu">
+        <ActionMenuItem icon={<FileSummarizeIcon />} disabled>
+          Summarize
+        </ActionMenuItem>
+        <ActionMenuItem icon={<FileAskIcon />} disabled>
+          Ask about file
+        </ActionMenuItem>
+        <ActionMenuItem icon={<FileLearnIcon />} disabled>
+          Start learning
+        </ActionMenuItem>
+        <div style={{ borderTop: "1px solid var(--tutor-border-subtle)", margin: "2px 0" }} />
+        <ActionMenuItem icon={<FileDeleteIcon />} onClick={onDelete} disabled={!onDelete} destructive>
+          Delete file
+        </ActionMenuItem>
+      </div>
+    </ActionMenu>
   );
 }
 
