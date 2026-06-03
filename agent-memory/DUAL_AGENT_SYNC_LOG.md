@@ -1867,3 +1867,28 @@ Copy this block and fill all fields:
   - `tests/lib/sessions/sessionMessagesApiClient.test.ts`: added source-file assertion that timeout ≥ 25000; added readFileSync import
 - Validation: 67 files, 833 tests passed, build clean
 - Deferred: async job model, idempotency key, per-request timeout scaling
+
+---
+
+## Entry: Batch 9A — Workspace Cleanup Fit Check
+
+- Agent: Claude
+- Date: 2026-06-03
+- Branch: `repair/workspace-cleanup-fit-check`
+- Task summary: Read-only audit of existing session/file data model and API surface to plan workspace cleanup batches (rename, soft delete, filter). No code changes.
+- Key findings:
+  - SessionRecord: title ✅ exists, status ✅ exists ("active"|"closed"|"archived"), isDeleted ❌ missing, deletedAt ❌ missing
+  - UploadedFile: isDeleted ❌ missing, deletedAt ❌ missing, storagePath ✅ exists for future hard delete
+  - listSessions: no status filter — deleted sessions will appear until filter added
+  - listUploadedFiles: no isDeleted filter — deleted files appear in panel, retrieval, inventory, grounding
+  - Single-point fix: adding isDeleted filter to uploadedFileRepository.listUploadedFiles makes all downstream consumers (retrieval, inventory, grounding, file panel) inherit the filter automatically
+  - 7 explicit filter points identified for deleted files (section 10)
+  - 6 explicit filter points identified for deleted sessions (section 9)
+- Batch plan:
+  - 9B: rename conversation (PATCH route + repo update + UI)
+  - 9C: soft delete conversation (isDeleted field + filter + DELETE route + UI)
+  - 9D: soft delete uploaded file (isDeleted field + filter + DELETE route + UI)
+  - 9E: exclude deleted files from retrieval/inventory/grounding (post-9D, mostly automatic)
+  - 9F: hard delete cleanup (deferred, background job)
+- Ready for Batch 9B: YES
+- Validation: 67 files, 833 tests, build clean
