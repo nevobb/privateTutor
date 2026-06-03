@@ -93,6 +93,13 @@ describe("uploadedFileApiSchemas", () => {
       detectedQuestionCount: 4,
       extractionQuality: "partial",
       deepPdfStatus: "recommended",
+      deepPdfProviderName: "gemini_pdf_understanding",
+      deepPdfModel: "gemini-2.5-pro",
+      deepPdfInputHash: "hash-v1",
+      deepPdfStorageGeneration: "gen-v1",
+      deepPdfArtifactVersion: "deep_pdf_artifacts_v1",
+      deepPdfCompletedAt: now,
+      deepPdfErrorCode: null,
       deepPdfUpdatedAt: now,
       createdAt: now,
       updatedAt: now,
@@ -114,6 +121,13 @@ describe("uploadedFileApiSchemas", () => {
     expect(response.detectedQuestionCount).toBe(4);
     expect(response.extractionQuality).toBe("partial");
     expect(response.deepPdfStatus).toBe("recommended");
+    expect(response.deepPdfProviderName).toBe("gemini_pdf_understanding");
+    expect(response.deepPdfModel).toBe("gemini-2.5-pro");
+    expect(response.deepPdfInputHash).toBe("hash-v1");
+    expect(response.deepPdfStorageGeneration).toBe("gen-v1");
+    expect(response.deepPdfArtifactVersion).toBe("deep_pdf_artifacts_v1");
+    expect(response.deepPdfCompletedAt).toBe(now.toISOString());
+    expect(response.deepPdfErrorCode).toBeNull();
     expect(response.deepPdfUpdatedAt).toBe(now.toISOString());
     expect(response.uploadedAt).toBe(now.toISOString());
   });
@@ -175,6 +189,43 @@ describe("uploadedFileApiSchemas", () => {
     expect(result).toEqual({
       ok: false,
       error: "deepPdfStatus must be one of: not_started, recommended, pending, completed, failed, skipped.",
+    });
+  });
+
+  it("parses legacy response objects without new deep PDF cache metadata", () => {
+    const result = parseUploadedFileApiResponse({
+      id: "file-1",
+      userId: "alice",
+      workspaceId: "ws-1",
+      fileName: "Lecture 1.pdf",
+      sourceType: "pdf",
+      assignmentStatus: "assigned",
+      indexingStatus: "indexed",
+      summaryStatus: "not_requested",
+      summaryText: null,
+      summarySource: "none",
+      summaryErrorCode: null,
+      summaryUpdatedAt: null,
+      extractionStatus: "not_started",
+      extractionErrorCode: null,
+      extractionUpdatedAt: null,
+      chunkingStatus: "not_started",
+      chunkingErrorCode: null,
+      chunkingUpdatedAt: null,
+      deepPdfStatus: "completed",
+      deepPdfUpdatedAt: null,
+      embeddingStatus: "not_started",
+      embeddingUpdatedAt: null,
+      uploadedAt: "2026-05-19T08:00:00.000Z",
+      createdAt: "2026-05-19T08:00:00.000Z",
+      updatedAt: "2026-05-19T08:00:00.000Z",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: expect.objectContaining({
+        deepPdfStatus: "completed",
+      }),
     });
   });
 });

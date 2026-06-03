@@ -56,7 +56,15 @@ export interface UploadedFileApiResponse {
   chunkingErrorCode: string | null;
   chunkingUpdatedAt: string | null;
   deepPdfStatus?: UploadedFileRecord["deepPdfStatus"];
+  deepPdfProviderName?: string;
+  deepPdfModel?: string;
+  deepPdfInputHash?: string;
+  deepPdfStorageGeneration?: string;
+  deepPdfArtifactVersion?: string;
+  deepPdfCompletedAt: string | null;
+  deepPdfErrorCode: string | null;
   deepPdfUpdatedAt: string | null;
+  understandingMode?: UploadedFileRecord["understandingMode"];
   embeddingStatus: UploadedFileRecord["embeddingStatus"];
   embeddingUpdatedAt: string | null;
   uploadedAt: string;
@@ -156,7 +164,15 @@ export function toUploadedFileApiResponse(record: UploadedFileRecord): UploadedF
     chunkingErrorCode: record.chunkingErrorCode ?? null,
     chunkingUpdatedAt: record.chunkingUpdatedAt ? record.chunkingUpdatedAt.toISOString() : null,
     deepPdfStatus: record.deepPdfStatus,
+    deepPdfProviderName: record.deepPdfProviderName,
+    deepPdfModel: record.deepPdfModel,
+    deepPdfInputHash: record.deepPdfInputHash,
+    deepPdfStorageGeneration: record.deepPdfStorageGeneration,
+    deepPdfArtifactVersion: record.deepPdfArtifactVersion,
+    deepPdfCompletedAt: record.deepPdfCompletedAt ? record.deepPdfCompletedAt.toISOString() : null,
+    deepPdfErrorCode: record.deepPdfErrorCode ?? null,
     deepPdfUpdatedAt: record.deepPdfUpdatedAt ? record.deepPdfUpdatedAt.toISOString() : null,
+    understandingMode: record.understandingMode,
     embeddingStatus: record.embeddingStatus ?? "not_started",
     embeddingUpdatedAt: record.embeddingUpdatedAt ? record.embeddingUpdatedAt.toISOString() : null,
     uploadedAt: record.uploadedAt.toISOString(),
@@ -190,6 +206,17 @@ export function parseUploadedFileApiResponse(body: unknown): UploadedFileApiResp
     return {
       ok: false,
       error: "deepPdfStatus must be one of: not_started, recommended, pending, completed, failed, skipped.",
+    };
+  }
+
+  if (
+    raw.understandingMode !== undefined &&
+    raw.understandingMode !== "text_only" &&
+    raw.understandingMode !== "deep_pdf"
+  ) {
+    return {
+      ok: false,
+      error: "understandingMode must be one of: text_only, deep_pdf.",
     };
   }
 

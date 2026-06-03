@@ -217,6 +217,13 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       extractionQuality: "partial",
       chunkingStatus: "not_started",
       deepPdfStatus: "recommended",
+      deepPdfProviderName: "gemini_pdf_understanding",
+      deepPdfModel: "gemini-2.5-pro",
+      deepPdfInputHash: "hash-v1",
+      deepPdfStorageGeneration: "gen-v1",
+      deepPdfArtifactVersion: "deep_pdf_artifacts_v1",
+      deepPdfCompletedAt: timestamp,
+      deepPdfErrorCode: null,
       deepPdfUpdatedAt: timestamp,
     });
 
@@ -229,6 +236,13 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       detectedQuestionCount: 7,
       extractionQuality: "good",
       deepPdfStatus: "completed",
+      deepPdfProviderName: "gemini_pdf_understanding",
+      deepPdfModel: "gemini-2.5-pro",
+      deepPdfInputHash: "hash-v1",
+      deepPdfStorageGeneration: "gen-v1",
+      deepPdfArtifactVersion: "deep_pdf_artifacts_v1",
+      deepPdfCompletedAt: timestamp,
+      deepPdfErrorCode: null,
       deepPdfUpdatedAt: timestamp,
     });
 
@@ -240,7 +254,18 @@ describeFirebaseWorkspaceEmulator("uploadedFileRepository against the Firestore 
       detectedQuestionCount: 7,
       extractionQuality: "good",
       deepPdfStatus: "completed",
+      deepPdfProviderName: "gemini_pdf_understanding",
+      deepPdfModel: "gemini-2.5-pro",
+      deepPdfInputHash: "hash-v1",
+      deepPdfStorageGeneration: "gen-v1",
+      deepPdfArtifactVersion: "deep_pdf_artifacts_v1",
     });
+    expect(updated?.deepPdfCompletedAt?.toISOString()).toBe(timestamp.toISOString());
+    expect(updated?.deepPdfProviderName).toBe("gemini_pdf_understanding");
+    expect(updated?.deepPdfModel).toBe("gemini-2.5-pro");
+    expect(updated?.deepPdfInputHash).toBe("hash-v1");
+    expect(updated?.deepPdfStorageGeneration).toBe("gen-v1");
+    expect(updated?.deepPdfArtifactVersion).toBe("deep_pdf_artifacts_v1");
     expect(updated?.understandingUpdatedAt?.toISOString()).toBe(timestamp.toISOString());
     expect(updated?.deepPdfUpdatedAt?.toISOString()).toBe(timestamp.toISOString());
   });

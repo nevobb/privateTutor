@@ -30,6 +30,7 @@ export type DeepPdfStatus =
   | "completed"
   | "failed"
   | "skipped";
+export type DocumentUnderstandingMode = "text_only" | "deep_pdf";
 export type DocumentTextQuality = "good" | "partial" | "poor" | "empty";
 export type DocumentOutlineConfidence = "high" | "medium" | "low";
 
@@ -158,7 +159,15 @@ export interface UploadedFile {
   chunkingErrorCode?: string | null;
   chunkingUpdatedAt?: Date | null;
   deepPdfStatus?: DeepPdfStatus;
+  deepPdfProviderName?: string;
+  deepPdfModel?: string;
+  deepPdfInputHash?: string;
+  deepPdfStorageGeneration?: string;
+  deepPdfArtifactVersion?: string;
+  deepPdfCompletedAt?: Date | null;
+  deepPdfErrorCode?: string | null;
   deepPdfUpdatedAt?: Date | null;
+  understandingMode?: DocumentUnderstandingMode;
   embeddingStatus?: "not_started" | "completed" | "failed";
   embeddingUpdatedAt?: Date | null;
   createdAt?: Date;

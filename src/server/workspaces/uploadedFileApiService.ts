@@ -181,7 +181,15 @@ export function createUploadedFileApiService(
         chunkingErrorCode: null,
         chunkingUpdatedAt: null,
         deepPdfStatus: "not_started",
+        deepPdfProviderName: undefined,
+        deepPdfModel: undefined,
+        deepPdfInputHash: undefined,
+        deepPdfStorageGeneration: undefined,
+        deepPdfArtifactVersion: undefined,
+        deepPdfCompletedAt: null,
+        deepPdfErrorCode: null,
         deepPdfUpdatedAt: null,
+        understandingMode: "text_only",
       });
 
       await Promise.all([

@@ -178,7 +178,15 @@ export interface CreateUploadedFileInput {
   chunkingErrorCode?: UploadedFileRecord["chunkingErrorCode"];
   chunkingUpdatedAt?: UploadedFileRecord["chunkingUpdatedAt"];
   deepPdfStatus?: UploadedFileRecord["deepPdfStatus"];
+  deepPdfProviderName?: UploadedFileRecord["deepPdfProviderName"];
+  deepPdfModel?: UploadedFileRecord["deepPdfModel"];
+  deepPdfInputHash?: UploadedFileRecord["deepPdfInputHash"];
+  deepPdfStorageGeneration?: UploadedFileRecord["deepPdfStorageGeneration"];
+  deepPdfArtifactVersion?: UploadedFileRecord["deepPdfArtifactVersion"];
+  deepPdfCompletedAt?: UploadedFileRecord["deepPdfCompletedAt"];
+  deepPdfErrorCode?: UploadedFileRecord["deepPdfErrorCode"];
   deepPdfUpdatedAt?: UploadedFileRecord["deepPdfUpdatedAt"];
+  understandingMode?: UploadedFileRecord["understandingMode"];
   embeddingStatus?: UploadedFileRecord["embeddingStatus"];
   embeddingUpdatedAt?: UploadedFileRecord["embeddingUpdatedAt"];
 }

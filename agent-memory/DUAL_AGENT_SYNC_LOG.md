@@ -1551,3 +1551,36 @@ Copy this block and fill all fields:
   - Current state: Batch 8A now reflects the stronger product policy: controlled one-time Deep PDF auto-run is expected for many new math-heavy PDFs in `Normal Learning`, with caching and reuse as the core cost rule.
   - Next recommended step: Batch 8B should implement the guarded post-text-only-understanding auto-run path plus persistence metadata for cache safety.
   - Blockers/Risks: the exact cache identity rule (`deepPdfInputHash` vs storage generation vs both) is still the main implementation decision to lock before coding.
+
+## 2026-06-03 — Batch 8B Deep PDF cache metadata foundation
+- Summary:
+  - Added additive uploaded-file metadata for Deep PDF cache identity, provider/model tracking, artifact versioning, completion timestamp, error code, and understanding mode.
+  - Added a dedicated `deepPdfCachePolicy` helper that determines when a completed Deep PDF result can be safely reused and when future runtime batches should block, retry, or reprocess.
+  - Kept this batch fully runtime-isolated: no Gemini execution, no bytes-loader, no tutor/inventory/retrieval/UI behavior change.
+- Files touched:
+  - `src/types/index.ts`
+  - `src/server/workspaces/deepPdfCachePolicy.ts`
+  - `src/server/workspaces/workspaceTypes.ts`
+  - `src/server/workspaces/uploadedFileApiSchemas.ts`
+  - `src/server/workspaces/uploadedFileRepository.ts`
+  - `src/server/workspaces/uploadedFileApiService.ts`
+  - `tests/server/workspaces/deepPdfCachePolicy.test.ts`
+  - `tests/server/workspaces/uploadedFileApiSchemas.test.ts`
+  - `tests/server/workspaces/uploadedFileRepository.test.ts`
+  - `agent-memory/PDF_READING_BATCH_8B_DEEP_PDF_CACHE_METADATA_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/workspaces/deepPdfCachePolicy.test.ts tests/server/workspaces/uploadedFileApiSchemas.test.ts tests/server/workspaces/uploadedFileRepository.test.ts`
+  - `npx tsc --noEmit`
+  - `npx vitest run`
+  - `npm run build`
+  - `git diff --check`
+  - `graphify update .`
+- Git status:
+  - Branch: `repair/deep-pdf-cache-metadata`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: Batch 8B now provides the metadata and deterministic cache-decision layer needed to avoid rerunning Deep PDF on unchanged files once runtime wiring is added.
+  - Next recommended step: Batch 8C should add the guarded server-only bytes loader and controlled post-text-only-understanding runtime seam, using this cache policy before any Deep PDF execution.
+  - Blockers/Risks: the final source-identity rule and runtime update policy for legacy completed Deep PDF records still need to be locked before execution wiring.

@@ -56,7 +56,15 @@ export async function createUploadedFile(
       chunkingErrorCode: input.chunkingErrorCode,
       chunkingUpdatedAt: input.chunkingUpdatedAt,
       deepPdfStatus: input.deepPdfStatus,
+      deepPdfProviderName: input.deepPdfProviderName,
+      deepPdfModel: input.deepPdfModel,
+      deepPdfInputHash: input.deepPdfInputHash,
+      deepPdfStorageGeneration: input.deepPdfStorageGeneration,
+      deepPdfArtifactVersion: input.deepPdfArtifactVersion,
+      deepPdfCompletedAt: input.deepPdfCompletedAt,
+      deepPdfErrorCode: input.deepPdfErrorCode,
       deepPdfUpdatedAt: input.deepPdfUpdatedAt,
+      understandingMode: input.understandingMode,
       createdAt: now,
       updatedAt: now,
     };
@@ -130,7 +138,15 @@ export async function updateUploadedFile(
       | "chunkingErrorCode"
       | "chunkingUpdatedAt"
       | "deepPdfStatus"
+      | "deepPdfProviderName"
+      | "deepPdfModel"
+      | "deepPdfInputHash"
+      | "deepPdfStorageGeneration"
+      | "deepPdfArtifactVersion"
+      | "deepPdfCompletedAt"
+      | "deepPdfErrorCode"
       | "deepPdfUpdatedAt"
+      | "understandingMode"
       | "embeddingStatus"
       | "embeddingUpdatedAt"
     >
@@ -180,7 +196,16 @@ export async function updateUploadedFile(
       chunkingErrorCode: updates.chunkingErrorCode ?? current.chunkingErrorCode,
       chunkingUpdatedAt: updates.chunkingUpdatedAt ?? current.chunkingUpdatedAt,
       deepPdfStatus: updates.deepPdfStatus ?? current.deepPdfStatus,
+      deepPdfProviderName: updates.deepPdfProviderName ?? current.deepPdfProviderName,
+      deepPdfModel: updates.deepPdfModel ?? current.deepPdfModel,
+      deepPdfInputHash: updates.deepPdfInputHash ?? current.deepPdfInputHash,
+      deepPdfStorageGeneration:
+        updates.deepPdfStorageGeneration ?? current.deepPdfStorageGeneration,
+      deepPdfArtifactVersion: updates.deepPdfArtifactVersion ?? current.deepPdfArtifactVersion,
+      deepPdfCompletedAt: updates.deepPdfCompletedAt ?? current.deepPdfCompletedAt,
+      deepPdfErrorCode: updates.deepPdfErrorCode ?? current.deepPdfErrorCode,
       deepPdfUpdatedAt: updates.deepPdfUpdatedAt ?? current.deepPdfUpdatedAt,
+      understandingMode: updates.understandingMode ?? current.understandingMode,
       embeddingStatus: updates.embeddingStatus ?? current.embeddingStatus,
       embeddingUpdatedAt: updates.embeddingUpdatedAt ?? current.embeddingUpdatedAt,
       updatedAt: new Date(),
@@ -237,7 +262,17 @@ function mapUploadedFileRecord(id: string, data: Record<string, unknown>): Uploa
     chunkingErrorCode: typeof data.chunkingErrorCode === "string" ? data.chunkingErrorCode : null,
     chunkingUpdatedAt: data.chunkingUpdatedAt ? toDate(data.chunkingUpdatedAt) : null,
     deepPdfStatus: mapDeepPdfStatus(data.deepPdfStatus),
+    deepPdfProviderName: typeof data.deepPdfProviderName === "string" ? data.deepPdfProviderName : undefined,
+    deepPdfModel: typeof data.deepPdfModel === "string" ? data.deepPdfModel : undefined,
+    deepPdfInputHash: typeof data.deepPdfInputHash === "string" ? data.deepPdfInputHash : undefined,
+    deepPdfStorageGeneration:
+      typeof data.deepPdfStorageGeneration === "string" ? data.deepPdfStorageGeneration : undefined,
+    deepPdfArtifactVersion:
+      typeof data.deepPdfArtifactVersion === "string" ? data.deepPdfArtifactVersion : undefined,
+    deepPdfCompletedAt: data.deepPdfCompletedAt ? toDate(data.deepPdfCompletedAt) : null,
+    deepPdfErrorCode: typeof data.deepPdfErrorCode === "string" ? data.deepPdfErrorCode : null,
     deepPdfUpdatedAt: data.deepPdfUpdatedAt ? toDate(data.deepPdfUpdatedAt) : null,
+    understandingMode: mapUnderstandingMode(data.understandingMode),
     embeddingStatus: mapFileEmbeddingStatus(data.embeddingStatus),
     embeddingUpdatedAt: data.embeddingUpdatedAt ? toDate(data.embeddingUpdatedAt) : null,
     createdAt: toDate(data.createdAt),
@@ -348,6 +383,13 @@ function mapDeepPdfStatus(value: unknown): UploadedFileRecord["deepPdfStatus"] {
     value === "failed" ||
     value === "skipped"
   ) {
+    return value;
+  }
+  return undefined;
+}
+
+function mapUnderstandingMode(value: unknown): UploadedFileRecord["understandingMode"] {
+  if (value === "text_only" || value === "deep_pdf") {
     return value;
   }
   return undefined;
