@@ -323,6 +323,8 @@ export interface SourceCitation {
   referenceText: string;
   sourceId: string;
   originalFileName?: string;
+  pageNumber?: number;    // render only if present and > 0
+  sectionLabel?: string;  // question/section label; render only if non-empty
 }
 
 export interface TutorMessage {
