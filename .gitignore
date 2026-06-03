@@ -49,3 +49,9 @@ graphify-out/
 
 # Evaluation run artifacts
 tests/evaluation/eval_report.json
+
+# Firebase emulator debug logs
+firebase-debug.log
+firestore-debug.log
+database-debug.log
+ui-debug.log
