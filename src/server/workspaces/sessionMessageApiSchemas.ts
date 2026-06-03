@@ -3,12 +3,14 @@ import type { MessageRecord } from "./workspaceTypes";
 
 const VALID_WORK_MODES: readonly WorkMode[] = ["Learning", "Practice", "Research", "Build", "Temporary Chat"];
 const VALID_COST_MODES: readonly CostMode[] = ["Cheap Practice", "Normal Learning", "Deep Research"];
+const MAX_ATTACHED_FILE_IDS = 5;
 
 export interface PostMessageRequest {
   workspaceId: string;
   userMessage: string;
   workMode: WorkMode;
   costMode: CostMode;
+  attachedFileIds?: string[];
 }
 
 export interface GetMessagesQuery {
@@ -20,6 +22,7 @@ export interface MessageApiResponse {
   role: "user" | "tutor";
   content: string;
   citations?: TutorMessage["citations"];
+  attachedFileIds?: string[];
 }
 
 export interface PostMessageApiResponse {
@@ -61,6 +64,11 @@ export function parsePostMessageRequest(body: unknown): PostMessageValidationRes
     return { ok: false, error: "costMode is invalid." };
   }
 
+  const attachedFileIds = parseAttachedFileIds(raw.attachedFileIds);
+  if (!attachedFileIds.ok) {
+    return { ok: false, error: attachedFileIds.error };
+  }
+
   return {
     ok: true,
     input: {
@@ -68,6 +76,7 @@ export function parsePostMessageRequest(body: unknown): PostMessageValidationRes
       userMessage,
       workMode: raw.workMode as WorkMode,
       costMode: raw.costMode as CostMode,
+      attachedFileIds: attachedFileIds.value,
     },
   };
 }
@@ -86,6 +95,7 @@ export function serializeMessage(record: MessageRecord): MessageApiResponse {
     role: record.role,
     content: record.content,
     citations: record.citations,
+    attachedFileIds: record.attachedFileIds,
   };
 }
 
@@ -101,4 +111,48 @@ function isWorkMode(value: unknown): value is WorkMode {
 
 function isCostMode(value: unknown): value is CostMode {
   return typeof value === "string" && VALID_COST_MODES.includes(value as CostMode);
+}
+
+function parseAttachedFileIds(
+  value: unknown
+): { ok: true; value: string[] | undefined } | { ok: false; error: string } {
+  if (value === undefined) {
+    return { ok: true, value: undefined };
+  }
+
+  if (!Array.isArray(value)) {
+    return { ok: false, error: "attachedFileIds must be an array of non-empty strings." };
+  }
+
+  if (value.length === 0) {
+    return { ok: true, value: undefined };
+  }
+
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of value) {
+    if (typeof entry !== "string") {
+      return { ok: false, error: "attachedFileIds must contain only strings." };
+    }
+
+    const trimmed = entry.trim();
+    if (trimmed.length === 0) {
+      return { ok: false, error: "attachedFileIds cannot contain empty file IDs." };
+    }
+
+    if (!seen.has(trimmed)) {
+      seen.add(trimmed);
+      normalized.push(trimmed);
+    }
+  }
+
+  if (normalized.length > MAX_ATTACHED_FILE_IDS) {
+    return {
+      ok: false,
+      error: `attachedFileIds cannot contain more than ${MAX_ATTACHED_FILE_IDS} file IDs.`,
+    };
+  }
+
+  return { ok: true, value: normalized };
 }

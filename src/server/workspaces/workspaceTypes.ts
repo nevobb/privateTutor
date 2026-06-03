@@ -131,6 +131,7 @@ export interface AppendMessageInput {
   role: TutorMessage["role"];
   content: string;
   citations?: SourceCitation[];
+  attachedFileIds?: string[];
   status?: MessageStatus;
   toolName?: string;
   toolCallId?: string;

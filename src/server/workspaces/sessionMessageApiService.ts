@@ -20,7 +20,10 @@ import {
   appendMessage as defaultAppendMessage,
   listSessionMessages as defaultListSessionMessages,
 } from "./messageRepository";
-import { listUploadedFiles as defaultListUploadedFiles } from "./uploadedFileRepository";
+import {
+  getUploadedFile as defaultGetUploadedFile,
+  listUploadedFiles as defaultListUploadedFiles,
+} from "./uploadedFileRepository";
 import type { PostMessageApiResponse, PostMessageRequest } from "./sessionMessageApiSchemas";
 import { serializeMessage } from "./sessionMessageApiSchemas";
 import { getSession as defaultGetSession } from "./sessionRepository";
@@ -66,6 +69,7 @@ interface Repositories {
   getSession: typeof defaultGetSession;
   listSessionMessages: typeof defaultListSessionMessages;
   appendMessage: typeof defaultAppendMessage;
+  getUploadedFile: typeof defaultGetUploadedFile;
   listUploadedFiles: typeof defaultListUploadedFiles;
   listFileChunks: typeof defaultListFileChunks;
   listDocumentPages: typeof defaultListDocumentPages;
@@ -109,6 +113,7 @@ function defaultRepositories(): Repositories {
     getSession: defaultGetSession,
     listSessionMessages: defaultListSessionMessages,
     appendMessage: defaultAppendMessage,
+    getUploadedFile: defaultGetUploadedFile,
     listUploadedFiles: defaultListUploadedFiles,
     listFileChunks: defaultListFileChunks,
     listDocumentPages: defaultListDocumentPages,
@@ -147,6 +152,13 @@ export function createSessionMessageApiService(
       const session = await repositories.getSession(userId, input.workspaceId, sessionId);
       if (!session) throw new Error("Session not found.");
 
+      const attachedFileIds = await validateAttachedFileIds(
+        repositories,
+        userId,
+        input.workspaceId,
+        input.attachedFileIds
+      );
+
       // Fetch existing messages BEFORE appending the current user message,
       // so history only includes previous turns.
       const existingMessages = await repositories.listSessionMessages(userId, input.workspaceId, sessionId);
@@ -157,6 +169,7 @@ export function createSessionMessageApiService(
       const userRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
         role: "user",
         content: input.userMessage,
+        attachedFileIds,
       });
 
       // Deterministic instruction-awareness: if the user asks how the tutor is supposed to teach,
@@ -458,6 +471,46 @@ async function maybeBuildArtifactAwareInventoryContent(
 
 function resolveTrustedUserId(user: AuthenticatedUser | string): string {
   return typeof user === "string" ? user : user.userId;
+}
+
+export class SessionMessageValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SessionMessageValidationError";
+  }
+}
+
+export function isSessionMessageValidationError(error: unknown): error is SessionMessageValidationError {
+  return error instanceof SessionMessageValidationError;
+}
+
+async function validateAttachedFileIds(
+  repositories: Repositories,
+  userId: string,
+  workspaceId: string,
+  attachedFileIds: string[] | undefined
+): Promise<string[] | undefined> {
+  if (!attachedFileIds || attachedFileIds.length === 0) {
+    return undefined;
+  }
+
+  for (const fileId of attachedFileIds) {
+    const file = await repositories.getUploadedFile(userId, fileId);
+
+    if (!file) {
+      throw new SessionMessageValidationError(
+        `Attached file "${fileId}" was not found, is deleted, or is not available to this user.`
+      );
+    }
+
+    if (file.workspaceId !== workspaceId) {
+      throw new SessionMessageValidationError(
+        `Attached file "${fileId}" does not belong to the current workspace.`
+      );
+    }
+  }
+
+  return attachedFileIds;
 }
 
 async function persistDecisionLogEvents(

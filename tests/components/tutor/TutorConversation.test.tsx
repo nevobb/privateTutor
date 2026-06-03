@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import TutorConversation, {
+  ChatUploadCard,
   DecisionLogPanelBody,
   formatSourcesLabel,
   hasNewAssistantMessage,
@@ -11,6 +12,7 @@ import TutorConversation, {
   SourcesSection,
   shouldSubmitOnKeyDown,
 } from "../../../src/components/tutor/TutorConversation";
+import type { ChatUploadFeedback } from "../../../src/components/tutor/TutorConversation";
 import { SessionMessagesApiError } from "../../../src/lib/sessions/sessionMessagesApiClient";
 
 /* ── Composer layout ── */
@@ -360,5 +362,61 @@ describe("timeout recovery helpers", () => {
       baseline
     );
     expect(found).toBe(false);
+  });
+});
+
+/* ── ChatUploadCard ── */
+
+describe("ChatUploadCard", () => {
+  function makeCard(feedback: ChatUploadFeedback, onDismiss?: () => void) {
+    return renderToStaticMarkup(
+      <ChatUploadCard feedback={feedback} onDismiss={onDismiss} />
+    );
+  }
+
+  it("renders with uploading state", () => {
+    const html = makeCard({ state: "uploading", fileName: "lecture.pdf" });
+    expect(html).toContain('data-testid="chat-upload-card"');
+    expect(html).toContain('data-testid="chat-upload-uploading"');
+    expect(html).toContain("lecture.pdf");
+  });
+
+  it("renders uploading message in Hebrew", () => {
+    const html = makeCard({ state: "uploading", fileName: "hw1.pdf" });
+    expect(html).toContain("מעלה");
+    expect(html).toContain("hw1.pdf");
+  });
+
+  it("renders with processing state", () => {
+    const html = makeCard({ state: "processing", fileName: "notes.docx" });
+    expect(html).toContain('data-testid="chat-upload-processing"');
+    expect(html).toContain("מכין");
+  });
+
+  it("renders with error state", () => {
+    const html = makeCard({
+      state: "error",
+      fileName: "bad.pdf",
+      errorMessage: "File too large",
+    });
+    expect(html).toContain('data-testid="chat-upload-error"');
+    expect(html).toContain("File too large");
+  });
+
+  it("renders dismiss button when onDismiss provided", () => {
+    const html = makeCard({ state: "uploading", fileName: "x.pdf" }, () => {});
+    expect(html).toContain('aria-label="Dismiss"');
+  });
+
+  it("does not render dismiss button when onDismiss not provided", () => {
+    const html = makeCard({ state: "uploading", fileName: "x.pdf" });
+    expect(html).not.toContain('aria-label="Dismiss"');
+  });
+
+  it("does not show raw file IDs or technical status codes", () => {
+    const html = makeCard({ state: "uploading", fileName: "lecture.pdf" });
+    expect(html).not.toContain("extractionStatus");
+    expect(html).not.toContain("chunkingStatus");
+    expect(html).not.toContain("embeddingStatus");
   });
 });

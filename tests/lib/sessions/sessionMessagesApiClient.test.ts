@@ -11,7 +11,7 @@ type ClientModule = {
   fetchSessionMessages: (token: string, workspaceId: string, sessionId: string) => Promise<unknown[]>;
   sendSessionMessage: (
     token: string,
-    input: { workspaceId: string; sessionId: string; userMessage: string; workMode: string; costMode: string }
+    input: { workspaceId: string; sessionId: string; userMessage: string; workMode: string; costMode: string; attachedFileIds?: string[] }
   ) => Promise<unknown>;
 };
 
@@ -87,6 +87,30 @@ describeClient("sessionMessagesApiClient", () => {
     expect(body).not.toHaveProperty("sessionId");
     expect(body.userMessage).toBe("hello");
     expect(body.workspaceId).toBe("ws-1");
+  });
+
+  it("sendSessionMessage includes attachedFileIds when provided", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          userMessage: { id: "u1", role: "user", content: "q", attachedFileIds: ["file-1"] },
+          assistantMessage: { id: "a1", role: "tutor", content: "r" },
+          internalUpdate: {},
+        }),
+        { status: 201 }
+      )
+    );
+    await mod.sendSessionMessage("tok-xyz", {
+      workspaceId: "ws-1",
+      sessionId: "sess-1",
+      userMessage: "hello",
+      workMode: "Learning",
+      costMode: "Normal Learning",
+      attachedFileIds: ["file-1", "file-2"],
+    });
+    const [, opts] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(opts.body as string) as Record<string, unknown>;
+    expect(body.attachedFileIds).toEqual(["file-1", "file-2"]);
   });
 
   it("sendSessionMessage throws SessionMessagesApiError on failure", async () => {

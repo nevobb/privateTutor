@@ -6,7 +6,10 @@ import {
   parsePostMessageRequest,
   serializeMessage,
 } from "../../../../../server/workspaces/sessionMessageApiSchemas";
-import { sessionMessageApiService } from "../../../../../server/workspaces/sessionMessageApiService";
+import {
+  isSessionMessageValidationError,
+  sessionMessageApiService,
+} from "../../../../../server/workspaces/sessionMessageApiService";
 
 type AuthResolver = (request: Request) => Promise<AuthResult>;
 type RouteContext = { params: Promise<{ sessionId: string }> };
@@ -89,6 +92,9 @@ export function createMessagesPostHandler(authResolver: AuthResolver = resolveAu
       );
       return Response.json(result, { status: 201 });
     } catch (error: unknown) {
+      if (isSessionMessageValidationError(error)) {
+        return Response.json({ error: error.message }, { status: 400 });
+      }
       if (isFirestoreEmulatorUnavailableError(error)) {
         return Response.json({ error: "Firestore emulator is unavailable." }, { status: 503 });
       }

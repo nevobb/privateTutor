@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthResult } from "../../../src/server/auth/authTypes";
 
 vi.mock("../../../src/server/workspaces/sessionMessageApiService", () => ({
+  isSessionMessageValidationError: vi.fn((error: unknown) => error instanceof Error && error.name === "SessionMessageValidationError"),
   sessionMessageApiService: {
     listMessagesForUser: vi.fn(),
     sendMessageForUser: vi.fn(),
@@ -28,7 +29,10 @@ import {
   parsePostMessageRequest,
   serializeMessage,
 } from "../../../src/server/workspaces/sessionMessageApiSchemas";
-import { sessionMessageApiService } from "../../../src/server/workspaces/sessionMessageApiService";
+import {
+  isSessionMessageValidationError,
+  sessionMessageApiService,
+} from "../../../src/server/workspaces/sessionMessageApiService";
 
 const mockList = vi.mocked(sessionMessageApiService.listMessagesForUser);
 const mockSend = vi.mocked(sessionMessageApiService.sendMessageForUser);
@@ -36,6 +40,7 @@ const mockParseGet = vi.mocked(parseGetMessagesQuery);
 const mockParsePost = vi.mocked(parsePostMessageRequest);
 const mockSerialize = vi.mocked(serializeMessage);
 const mockIsUnavailable = vi.mocked(isFirestoreEmulatorUnavailableError);
+const mockIsValidationError = vi.mocked(isSessionMessageValidationError as unknown as (error: unknown) => boolean);
 
 const okAuth =
   (userId = "alice"): ((req: Request) => Promise<AuthResult>) =>
@@ -77,6 +82,7 @@ const postResponse = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockIsUnavailable.mockReturnValue(false);
+  mockIsValidationError.mockImplementation((error: unknown) => error instanceof Error && error.name === "SessionMessageValidationError");
 });
 
 describe("GET /api/sessions/[sessionId]/messages", () => {
@@ -199,5 +205,28 @@ describe("POST /api/sessions/[sessionId]/messages", () => {
     expect(body.userMessage).toBeDefined();
     expect(body.assistantMessage).toBeDefined();
     expect(body.internalUpdate).toBeDefined();
+  });
+
+  it("returns 400 when attachment validation fails", async () => {
+    mockParsePost.mockReturnValueOnce({
+      ok: true,
+      input: {
+        workspaceId: "ws-1",
+        userMessage: "hi",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        attachedFileIds: ["file-1"],
+      },
+    });
+    const error = new Error('Attached file "file-1" does not belong to the current workspace.');
+    error.name = "SessionMessageValidationError";
+    mockSend.mockRejectedValueOnce(error);
+    const handler = createMessagesPostHandler(okAuth());
+    const [req, ctx] = makePostRequest("sess-1", {});
+    const res = await handler(req, ctx);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'Attached file "file-1" does not belong to the current workspace.',
+    });
   });
 });

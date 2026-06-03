@@ -330,6 +330,7 @@ export interface TutorMessage {
   role: "user" | "tutor";
   content: string;
   citations?: SourceCitation[];
+  attachedFileIds?: string[];
 }
 
 export interface TutorResponse {

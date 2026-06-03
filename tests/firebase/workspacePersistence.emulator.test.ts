@@ -108,6 +108,7 @@ describeFirebaseWorkspaceEmulator("workspace persistence against the Firestore e
     const userMessage = await appendMessage("alice", workspace.id, session.id, {
       role: "user",
       content: "Can we keep this workspace private?",
+      attachedFileIds: ["file-1"],
     });
     const tutorMessage = await appendMessage("alice", workspace.id, session.id, {
       role: "tutor",
@@ -129,6 +130,7 @@ describeFirebaseWorkspaceEmulator("workspace persistence against the Firestore e
     const decisionLogSnapshot = await activeFirestore!.doc(decisionLogPath("alice", decisionLog.id).join("/")).get();
 
     expect(userMessage.sequence).toBe(1);
+    expect(userMessage).toMatchObject({ attachedFileIds: ["file-1"] });
     expect(tutorMessage.sequence).toBe(2);
     expect(messages.map((message) => message.role)).toEqual(["user", "tutor"]);
     expect(snapshotExists(sessionSnapshot)).toBe(true);

@@ -6,6 +6,7 @@ export interface SendMessageInput {
   userMessage: string;
   workMode: WorkMode;
   costMode: CostMode;
+  attachedFileIds?: string[];
 }
 
 export interface SendMessageApiResponse {

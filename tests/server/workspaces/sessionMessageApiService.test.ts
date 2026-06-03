@@ -26,6 +26,7 @@ type ServiceModule = {
     getSession: (userId: string, workspaceId: string, sessionId: string) => Promise<Record<string, unknown> | null>;
     listSessionMessages: (userId: string, workspaceId: string, sessionId: string) => Promise<Record<string, unknown>[]>;
     appendMessage: (userId: string, workspaceId: string, sessionId: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    getUploadedFile: (userId: string, fileId: string) => Promise<Record<string, unknown> | null>;
     listUploadedFiles: (userId: string, workspaceId: string) => Promise<Array<Record<string, unknown>>>;
     listFileChunks: (userId: string, workspaceId: string, fileId: string) => Promise<Array<Record<string, unknown>>>;
     listDocumentPages: (userId: string, fileId: string) => Promise<Array<Record<string, unknown>>>;
@@ -147,8 +148,15 @@ function makeRepos(
     listSessionMessages: vi.fn(async () => [baseMessage]),
     appendMessage: vi.fn(
       async (_uid: string, _wsId: string, _sessId: string, input: Record<string, unknown>) =>
-        input.role === "user" ? baseMessage : tutorMessage
+        input.role === "user"
+          ? { ...baseMessage, attachedFileIds: input.attachedFileIds }
+          : tutorMessage
     ),
+    getUploadedFile: vi.fn(async (_uid: string, fileId: string) => ({
+      id: fileId,
+      name: `${fileId}.pdf`,
+      workspaceId: "ws-1",
+    })),
     listUploadedFiles: vi.fn(async () => [
       {
         id: "file-1",
@@ -284,6 +292,93 @@ describeService("sessionMessageApiService", () => {
       expect(result).toHaveProperty("userMessage");
       expect(result).toHaveProperty("assistantMessage");
       expect(result).toHaveProperty("internalUpdate");
+    });
+
+    it("persists valid attachedFileIds on the user message", async () => {
+      const repos = makeRepos();
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "hi",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        attachedFileIds: ["file-1", "file-2"],
+      });
+
+      expect(repos.getUploadedFile).toHaveBeenNthCalledWith(1, "alice", "file-1");
+      expect(repos.getUploadedFile).toHaveBeenNthCalledWith(2, "alice", "file-2");
+      expect(repos.appendMessage).toHaveBeenNthCalledWith(
+        1,
+        "alice",
+        "ws-1",
+        "s-1",
+        expect.objectContaining({ role: "user", attachedFileIds: ["file-1", "file-2"] })
+      );
+      expect(result.userMessage).toMatchObject({ attachedFileIds: ["file-1", "file-2"] });
+    });
+
+    it("rejects attached files from another workspace before persisting or calling the tutor", async () => {
+      const repos = makeRepos({
+        getUploadedFile: vi.fn(async (_uid: string, fileId: string) => ({
+          id: fileId,
+          name: `${fileId}.pdf`,
+          workspaceId: "ws-2",
+        })),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+
+      await expect(
+        service.sendMessageForUser("alice", "s-1", {
+          workspaceId: "ws-1",
+          userMessage: "hi",
+          workMode: "Learning",
+          costMode: "Normal Learning",
+          attachedFileIds: ["file-1"],
+        })
+      ).rejects.toThrow(/attached file/i);
+
+      expect(repos.appendMessage).not.toHaveBeenCalled();
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+    });
+
+    it("rejects soft-deleted or missing attached files before persisting or calling the tutor", async () => {
+      const repos = makeRepos({
+        getUploadedFile: vi.fn(async () => null),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+
+      await expect(
+        service.sendMessageForUser("alice", "s-1", {
+          workspaceId: "ws-1",
+          userMessage: "hi",
+          workMode: "Learning",
+          costMode: "Normal Learning",
+          attachedFileIds: ["file-1"],
+        })
+      ).rejects.toThrow(/attached file/i);
+
+      expect(repos.appendMessage).not.toHaveBeenCalled();
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+    });
+
+    it("rejects attached files owned by another user before persisting or calling the tutor", async () => {
+      const repos = makeRepos({
+        getUploadedFile: vi.fn(async () => null),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+
+      await expect(
+        service.sendMessageForUser("alice", "s-1", {
+          workspaceId: "ws-1",
+          userMessage: "hi",
+          workMode: "Learning",
+          costMode: "Normal Learning",
+          attachedFileIds: ["foreign-file"],
+        })
+      ).rejects.toThrow(/attached file/i);
+
+      expect(repos.appendMessage).not.toHaveBeenCalled();
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
     });
 
     it("maps memory_not_written events into memory_not_written decision type", async () => {

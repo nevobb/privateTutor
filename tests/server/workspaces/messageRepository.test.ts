@@ -114,6 +114,29 @@ describeFirebaseWorkspaceEmulator("messageRepository against the Firestore emula
     expect(workspaceSnapshot.data()?.lastSessionId).toBe(session.id);
   });
 
+  it("persists attachedFileIds on user messages and leaves tutor messages unset", async () => {
+    useFirestoreForUser("alice");
+
+    const workspace = await createWorkspace("alice", { name: "Attachment persistence workspace" });
+    const session = await createSession("alice", workspace.id, { title: "Attachment persistence session" });
+
+    const userMessage = await appendMessage("alice", workspace.id, session.id, {
+      role: "user",
+      content: "Use this file",
+      attachedFileIds: ["file-1", "file-2"],
+    });
+    const tutorMessage = await appendMessage("alice", workspace.id, session.id, {
+      role: "tutor",
+      content: "I will use it.",
+    });
+
+    const messages = await listSessionMessages("alice", workspace.id, session.id);
+    expect(userMessage).toMatchObject({ attachedFileIds: ["file-1", "file-2"] });
+    expect(tutorMessage).not.toHaveProperty("attachedFileIds");
+    expect(messages[0]).toMatchObject({ attachedFileIds: ["file-1", "file-2"] });
+    expect(messages[1]).not.toHaveProperty("attachedFileIds");
+  });
+
   it("blocks another user's session from being appended or listed", async () => {
     useFirestoreForUser("alice");
     const workspace = await createWorkspace("alice", { name: "Private messages" });

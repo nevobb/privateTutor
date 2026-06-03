@@ -48,6 +48,7 @@ export async function sendSessionMessage(
     userMessage: input.userMessage,
     workMode: input.workMode,
     costMode: input.costMode,
+    attachedFileIds: input.attachedFileIds,
   };
 
   const res = await runMessagesRequest(`/api/sessions/${encodeURIComponent(normalizedSessionId)}/messages`, {

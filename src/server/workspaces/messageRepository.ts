@@ -61,6 +61,7 @@ export async function appendMessage(
       role: input.role,
       content: input.content,
       citations: input.citations,
+      attachedFileIds: input.attachedFileIds,
       sequence,
       createdAt: now,
       status: input.status ?? "sent",
@@ -109,6 +110,9 @@ function mapMessageRecord(id: string, data: Record<string, unknown>): MessageRec
     role: data.role === "tutor" ? "tutor" : "user",
     content: String(data.content ?? ""),
     citations: Array.isArray(data.citations) ? (data.citations as MessageRecord["citations"]) : undefined,
+    attachedFileIds: Array.isArray(data.attachedFileIds)
+      ? data.attachedFileIds.filter((value): value is string => typeof value === "string")
+      : undefined,
     userId: String(data.userId ?? ""),
     workspaceId: String(data.workspaceId ?? ""),
     sessionId: String(data.sessionId ?? ""),

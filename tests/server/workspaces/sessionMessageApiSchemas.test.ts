@@ -95,6 +95,66 @@ describeSchemas("sessionMessageApiSchemas", () => {
       expect(result.ok).toBe(false);
       expect(result.error).toMatch(/costMode/);
     });
+
+    it("normalizes attachedFileIds by trimming and de-duplicating", () => {
+      const result = mod.parsePostMessageRequest({
+        workspaceId: "ws-1",
+        userMessage: "Hello",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        attachedFileIds: [" file-1 ", "file-2", "file-1"],
+      });
+      expect(result.ok).toBe(true);
+      expect((result.input as Record<string, unknown>).attachedFileIds).toEqual(["file-1", "file-2"]);
+    });
+
+    it("normalizes an empty attachedFileIds array to undefined", () => {
+      const result = mod.parsePostMessageRequest({
+        workspaceId: "ws-1",
+        userMessage: "Hello",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        attachedFileIds: [],
+      });
+      expect(result.ok).toBe(true);
+      expect((result.input as Record<string, unknown>).attachedFileIds).toBeUndefined();
+    });
+
+    it("rejects non-string attachedFileIds", () => {
+      const result = mod.parsePostMessageRequest({
+        workspaceId: "ws-1",
+        userMessage: "Hello",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        attachedFileIds: ["file-1", 3],
+      });
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/attachedFileIds/);
+    });
+
+    it("rejects empty-string attachedFileIds", () => {
+      const result = mod.parsePostMessageRequest({
+        workspaceId: "ws-1",
+        userMessage: "Hello",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        attachedFileIds: ["file-1", "   "],
+      });
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/attachedFileIds/);
+    });
+
+    it("rejects too many attachedFileIds", () => {
+      const result = mod.parsePostMessageRequest({
+        workspaceId: "ws-1",
+        userMessage: "Hello",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        attachedFileIds: ["f1", "f2", "f3", "f4", "f5", "f6"],
+      });
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/attachedFileIds/);
+    });
   });
 
   describe("parseGetMessagesQuery", () => {
@@ -115,6 +175,7 @@ describeSchemas("sessionMessageApiSchemas", () => {
         id: "m-1",
         role: "user",
         content: "hello",
+        attachedFileIds: ["file-1"],
         userId: "alice",
         workspaceId: "ws-1",
         sessionId: "sess-1",
@@ -123,7 +184,7 @@ describeSchemas("sessionMessageApiSchemas", () => {
         status: "sent",
       };
       const result = mod.serializeMessage(record);
-      expect(result).toMatchObject({ id: "m-1", role: "user", content: "hello" });
+      expect(result).toMatchObject({ id: "m-1", role: "user", content: "hello", attachedFileIds: ["file-1"] });
       expect(result).not.toHaveProperty("userId");
       expect(result).not.toHaveProperty("sequence");
     });
