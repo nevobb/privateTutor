@@ -1833,3 +1833,23 @@ Copy this block and fill all fields:
     - Updated 1 test that expected focus suggestion with partial quality (now expects weak message)
 - Key quality gate: `canShowListForRecommended` blocks list when: items=0, OR extractionQuality≠good, OR isPartial=true, OR any item.isPartial=true
 - Validation: 67 files, 832 tests passed
+
+---
+
+## Entry: Step 125 — Session Message Timeout / Late Response Diagnostic
+
+- Agent: Claude
+- Date: 2026-06-03
+- Branch: `repair/deep-pdf-tutor-state-behavior`
+- Task summary: Diagnosed why UI shows timeout error while assistant response is persisted. Read-only analysis, no code changes.
+- Root cause: REQUEST_TIMEOUT_MS = 8000 in sessionMessagesApiClient.ts. Grounded pipeline (2 LLM calls + artifact Firestore reads) regularly takes 10-20s. Recovery window (4 × 2s = 8s) is also too short for slow responses. Total window: 16s. Deep PDF added extra Firestore reads that widened the gap.
+- Key findings:
+  - Client aborts at 8s; backend keeps running (Node.js doesn't cancel in-flight work on disconnect)
+  - Recovery polls for 8 more seconds — often not enough
+  - Answer IS persisted; user sees it on next reload but error shows in current session
+  - Duplicate retry risk: HIGH — after recovery fails, user can retry creating duplicate messages
+  - workspaceFilesApiClient uses 15s timeout (nearly double) — inconsistency
+- Smallest safe fix: increase REQUEST_TIMEOUT_MS from 8000 to 25000 in sessionMessagesApiClient.ts (1 line)
+- Robust fix: async job model — POST returns immediately, client polls for assistant message
+- Created: agent-memory/SESSION_MESSAGE_TIMEOUT_LATE_RESPONSE_DIAGNOSTIC.md
+- Ready for repair: YES
