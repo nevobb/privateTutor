@@ -1500,3 +1500,54 @@ Copy this block and fill all fields:
   - Current state: the PDF reading runtime layer is stable enough to proceed; text-only understanding, artifact-aware inventory, and artifact-aware question grounding all behave within their intended boundaries while Gemini stays isolated.
   - Next recommended step: run the manual smoke checklist on a clean PDF, a noisy math-heavy PDF, and an older artifact-less file before deciding whether to expose deeper PDF recommendations more visibly.
   - Blockers/Risks: matching and weak-text suppression remain heuristic and may still need one more small pass if a new real PDF exposes a different corruption pattern.
+
+## 2026-06-03 03:22 (IDT) — Codex
+- Step/Task ID: Batch 8A — controlled Deep PDF runtime + tutor behavior fit check
+- Task summary: Plan the safest next step for controlled Deep PDF execution and define the tutor behavior contract for file/PDF answers, without changing runtime.
+- What I checked:
+  - Verified branch, clean working tree, and recent commit chain through Batch 7.
+  - Read the recent Batch 4/5/6B/6C.2/6D/7 reports plus `DOCUMENT_UNDERSTANDING_LAYER.md` and `TUTOR_FILE_BEHAVIOR_MATRIX.md`.
+  - Ran Graphify queries for quality-gate recommendation behavior, Gemini provider loader shape, storage/file ownership seams, post-chunking text-only understanding, artifact-aware inventory wording, artifact-aware grounding, and cost modes.
+  - Confirmed the safest trigger point is the existing post-text-only-understanding + quality-gate seam in `uploadedFileApiService.ts`, not tutor-question runtime.
+  - Confirmed a `PdfBytesLoader` interface already exists but no server-side Firebase Storage loader implementation exists yet.
+  - Recommended reusing the current artifact collections for Deep PDF-upgraded artifacts and keeping the current `deepPdfStatus` lifecycle.
+  - Defined a tutor behavior contract and state matrices for inventory and section/page Q&A.
+  - Wrote `agent-memory/PDF_READING_BATCH_8A_DEEP_PDF_RUNTIME_AND_TUTOR_BEHAVIOR_FIT_CHECK.md`.
+- Files touched:
+  - `agent-memory/PDF_READING_BATCH_8A_DEEP_PDF_RUNTIME_AND_TUTOR_BEHAVIOR_FIT_CHECK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - planning/audit only — no code changes, no build/test commands required by the task
+- Git status:
+  - Branch: `repair/artifact-aware-question-grounding`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: the runtime is ready for a small controlled Batch 8B that adds server-side PDF bytes loading and post-quality-gate Deep PDF execution without touching tutor-question latency or UI.
+  - Next recommended step: implement Batch 8B at the existing post-text-only-understanding seam with strong config/size/cost/concurrency guards and no question-triggered Gemini runtime.
+  - Blockers/Risks: `understandingMode` metadata is the one optional schema decision that should be made before coding if we want explicit runtime clarity about whether artifacts are text-only or Deep PDF-backed.
+
+
+## 2026-06-03 03:27 (IDT) — Codex
+- Step/Task ID: Batch 8A — policy update for controlled Deep PDF runtime
+- Task summary: Update the Batch 8A recommendation after Nevo clarified that many academic PDFs will be math-heavy and that Normal Learning should usually auto-run one controlled Deep PDF pass when clearly needed.
+- What I updated:
+  - Revised the Batch 8A trigger recommendation so `Normal Learning` can auto-run controlled Deep PDF after text-only understanding when the quality gate clearly detects weak extraction / math-heavy / visual-dependent PDFs.
+  - Kept `Cheap Practice` as recommendation-only and `Deep Research` as auto-run when recommended and guarded.
+  - Strengthened the caching rule: Deep PDF should run once when needed, persist artifacts, and be reused rather than rerun every conversation.
+  - Added explicit metadata recommendations for cache/reprocessing safety: provider name, model, input hash or storage generation, artifact version, updated/completed timestamps, and error code.
+  - Clarified that old files should not be bulk processed and should stay lazy/on-demand.
+  - Updated tutor-behavior guidance so the system should trigger deeper reading when policy allows instead of repeatedly only saying extraction is weak.
+- Files touched:
+  - `agent-memory/PDF_READING_BATCH_8A_DEEP_PDF_RUNTIME_AND_TUTOR_BEHAVIOR_FIT_CHECK.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - planning update only — no code changes, no runtime execution
+- Git status:
+  - Branch: `repair/artifact-aware-question-grounding`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: Batch 8A now reflects the stronger product policy: controlled one-time Deep PDF auto-run is expected for many new math-heavy PDFs in `Normal Learning`, with caching and reuse as the core cost rule.
+  - Next recommended step: Batch 8B should implement the guarded post-text-only-understanding auto-run path plus persistence metadata for cache safety.
+  - Blockers/Risks: the exact cache identity rule (`deepPdfInputHash` vs storage generation vs both) is still the main implementation decision to lock before coding.
