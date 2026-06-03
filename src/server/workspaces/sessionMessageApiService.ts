@@ -906,7 +906,7 @@ function executeChunkRetrieval(
     id: chunk.chunkId,
     sourceId: `${chunk.fileId}:${chunk.chunkId}`,
     referenceText: chunk.text.length > 200 ? chunk.text.slice(0, 200) + "…" : chunk.text,
-    originalFileName: chunk.sourceLabel?.trim() ? chunk.sourceLabel.trim() : undefined,
+    originalFileName: chunk.sourceLabel?.trim() || undefined,
   }));
 
   tutorResponse.decisionLogEvents?.push({
