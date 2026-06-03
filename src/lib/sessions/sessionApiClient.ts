@@ -1,4 +1,4 @@
-import type { CreateSessionInput, SessionApiSession } from "./sessionApiTypes";
+import type { CreateSessionInput, RenameSessionInput, SessionApiSession } from "./sessionApiTypes";
 
 const REQUEST_TIMEOUT_MS = 8000;
 
@@ -75,6 +75,41 @@ export async function createSession(
   }
 
   const body = await res.json() as CreateSessionResponse;
+  return body.session;
+}
+
+interface RenameSessionResponse {
+  session: SessionApiSession;
+}
+
+export async function renameSession(
+  authToken: string,
+  sessionId: string,
+  input: RenameSessionInput
+): Promise<SessionApiSession> {
+  const token = requireAuthToken(authToken);
+
+  if (typeof sessionId !== "string" || sessionId.trim().length === 0) {
+    throw new SessionApiError("sessionId is required.", 400);
+  }
+
+  const res = await runSessionRequest(`/api/sessions/${encodeURIComponent(sessionId.trim())}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      title: input.title,
+      workspaceId: input.workspaceId,
+    }),
+  });
+
+  if (!res.ok) {
+    throw await createSessionApiError(res, "שינוי שם השיחה נכשל.");
+  }
+
+  const body = await res.json() as RenameSessionResponse;
   return body.session;
 }
 

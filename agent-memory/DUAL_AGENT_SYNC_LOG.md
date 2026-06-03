@@ -1892,3 +1892,26 @@ Copy this block and fill all fields:
   - 9F: hard delete cleanup (deferred, background job)
 - Ready for Batch 9B: YES
 - Validation: 67 files, 833 tests, build clean
+
+---
+
+## Entry: Batch 9B — Rename Conversation
+
+- Agent: Claude
+- Date: 2026-06-03
+- Branch: `repair/workspace-cleanup-fit-check`
+- Task summary: Add safe non-destructive session rename: PATCH route + repo update + client helper + WorkspaceSelector inline edit UI.
+- What I changed:
+  - `src/server/workspaces/sessionRepository.ts`: added `updateSession(userId, workspaceId, sessionId, { title })`
+  - `src/server/workspaces/sessionApiSchemas.ts`: added `RenameSessionApiRequest`, `parseRenameSessionRequest` (validates: non-empty, ≤120 chars, trimmed)
+  - `src/server/workspaces/sessionApiService.ts`: added `renameSessionForUser` to interface + implementation
+  - `src/app/api/sessions/[sessionId]/route.ts`: new PATCH handler — 400/404/503 error handling, delegates to service
+  - `src/lib/sessions/sessionApiTypes.ts`: added `RenameSessionInput`
+  - `src/lib/sessions/sessionApiClient.ts`: added `renameSession(token, sessionId, input)` using existing request pattern
+  - `src/components/workspaces/WorkspaceSelector.tsx`: added optional `onRenameSession` prop, hover-reveal ✎ edit button, inline edit form per session item
+  - `src/app/page.tsx`: imports `renameSession`, adds `handleRenameSession` callback, passes to WorkspaceSelector
+  - `tests/server/workspaces/sessionRenameSchemas.test.ts`: 12 schema validation tests
+  - `tests/server/workspaces/sessionRenameApiRoute.test.ts`: 9 route behavior tests
+  - `tests/lib/sessions/sessionApiClient.test.ts`: 7 new renameSession client tests
+- Validation: 69 files, 860 tests, build clean
+- Deferred: soft delete (9C), file delete (9D), retrieval filter for deleted (9E)

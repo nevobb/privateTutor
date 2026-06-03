@@ -19,3 +19,8 @@ export interface CreateSessionInput {
   costMode?: CostMode;
   activeTopic?: string;
 }
+
+export interface RenameSessionInput {
+  title: string;
+  workspaceId: string;
+}

@@ -100,6 +100,33 @@ export async function getSession(userId: string, workspaceId: string, sessionId:
   });
 }
 
+export async function updateSession(
+  userId: string,
+  workspaceId: string,
+  sessionId: string,
+  updates: { title: string }
+): Promise<SessionRecord | null> {
+  await assertWorkspaceOwnership(userId, workspaceId);
+
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
+    const ref = db.doc(sessionPath(userId, workspaceId, sessionId).join("/"));
+    const snapshot = await ref.get();
+    const data = snapshot.data() as { userId?: string } | undefined;
+
+    if (!snapshot.exists || data?.userId !== userId) {
+      return null;
+    }
+
+    const now = new Date();
+    await ref.update({ title: updates.title, updatedAt: now });
+
+    return mapSessionRecord(
+      snapshot.id,
+      { ...(data as Record<string, unknown>), title: updates.title, updatedAt: now }
+    );
+  });
+}
+
 function compactRecord(record: object): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(record as Record<string, unknown>).filter(([, value]) => value !== undefined)

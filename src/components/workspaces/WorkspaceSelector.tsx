@@ -26,6 +26,7 @@ interface WorkspaceSelectorProps {
   onCreateSession: () => Promise<void>;
   creatingSession: boolean;
   createSessionError: string | null;
+  onRenameSession?: (sessionId: string, newTitle: string) => Promise<void>;
 }
 
 export default function WorkspaceSelector({
@@ -39,11 +40,15 @@ export default function WorkspaceSelector({
   onCreateSession,
   creatingSession,
   createSessionError,
+  onRenameSession,
 }: WorkspaceSelectorProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,14 +173,89 @@ export default function WorkspaceSelector({
                   {sessionState.sessions.map((session, index) => {
                     const isActive = selectedSessionId === session.id;
                     const label = session.title?.trim() || `Conversation ${index + 1}`;
+                    const isRenaming = renamingSessionId === session.id;
+
+                    if (isRenaming) {
+                      return (
+                        <li key={session.id}>
+                          <form
+                            onSubmit={async (e) => {
+                              e.preventDefault();
+                              const trimmed = renameValue.trim();
+                              if (!trimmed || !onRenameSession) return;
+                              setRenameError(null);
+                              try {
+                                await onRenameSession(session.id, trimmed);
+                                setRenamingSessionId(null);
+                              } catch (err: unknown) {
+                                setRenameError(err instanceof Error ? err.message : "Rename failed.");
+                              }
+                            }}
+                            className="px-1 py-1 space-y-1"
+                          >
+                            <input
+                              type="text"
+                              value={renameValue}
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              maxLength={120}
+                              autoFocus
+                              className="w-full rounded px-2 py-1 text-xs outline-none"
+                              style={{
+                                background: "var(--tutor-surface)",
+                                border: "1px solid var(--tutor-border)",
+                                color: "var(--tutor-text)",
+                              }}
+                            />
+                            {renameError && (
+                              <p className="text-[10px]" style={{ color: "#e87070" }}>{renameError}</p>
+                            )}
+                            <div className="flex gap-1">
+                              <button
+                                type="submit"
+                                disabled={!renameValue.trim()}
+                                className="flex-1 rounded py-1 text-[10px] font-medium text-white disabled:opacity-40"
+                                style={{ background: "var(--tutor-accent)" }}
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setRenamingSessionId(null); setRenameError(null); }}
+                                className="flex-1 rounded py-1 text-[10px]"
+                                style={{ border: "1px solid var(--tutor-sidebar-border)", color: "var(--tutor-sidebar-text)" }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </form>
+                        </li>
+                      );
+                    }
+
                     return (
-                      <li key={session.id}>
+                      <li key={session.id} className="group flex items-center gap-0.5">
                         <NavItem
                           label={label}
                           active={isActive}
                           small
                           onClick={() => onSessionSelect(session.id)}
                         />
+                        {onRenameSession && (
+                          <button
+                            type="button"
+                            title="Rename conversation"
+                            aria-label={`Rename conversation: ${label}`}
+                            onClick={() => {
+                              setRenamingSessionId(session.id);
+                              setRenameValue(label);
+                              setRenameError(null);
+                            }}
+                            className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded transition-opacity"
+                            style={{ color: "var(--tutor-sidebar-text-muted)" }}
+                          >
+                            <span aria-hidden="true" style={{ fontSize: "10px" }}>✎</span>
+                          </button>
+                        )}
                       </li>
                     );
                   })}

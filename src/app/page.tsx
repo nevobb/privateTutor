@@ -24,6 +24,7 @@ import type { WorkspaceListItem } from "../lib/workspaces/workspaceApiTypes";
 import {
   createSession,
   fetchSessions,
+  renameSession,
   SessionApiError,
 } from "../lib/sessions/sessionApiClient";
 import type { SessionApiSession } from "../lib/sessions/sessionApiTypes";
@@ -487,6 +488,25 @@ export default function Home() {
     }
   }, [activeWorkspaceId, costMode, getToken, workMode]);
 
+  const handleRenameSession = useCallback(async (sessionId: string, newTitle: string): Promise<void> => {
+    if (!activeWorkspaceId) return;
+    const token = await getToken();
+    if (!token) throw new Error("לא ניתן לאמת את המשתמש.");
+
+    const updated = await renameSession(token, sessionId, {
+      title: newTitle,
+      workspaceId: activeWorkspaceId,
+    });
+
+    setSessionState((prev) => {
+      if (prev.status !== "ready") return prev;
+      return {
+        ...prev,
+        sessions: prev.sessions.map((s) => (s.id === sessionId ? updated : s)),
+      };
+    });
+  }, [activeWorkspaceId, getToken]);
+
   const reloadMemory = useCallback(async (): Promise<void> => {
     if (authState.status !== "signed-in") {
       setMemoryObservations([]);
@@ -605,6 +625,7 @@ export default function Home() {
           onCreateSession={handleCreateSession}
           creatingSession={creatingSession}
           createSessionError={createSessionError}
+          onRenameSession={handleRenameSession}
         />
       </div>
 

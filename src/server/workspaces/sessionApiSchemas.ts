@@ -79,6 +79,45 @@ export function parseCreateSessionRequest(body: unknown): CreateSessionValidatio
   };
 }
 
+const SESSION_TITLE_MAX_LENGTH = 120;
+
+export interface RenameSessionApiRequest {
+  title: string;
+  workspaceId: string;
+}
+
+export type RenameSessionValidationResult =
+  | { ok: true; input: RenameSessionApiRequest }
+  | { ok: false; error: string };
+
+export function parseRenameSessionRequest(body: unknown): RenameSessionValidationResult {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return { ok: false, error: "Request body must be a JSON object." };
+  }
+
+  const raw = body as Record<string, unknown>;
+
+  const workspaceId = asTrimmedString(raw.workspaceId);
+  if (!workspaceId) {
+    return { ok: false, error: "workspaceId is required." };
+  }
+
+  if (typeof raw.title !== "string") {
+    return { ok: false, error: "title must be a string." };
+  }
+
+  const title = raw.title.trim();
+  if (title.length === 0) {
+    return { ok: false, error: "title must not be empty." };
+  }
+
+  if (title.length > SESSION_TITLE_MAX_LENGTH) {
+    return { ok: false, error: `title must not exceed ${SESSION_TITLE_MAX_LENGTH} characters.` };
+  }
+
+  return { ok: true, input: { title, workspaceId } };
+}
+
 export function parseListSessionsQuery(input: URLSearchParams | string | null | undefined): ListSessionsValidationResult {
   const workspaceId = asTrimmedString(
     typeof input === "string" || input == null

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createSession,
   fetchSessions,
+  renameSession,
   SessionApiError,
 } from "../../../src/lib/sessions/sessionApiClient";
 import type { SessionApiSession } from "../../../src/lib/sessions/sessionApiTypes";
@@ -133,5 +134,66 @@ describe("createSession", () => {
     await expect(createSession(TOKEN, { workspaceId: "ws-1" })).rejects.toThrow(
       "שירות השיחות לא הגיב בזמן. נסה שוב."
     );
+  });
+});
+
+describe("renameSession", () => {
+  it("sends PATCH with correct sessionId URL and Authorization header", async () => {
+    mockFetch.mockResolvedValue(makeJsonResponse(200, { session: sampleSession }));
+
+    await renameSession(TOKEN, "sess-abc", { title: "New name", workspaceId: "ws-1" });
+
+    const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/sessions/sess-abc");
+    expect(opts.method).toBe("PATCH");
+    expect(opts.headers).toMatchObject({ Authorization: `Bearer ${TOKEN}` });
+  });
+
+  it("sends title and workspaceId in body", async () => {
+    mockFetch.mockResolvedValue(makeJsonResponse(200, { session: sampleSession }));
+
+    await renameSession(TOKEN, "sess-1", { title: "My title", workspaceId: "ws-2" });
+
+    const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(opts.body)) as Record<string, unknown>;
+    expect(body.title).toBe("My title");
+    expect(body.workspaceId).toBe("ws-2");
+  });
+
+  it("returns updated session on success", async () => {
+    const renamed = { ...sampleSession, title: "Renamed" };
+    mockFetch.mockResolvedValue(makeJsonResponse(200, { session: renamed }));
+
+    const result = await renameSession(TOKEN, "sess-1", { title: "Renamed", workspaceId: "ws-1" });
+
+    expect(result.title).toBe("Renamed");
+  });
+
+  it("throws SessionApiError for empty token", async () => {
+    await expect(
+      renameSession("", "sess-1", { title: "X", workspaceId: "ws-1" })
+    ).rejects.toMatchObject({ status: 401 });
+  });
+
+  it("throws SessionApiError for empty sessionId", async () => {
+    await expect(
+      renameSession(TOKEN, "", { title: "X", workspaceId: "ws-1" })
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("throws SessionApiError on 404", async () => {
+    mockFetch.mockResolvedValue(makeJsonResponse(404, { error: "Session not found." }));
+
+    await expect(
+      renameSession(TOKEN, "sess-missing", { title: "X", workspaceId: "ws-1" })
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("throws on timeout", async () => {
+    mockFetch.mockRejectedValue(new DOMException("timed out", "AbortError"));
+
+    await expect(
+      renameSession(TOKEN, "sess-1", { title: "X", workspaceId: "ws-1" })
+    ).rejects.toMatchObject({ status: 503 });
   });
 });
