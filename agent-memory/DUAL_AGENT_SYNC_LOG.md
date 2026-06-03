@@ -2586,3 +2586,36 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: Nevo manual smoke on active selected-file wording and the no-whole-course clarification path
   - Blockers/Risks: unrelated pre-existing dirty tracked files still exist outside this batch scope
+
+## 2026-06-04 02:55 (Asia/Jerusalem) — Claude
+- Step/Task ID: Sources UI v1 (roadmap step 3)
+- Task summary: Make answer source cards readable — show real file name + excerpt, page/section only when present, remove raw IDs, academic-citation feel, stay honest when metadata missing. Executed via subagent-driven development from spec + plan.
+- What I changed:
+  - Server: `executeChunkRetrieval` now sets `originalFileName` on chunk-derived citations from `chunk.sourceLabel` (the file name already carried on each chunk). No retrieval scope / grounding / decision-log change — C5D contract untouched.
+  - Type: `SourceCitation` gained optional `pageNumber?: number` and `sectionLabel?: string` (additive; render-only-if-present).
+  - UI: `SourcesSection` rewritten to a compact citation line — Hebrew RTL header `מקורות (N)`, per card `📄 {filename} · עמ׳ N · {section}` (page only when `> 0`, section only when non-empty) then a 3-line-clamped quoted excerpt. `formatSourceLabel` fallback changed `Source N` → `מקור N`. Raw IDs are never rendered.
+- Files touched:
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `src/types/index.ts`
+  - `src/components/tutor/TutorConversation.tsx`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `tests/components/tutor/TutorConversation.test.tsx`
+  - `docs/superpowers/specs/2026-06-04-sources-ui-v1-design.md`
+  - `docs/superpowers/plans/2026-06-04-sources-ui-v1.md`
+- Tests/checks run:
+  - `npx tsc --noEmit`
+  - Result: passed
+  - `npx vitest run`
+  - Result: passed (1081 passed, 122 skipped)
+  - `npm run build`
+  - Result: passed
+  - Manual visual smoke (emulator + playwright): expanded sources showed `מקורות (2)`, both cards `📄 Physics.pdf` + excerpt, no raw IDs (DOM-inspected), no `עמ׳` badge with no page metadata (honest omission).
+  - Result: all 5 smoke checks passed
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): `75215fa`, `bdc4ec8`, `9b4c671`, `5858b43`, `a4fc737` (+ spec/plan `f70436f`, `166b3ea`)
+  - Pushed: pending (last push was through C5D batch; these commits not yet pushed)
+- Handoff status:
+  - Current state: done
+  - Next recommended step: roadmap step 4 — Clear Context v1 (show active files, remove one, clear all). Note: it also edits `TutorConversation.tsx`, so do it before/after — not in parallel with — further source-card work.
+  - Blockers/Risks: page/section badges never populate yet (artifact→chunk join is the documented fast-follow); web-search citations still fall back to `מקור N` with no icon (known v1 limitation).
