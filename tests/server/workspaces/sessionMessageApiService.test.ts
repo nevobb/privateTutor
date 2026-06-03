@@ -2010,5 +2010,141 @@ describeService("sessionMessageApiService", () => {
       const assistant = result.assistantMessage as { content?: string };
       expect(assistant.content).toBe("grounded answer with file content");
     });
+
+    it("adds artifact-aware question hints to grounding for a specific Hebrew section reference", async () => {
+      const repos = makeRepos({
+        listUploadedFiles: vi.fn(async () => [
+          {
+            id: "file-G",
+            name: "Electromagnetics.pdf",
+            originalFileName: "Electromagnetics.pdf",
+            extractionStatus: "completed",
+            chunkingStatus: "completed",
+            understandingStatus: "completed",
+            extractionQuality: "partial",
+            deepPdfStatus: "recommended",
+          },
+        ]),
+        retrieveFileChunks: vi.fn(async () => ({
+          chunks: [matchingChunk],
+          eligibleFileCount: 1,
+        })),
+        listDocumentPages: vi.fn(async () => []),
+        getDocumentOutline: vi.fn(async () => null),
+        listDetectedQuestions: vi.fn(async () => [
+          {
+            questionId: "q-1",
+            userId: "alice",
+            fileId: "file-G",
+            label: "מקטע ג׳",
+            summary: "עוסק בשטף מגנטי בלולאה.",
+            pageStart: 2,
+            pageEnd: 2,
+            charStart: 0,
+            charEnd: 30,
+            sourceChunkIds: ["ck-grnd"],
+            subsections: [],
+            confidence: 0.9,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ]),
+        getMockTutorResponse: vi.fn(async () => chunkedTutorDecision),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "תעזור לי עם סעיף ג׳",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      const calls = (repos.getMockTutorResponse as ReturnType<typeof vi.fn>).mock.calls;
+      const groundingContext = calls[1]?.[4];
+      expect(groundingContext).toBeDefined();
+      expect(groundingContext.instruction).toContain("מקטע ג׳");
+      expect(groundingContext.instruction).toContain("page 2");
+      expect(groundingContext.instruction).toContain("עוסק בשטף מגנטי בלולאה");
+      expect(groundingContext.instruction).toContain("partial");
+      expect(groundingContext.instruction).toMatch(/advanced document understanding may be needed/i);
+      expect(groundingContext.instruction).not.toContain("Gemini");
+    });
+
+    it("suppresses weak artifact snippets from grounding and keeps only a cautious note", async () => {
+      const repos = makeRepos({
+        listUploadedFiles: vi.fn(async () => [
+          {
+            id: "file-G",
+            name: "Electromagnetics.pdf",
+            originalFileName: "Electromagnetics.pdf",
+            extractionStatus: "completed",
+            chunkingStatus: "completed",
+            understandingStatus: "completed",
+            extractionQuality: "poor",
+            deepPdfStatus: "recommended",
+          },
+        ]),
+        retrieveFileChunks: vi.fn(async () => ({
+          chunks: [matchingChunk],
+          eligibleFileCount: 1,
+        })),
+        listDocumentPages: vi.fn(async () => []),
+        getDocumentOutline: vi.fn(async () => null),
+        listDetectedQuestions: vi.fn(async () => [
+          {
+            questionId: "q-1",
+            userId: "alice",
+            fileId: "file-G",
+            label: "מקטע ג׳",
+            summary: "א ת השטף המגנטי",
+            pageStart: 2,
+            pageEnd: 2,
+            charStart: 0,
+            charEnd: 30,
+            sourceChunkIds: ["ck-grnd"],
+            subsections: [],
+            confidence: 0.7,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            questionId: "q-2",
+            userId: "alice",
+            fileId: "file-G",
+            label: "מקטע ג׳",
+            summary: "פרמטרים,,, a b R I",
+            pageStart: 3,
+            pageEnd: 3,
+            charStart: 31,
+            charEnd: 60,
+            sourceChunkIds: ["ck-grnd"],
+            subsections: [],
+            confidence: 0.68,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ]),
+        getMockTutorResponse: vi.fn(async () => chunkedTutorDecision),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "תעזור לי עם סעיף ג׳",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      const calls = (repos.getMockTutorResponse as ReturnType<typeof vi.fn>).mock.calls;
+      const groundingContext = calls[1]?.[4];
+      expect(groundingContext).toBeDefined();
+      expect(groundingContext.instruction).toContain("מקטע ג׳");
+      expect(groundingContext.instruction).toContain("page 2");
+      expect(groundingContext.instruction).not.toContain("א ת השטף");
+      expect(groundingContext.instruction).not.toContain("פרמטרים,,,");
+      expect(groundingContext.instruction).not.toContain("a b R I");
+      expect(groundingContext.instruction).toContain("not clean enough");
+    });
   });
 });

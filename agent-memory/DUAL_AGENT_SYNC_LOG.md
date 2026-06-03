@@ -1434,3 +1434,37 @@ Copy this block and fill all fields:
   - Current state: Batch 6C.2 now fixes both the snippet leak and the robotic tone problem; the inventory path stays deterministic/local but reads like a tutor reply.
   - Next recommended step: rerun the real Hebrew physics/math smoke on the same PDFs and confirm the live wording now feels calm and useful in chat.
   - Blockers/Risks: subject inference is intentionally lightweight, so unusual files may still get the generic `נראה שזה קובץ עם כמה שאלות/סעיפים` phrasing.
+
+## 2026-06-03 03:14 (IDT) — Codex
+- Step/Task ID: Batch 6D — artifact-aware question grounding
+- Task summary: Augment the existing grounded tutor path with persisted document-artifact hints for explicit section/page questions, while keeping Gemini isolated and preserving chunk retrieval as the evidence path.
+- What I changed:
+  - Updated `sessionMessageApiService.ts` so the grounded second provider call now builds artifact-aware grounding context instead of chunk-only context.
+  - Kept the change narrow: artifact hints are added only when the user explicitly references a page or section/question and only for files already represented in retrieved chunks.
+  - Added weak-artifact filtering so broken snippets like spaced Hebrew fragments or corrupted parameter lists do not enter the model grounding instruction.
+  - Added extraction-quality caution and `deepPdfStatus === "recommended"` wording as conservative internal guidance only, without claiming Gemini ran.
+  - Updated `deepseekGroundingPrompt.ts` so custom grounding instruction text is actually injected into the prompt alongside the `[SOURCE ...]` blocks.
+  - Added tests for custom prompt instruction inclusion, Hebrew section-match grounding hints, and weak artifact suppression in grounding.
+  - Wrote `agent-memory/PDF_READING_BATCH_6D_ARTIFACT_AWARE_QUESTION_GROUNDING_REPORT.md` and refreshed Graphify.
+- Files touched:
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `src/server/tutor/deepseekGroundingPrompt.ts`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `tests/server/tutor/deepseekProviderGrounding.test.ts`
+  - `agent-memory/PDF_READING_BATCH_6D_ARTIFACT_AWARE_QUESTION_GROUNDING_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/tutor/deepseekProviderGrounding.test.ts tests/server/workspaces/sessionMessageApiService.test.ts` — passed
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — passed
+- Git status:
+  - Branch: `repair/artifact-aware-question-grounding`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: Batch 6D is validation-clean; normal tutor grounding now gets narrow, quality-filtered artifact hints for explicit section/page questions while leaving retrieval, inventory, UI, and Gemini runtime isolation intact.
+  - Next recommended step: Batch 7 verification can now focus on broader smoke/golden coverage and whether user-visible source/page references should become part of the tutor response contract.
+  - Blockers/Risks: artifact matching is intentionally narrow and heuristic, so future real PDFs may still expose cases that need one more focused match/filter rule.

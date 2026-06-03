@@ -312,7 +312,13 @@ export function createSessionMessageApiService(
       );
 
       if (retrievalExecution.retrievedChunks.length > 0) {
-        const groundingContext = buildGroundingContextFromChunks(retrievalExecution.retrievedChunks);
+        const groundingContext = await buildArtifactAwareGroundingContext(
+          repositories,
+          userId,
+          input.workspaceId,
+          input.userMessage,
+          retrievalExecution.retrievedChunks
+        );
         const groundedResponse = await repositories.getMockTutorResponse(
           input.userMessage,
           input.workMode,
@@ -925,6 +931,246 @@ function buildGroundingContextFromChunks(chunks: RetrievedFileChunk[]): TutorGro
     totalTokenEstimate: chunks.reduce((sum, c) => sum + c.tokenEstimate, 0),
     instruction: "Use the following retrieved learning-material excerpts to inform your answer. Treat them as internal course material.",
   };
+}
+
+type ArtifactAwareUploadedFile = {
+  id: string;
+  understandingStatus?: unknown;
+  extractionQuality?: unknown;
+  deepPdfStatus?: unknown;
+};
+
+type ArtifactGroundingSignal = {
+  number?: string;
+  letter?: string;
+};
+
+async function buildArtifactAwareGroundingContext(
+  repositories: Repositories,
+  userId: string,
+  workspaceId: string,
+  userMessage: string,
+  chunks: RetrievedFileChunk[]
+): Promise<TutorGroundingContext> {
+  const baseContext = buildGroundingContextFromChunks(chunks);
+  const artifactInstruction = await maybeBuildArtifactAwareGroundingInstruction(
+    repositories,
+    userId,
+    workspaceId,
+    userMessage,
+    chunks
+  );
+
+  if (!artifactInstruction) {
+    return baseContext;
+  }
+
+  return {
+    ...baseContext,
+    instruction: `${baseContext.instruction} ${artifactInstruction}`.trim(),
+  };
+}
+
+async function maybeBuildArtifactAwareGroundingInstruction(
+  repositories: Repositories,
+  userId: string,
+  workspaceId: string,
+  userMessage: string,
+  chunks: RetrievedFileChunk[]
+): Promise<string | null> {
+  const pageRefs = extractRequestedPages(userMessage);
+  const sectionSignals = extractArtifactGroundingSignals(userMessage);
+  if (pageRefs.length === 0 && sectionSignals.length === 0) {
+    return null;
+  }
+
+  const uploadedFiles = await repositories.listUploadedFiles(userId, workspaceId);
+  const retrievedFileIds = new Set(chunks.map((chunk) => chunk.fileId));
+  const candidateFiles = uploadedFiles.filter(
+    (file): file is typeof file & ArtifactAwareUploadedFile =>
+      retrievedFileIds.has(String(file.id)) && file.understandingStatus === "completed"
+  );
+
+  if (candidateFiles.length === 0) {
+    return null;
+  }
+
+  const notes: string[] = [];
+
+  for (const file of candidateFiles) {
+    if (notes.length >= 2) break;
+
+    const fileId = String(file.id);
+    const [pages, detectedQuestions] = await Promise.all([
+      pageRefs.length > 0 ? repositories.listDocumentPages(userId, fileId) : Promise.resolve([]),
+      sectionSignals.length > 0 ? repositories.listDetectedQuestions(userId, fileId) : Promise.resolve([]),
+    ]);
+
+    const matchedQuestion =
+      sectionSignals.length > 0
+        ? detectedQuestions.find((question) => matchesArtifactGroundingSignals(question.label, sectionSignals))
+        : undefined;
+
+    if (matchedQuestion) {
+      const pageLabel = buildArtifactGroundingPageLabel(matchedQuestion.pageStart, matchedQuestion.pageEnd);
+      const cleanDetail = sanitizeArtifactGroundingText(
+        matchedQuestion.summary ?? matchedQuestion.topic ?? matchedQuestion.extractionNotes
+      );
+
+      if (cleanDetail) {
+        notes.push(
+          `The learner likely refers to section/question "${matchedQuestion.label}"${pageLabel ? ` on ${pageLabel}` : ""}. Helpful artifact hint: ${cleanDetail}.`
+        );
+      } else {
+        notes.push(
+          `The learner likely refers to section/question "${matchedQuestion.label}"${pageLabel ? ` on ${pageLabel}` : ""}, but the artifact text there is not clean enough to quote reliably.`
+        );
+      }
+    }
+
+    if (notes.length === 0 && pageRefs.length > 0) {
+      const matchedPage = pages.find((page) => pageRefs.includes(page.pageNumber));
+      if (matchedPage) {
+        const cleanPageHint = sanitizeArtifactGroundingText(matchedPage.cleanedText ?? matchedPage.extractedText);
+        if (cleanPageHint) {
+          notes.push(`The learner likely refers to page ${matchedPage.pageNumber}. Helpful page hint: ${cleanPageHint}.`);
+        } else {
+          notes.push(
+            `The learner likely refers to page ${matchedPage.pageNumber}, but the artifact text there is not clean enough to quote reliably.`
+          );
+        }
+      }
+    }
+
+    const extractionQuality =
+      file.extractionQuality === "good" ||
+      file.extractionQuality === "partial" ||
+      file.extractionQuality === "poor"
+        ? file.extractionQuality
+        : undefined;
+
+    if (notes.length > 0 && extractionQuality && extractionQuality !== "good") {
+      notes.push(
+        `Artifact extraction quality is ${extractionQuality}. Use artifact hints only to locate the right part of the material; rely on the retrieved chunk text for actual claims, especially around formulas or diagrams.`
+      );
+    }
+
+    if (notes.length > 0 && file.deepPdfStatus === "recommended") {
+      notes.push(
+        "Advanced document understanding may be needed for formulas or diagrams in this file. Do not claim that such analysis already ran."
+      );
+    }
+  }
+
+  if (notes.length === 0) {
+    return null;
+  }
+
+  return notes.join(" ");
+}
+
+function extractRequestedPages(message: string): number[] {
+  return Array.from(message.matchAll(/עמוד\s+(\d+)/g), (match) => Number(match[1])).filter(
+    (value) => Number.isFinite(value) && value > 0
+  );
+}
+
+function extractArtifactGroundingSignals(message: string): ArtifactGroundingSignal[] {
+  const signals: ArtifactGroundingSignal[] = [];
+
+  for (const match of message.matchAll(/(?:שאלה|תרגיל|סעיף|מקטע|question|exercise|problem)\s+(\d+)/gi)) {
+    signals.push({ number: match[1] });
+  }
+
+  for (const match of message.matchAll(/(?:סעיף|מקטע)\s+([אבגדהוזחטיכלמנסעפצקרשת])[׳'"]?/g)) {
+    signals.push({ letter: normalizeHebrewGroundingLetter(match[1]) });
+  }
+
+  return signals;
+}
+
+function matchesArtifactGroundingSignals(label: string, signals: ArtifactGroundingSignal[]): boolean {
+  const numericMatch = label.match(/(?:שאלה|תרגיל|סעיף|מקטע|question|exercise|problem)\s+(\d+)/i);
+  const letterMatch = label.match(/(?:סעיף|מקטע)\s+([אבגדהוזחטיכלמנסעפצקרשת])[׳'"]?/);
+  const labelNumber = numericMatch?.[1];
+  const labelLetter = letterMatch ? normalizeHebrewGroundingLetter(letterMatch[1]) : undefined;
+
+  return signals.some(
+    (signal) =>
+      (signal.number && labelNumber === signal.number) ||
+      (signal.letter && labelLetter === signal.letter)
+  );
+}
+
+function buildArtifactGroundingPageLabel(pageStart?: number, pageEnd?: number): string | null {
+  if (typeof pageStart === "number" && typeof pageEnd === "number") {
+    return pageStart === pageEnd ? `page ${pageStart}` : `pages ${pageStart}-${pageEnd}`;
+  }
+  if (typeof pageStart === "number") {
+    return `page ${pageStart}`;
+  }
+  if (typeof pageEnd === "number") {
+    return `page ${pageEnd}`;
+  }
+  return null;
+}
+
+function normalizeHebrewGroundingLetter(letter: string): string {
+  return letter.replace(/[׳'"]/g, "").trim();
+}
+
+function sanitizeArtifactGroundingText(text: string | undefined): string | null {
+  if (!text) {
+    return null;
+  }
+
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized.length === 0 || isLowQualityGroundingArtifactText(normalized)) {
+    return null;
+  }
+
+  const compact = normalized.length > 120 ? `${normalized.slice(0, 119).trimEnd()}…` : normalized;
+  return compact;
+}
+
+function isLowQualityGroundingArtifactText(text: string): boolean {
+  if (/[\uF000-\uF8FF]/u.test(text)) {
+    return true;
+  }
+
+  if (/(,{2,}|;{2,}|:{2,}|!{2,}|\?{2,})/.test(text)) {
+    return true;
+  }
+
+  if (/(?:\b[a-zA-Z]\b[\s,]*){3,}/.test(text)) {
+    return true;
+  }
+
+  const hebrewTokens = text.match(/[א-ת]+/g) ?? [];
+  const singleHebrewTokenCount = hebrewTokens.filter((token) => token.length === 1).length;
+  const multiCharHebrewTokenCount = hebrewTokens.filter((token) => token.length > 1).length;
+
+  if (singleHebrewTokenCount >= 2 && multiCharHebrewTokenCount <= 1) {
+    return true;
+  }
+
+  if (/(?:^|\s)[א-ת](?:\s+[א-ת]){1,}\s+[א-ת]{2,}(?:\s|$)/.test(text)) {
+    return true;
+  }
+
+  if (singleHebrewTokenCount >= 2 && singleHebrewTokenCount >= multiCharHebrewTokenCount) {
+    return true;
+  }
+
+  const longWordCount = text
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3).length;
+  if (text.length < 24 && longWordCount < 2) {
+    return true;
+  }
+
+  return false;
 }
 
 function makeDeterministicReturn(

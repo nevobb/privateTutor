@@ -5,6 +5,7 @@ export function buildGroundingSection(groundingContext?: TutorGroundingContext):
     return "";
   }
 
+  const customInstruction = groundingContext.instruction.trim();
   const sourceBlocks = groundingContext.chunks
     .map(
       (chunk) =>
@@ -20,6 +21,7 @@ export function buildGroundingSection(groundingContext?: TutorGroundingContext):
     "If the extracted text does not contain the answer, say what is missing instead of inventing.",
     "Do not expose source IDs or chunk references inside the answer body.",
     "Visual limitation (state only when directly relevant): current analysis is text-based; visual diagrams and circuits are not analysed at this time.",
+    ...(customInstruction ? ["", customInstruction] : []),
     "",
     sourceBlocks,
     "---",

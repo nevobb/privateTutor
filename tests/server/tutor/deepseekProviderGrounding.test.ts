@@ -130,4 +130,26 @@ describeGrounding("buildGroundingSection", () => {
     expect(section).toContain("learning-material");
     expect(section).toContain("inventing");
   });
+
+  it("includes custom grounding instruction text when provided", () => {
+    const ctx = {
+      mode: "file_chunks" as const,
+      chunks: [
+        {
+          sourceId: "f1:c1",
+          fileId: "f1",
+          chunkId: "c1",
+          chunkIndex: 0,
+          text: "Some content",
+          tokenEstimate: 20,
+        },
+      ],
+      totalTokenEstimate: 20,
+      instruction:
+        'Use retrieved chunks as the main evidence. The learner likely refers to section "מקטע ג׳" on page 2.',
+    };
+
+    const section = mod.buildGroundingSection(ctx);
+    expect(section).toContain('The learner likely refers to section "מקטע ג׳" on page 2.');
+  });
 });
