@@ -1915,3 +1915,26 @@ Copy this block and fill all fields:
   - `tests/lib/sessions/sessionApiClient.test.ts`: 7 new renameSession client tests
 - Validation: 69 files, 860 tests, build clean
 - Deferred: soft delete (9C), file delete (9D), retrieval filter for deleted (9E)
+
+---
+
+## Entry: Batch 9C — Soft Delete Conversation
+
+- Agent: Claude
+- Date: 2026-06-03
+- Branch: `repair/workspace-cleanup-fit-check`
+- Task summary: Add soft-delete support for conversations. Sessions marked isDeleted=true disappear from sidebar and cannot receive new messages. No physical deletion.
+- What I changed:
+  - `workspaceTypes.ts`: added `isDeleted?: boolean`, `deletedAt?: Date | null` to `SessionRecord`
+  - `sessionRepository.ts`: added `softDeleteSession(userId, workspaceId, sessionId)`; updated `listSessions` to filter `isDeleted !== true`; updated `getSession` to return null for `isDeleted === true`; updated `mapSessionRecord` to map new fields (missing → false, backward compat)
+  - `sessionApiSchemas.ts`: added `DeleteSessionApiRequest`, `parseDeleteSessionRequest`
+  - `sessionApiService.ts`: added `softDeleteSessionForUser` to interface + implementation
+  - `src/app/api/sessions/[sessionId]/route.ts`: added `createSessionDeleteHandler` and `DELETE` export
+  - `sessionApiTypes.ts`: added `DeleteSessionInput`
+  - `sessionApiClient.ts`: added `deleteSession(token, sessionId, input)` using DELETE
+  - `WorkspaceSelector.tsx`: added `onDeleteSession` prop, `confirmDeleteSessionId` + `deleteError` state, ✕ hover button, inline Hebrew confirmation ("מחק"/"ביטול")
+  - `page.tsx`: imports `deleteSession`, adds `handleDeleteSession` callback (removes from list + clears activeSessionId if active), passes `onDeleteSession` to WorkspaceSelector
+  - 3 new test files (soft delete contract, schemas, route) + 7 new client tests
+- Message route blocking: inherited from `getSession` returning null — no code change needed
+- Validation: 72 files, 896 tests, build clean
+- Deferred: uploaded file soft delete (9D), retrieval filter (9E), hard delete (9F)

@@ -1,7 +1,7 @@
 import type { AuthenticatedUser } from "../auth/authTypes";
-import { createSession, listSessions, updateSession } from "./sessionRepository";
+import { createSession, listSessions, softDeleteSession, updateSession } from "./sessionRepository";
 import { getWorkspace } from "./workspaceRepository";
-import type { CreateSessionApiRequest, RenameSessionApiRequest } from "./sessionApiSchemas";
+import type { CreateSessionApiRequest, DeleteSessionApiRequest, RenameSessionApiRequest } from "./sessionApiSchemas";
 import type { SessionRecord } from "./workspaceTypes";
 
 export interface SessionApiService {
@@ -12,6 +12,11 @@ export interface SessionApiService {
     sessionId: string,
     input: RenameSessionApiRequest
   ): Promise<SessionRecord | null>;
+  softDeleteSessionForUser(
+    user: AuthenticatedUser | string,
+    sessionId: string,
+    input: DeleteSessionApiRequest
+  ): Promise<SessionRecord | null>;
 }
 
 interface SessionApiRepositories {
@@ -19,6 +24,7 @@ interface SessionApiRepositories {
   createSession: typeof createSession;
   listSessions: typeof listSessions;
   updateSession: typeof updateSession;
+  softDeleteSession: typeof softDeleteSession;
 }
 
 function defaultRepositories(): SessionApiRepositories {
@@ -27,6 +33,7 @@ function defaultRepositories(): SessionApiRepositories {
     createSession,
     listSessions,
     updateSession,
+    softDeleteSession,
   };
 }
 
@@ -73,6 +80,17 @@ export function createSessionApiService(
       return repositories.updateSession(trustedUserId, input.workspaceId, sessionId, {
         title: input.title,
       });
+    },
+
+    async softDeleteSessionForUser(user, sessionId, input) {
+      const trustedUserId = resolveTrustedUserId(user);
+      const workspace = await repositories.getWorkspace(trustedUserId, input.workspaceId);
+
+      if (!workspace) {
+        throw new Error("Workspace not found.");
+      }
+
+      return repositories.softDeleteSession(trustedUserId, input.workspaceId, sessionId);
     },
   };
 }

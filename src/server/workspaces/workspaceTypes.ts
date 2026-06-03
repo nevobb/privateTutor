@@ -41,6 +41,8 @@ export interface SessionRecord {
   messageCount: number;
   lastMessageAt?: Date;
   summary?: string;
+  isDeleted?: boolean;
+  deletedAt?: Date | null;
 }
 
 export interface MessageRecord extends TutorMessage {

@@ -23,6 +23,7 @@ import {
 import type { WorkspaceListItem } from "../lib/workspaces/workspaceApiTypes";
 import {
   createSession,
+  deleteSession,
   fetchSessions,
   renameSession,
   SessionApiError,
@@ -488,6 +489,26 @@ export default function Home() {
     }
   }, [activeWorkspaceId, costMode, getToken, workMode]);
 
+  const handleDeleteSession = useCallback(async (sessionId: string): Promise<void> => {
+    if (!activeWorkspaceId) return;
+    const token = await getToken();
+    if (!token) throw new Error("לא ניתן לאמת את המשתמש.");
+
+    await deleteSession(token, sessionId, { workspaceId: activeWorkspaceId });
+
+    setSessionState((prev) => {
+      if (prev.status !== "ready") return prev;
+      const remaining = prev.sessions.filter((s) => s.id !== sessionId);
+      return { ...prev, sessions: remaining };
+    });
+
+    // If the deleted session was the active one, select first remaining or clear.
+    setActiveSessionId((prev) => {
+      if (prev !== sessionId) return prev;
+      return null;
+    });
+  }, [activeWorkspaceId, getToken]);
+
   const handleRenameSession = useCallback(async (sessionId: string, newTitle: string): Promise<void> => {
     if (!activeWorkspaceId) return;
     const token = await getToken();
@@ -626,6 +647,7 @@ export default function Home() {
           creatingSession={creatingSession}
           createSessionError={createSessionError}
           onRenameSession={handleRenameSession}
+          onDeleteSession={handleDeleteSession}
         />
       </div>
 

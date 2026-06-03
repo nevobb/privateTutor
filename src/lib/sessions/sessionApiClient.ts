@@ -1,4 +1,4 @@
-import type { CreateSessionInput, RenameSessionInput, SessionApiSession } from "./sessionApiTypes";
+import type { CreateSessionInput, DeleteSessionInput, RenameSessionInput, SessionApiSession } from "./sessionApiTypes";
 
 const REQUEST_TIMEOUT_MS = 8000;
 
@@ -82,6 +82,11 @@ interface RenameSessionResponse {
   session: SessionApiSession;
 }
 
+interface DeleteSessionResponse {
+  deleted: boolean;
+  sessionId: string;
+}
+
 export async function renameSession(
   authToken: string,
   sessionId: string,
@@ -111,6 +116,33 @@ export async function renameSession(
 
   const body = await res.json() as RenameSessionResponse;
   return body.session;
+}
+
+export async function deleteSession(
+  authToken: string,
+  sessionId: string,
+  input: DeleteSessionInput
+): Promise<DeleteSessionResponse> {
+  const token = requireAuthToken(authToken);
+
+  if (typeof sessionId !== "string" || sessionId.trim().length === 0) {
+    throw new SessionApiError("sessionId is required.", 400);
+  }
+
+  const res = await runSessionRequest(`/api/sessions/${encodeURIComponent(sessionId.trim())}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ workspaceId: input.workspaceId }),
+  });
+
+  if (!res.ok) {
+    throw await createSessionApiError(res, "מחיקת השיחה נכשלה.");
+  }
+
+  return (await res.json()) as DeleteSessionResponse;
 }
 
 function requireAuthToken(authToken: string): string {

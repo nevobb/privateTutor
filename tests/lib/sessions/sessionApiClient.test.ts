@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createSession,
+  deleteSession,
   fetchSessions,
   renameSession,
   SessionApiError,
@@ -194,6 +195,65 @@ describe("renameSession", () => {
 
     await expect(
       renameSession(TOKEN, "sess-1", { title: "X", workspaceId: "ws-1" })
+    ).rejects.toMatchObject({ status: 503 });
+  });
+});
+
+describe("deleteSession", () => {
+  it("sends DELETE to /api/sessions/{sessionId}", async () => {
+    mockFetch.mockResolvedValue(makeJsonResponse(200, { deleted: true, sessionId: "sess-1" }));
+
+    await deleteSession(TOKEN, "sess-1", { workspaceId: "ws-1" });
+
+    const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/sessions/sess-1");
+    expect(opts.method).toBe("DELETE");
+    expect(opts.headers).toMatchObject({ Authorization: `Bearer ${TOKEN}` });
+  });
+
+  it("sends workspaceId in body", async () => {
+    mockFetch.mockResolvedValue(makeJsonResponse(200, { deleted: true, sessionId: "sess-1" }));
+
+    await deleteSession(TOKEN, "sess-1", { workspaceId: "ws-2" });
+
+    const [, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(opts.body)) as Record<string, unknown>;
+    expect(body.workspaceId).toBe("ws-2");
+  });
+
+  it("returns deleted:true on success", async () => {
+    mockFetch.mockResolvedValue(makeJsonResponse(200, { deleted: true, sessionId: "sess-x" }));
+
+    const result = await deleteSession(TOKEN, "sess-x", { workspaceId: "ws-1" });
+    expect(result.deleted).toBe(true);
+    expect(result.sessionId).toBe("sess-x");
+  });
+
+  it("throws SessionApiError for empty token", async () => {
+    await expect(
+      deleteSession("", "sess-1", { workspaceId: "ws-1" })
+    ).rejects.toMatchObject({ status: 401 });
+  });
+
+  it("throws SessionApiError for empty sessionId", async () => {
+    await expect(
+      deleteSession(TOKEN, "", { workspaceId: "ws-1" })
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("throws SessionApiError on 404", async () => {
+    mockFetch.mockResolvedValue(makeJsonResponse(404, { error: "Session not found." }));
+
+    await expect(
+      deleteSession(TOKEN, "sess-missing", { workspaceId: "ws-1" })
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("throws on timeout", async () => {
+    mockFetch.mockRejectedValue(new DOMException("timed out", "AbortError"));
+
+    await expect(
+      deleteSession(TOKEN, "sess-1", { workspaceId: "ws-1" })
     ).rejects.toMatchObject({ status: 503 });
   });
 });

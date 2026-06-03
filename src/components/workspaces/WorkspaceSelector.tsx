@@ -27,6 +27,7 @@ interface WorkspaceSelectorProps {
   creatingSession: boolean;
   createSessionError: string | null;
   onRenameSession?: (sessionId: string, newTitle: string) => Promise<void>;
+  onDeleteSession?: (sessionId: string) => Promise<void>;
 }
 
 export default function WorkspaceSelector({
@@ -41,6 +42,7 @@ export default function WorkspaceSelector({
   creatingSession,
   createSessionError,
   onRenameSession,
+  onDeleteSession,
 }: WorkspaceSelectorProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
@@ -49,6 +51,8 @@ export default function WorkspaceSelector({
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
+  const [confirmDeleteSessionId, setConfirmDeleteSessionId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -232,6 +236,46 @@ export default function WorkspaceSelector({
                       );
                     }
 
+                    if (confirmDeleteSessionId === session.id) {
+                      return (
+                        <li key={session.id} className="px-1 py-1 space-y-1">
+                          <p className="text-[10px] truncate" style={{ color: "var(--tutor-sidebar-text)" }}>
+                            מחק &ldquo;{label}&rdquo;?
+                          </p>
+                          {deleteError && (
+                            <p className="text-[10px]" style={{ color: "#e87070" }}>{deleteError}</p>
+                          )}
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!onDeleteSession) return;
+                                setDeleteError(null);
+                                try {
+                                  await onDeleteSession(session.id);
+                                  setConfirmDeleteSessionId(null);
+                                } catch (err: unknown) {
+                                  setDeleteError(err instanceof Error ? err.message : "Delete failed.");
+                                }
+                              }}
+                              className="flex-1 rounded py-1 text-[10px] font-medium text-white"
+                              style={{ background: "#c0392b" }}
+                            >
+                              מחק
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setConfirmDeleteSessionId(null); setDeleteError(null); }}
+                              className="flex-1 rounded py-1 text-[10px]"
+                              style={{ border: "1px solid var(--tutor-sidebar-border)", color: "var(--tutor-sidebar-text)" }}
+                            >
+                              ביטול
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    }
+
                     return (
                       <li key={session.id} className="group flex items-center gap-0.5">
                         <NavItem
@@ -240,22 +284,39 @@ export default function WorkspaceSelector({
                           small
                           onClick={() => onSessionSelect(session.id)}
                         />
-                        {onRenameSession && (
-                          <button
-                            type="button"
-                            title="Rename conversation"
-                            aria-label={`Rename conversation: ${label}`}
-                            onClick={() => {
-                              setRenamingSessionId(session.id);
-                              setRenameValue(label);
-                              setRenameError(null);
-                            }}
-                            className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded transition-opacity"
-                            style={{ color: "var(--tutor-sidebar-text-muted)" }}
-                          >
-                            <span aria-hidden="true" style={{ fontSize: "10px" }}>✎</span>
-                          </button>
-                        )}
+                        <span className="flex-shrink-0 opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity">
+                          {onRenameSession && (
+                            <button
+                              type="button"
+                              title="Rename conversation"
+                              aria-label={`Rename conversation: ${label}`}
+                              onClick={() => {
+                                setRenamingSessionId(session.id);
+                                setRenameValue(label);
+                                setRenameError(null);
+                              }}
+                              className="p-1 rounded"
+                              style={{ color: "var(--tutor-sidebar-text-muted)" }}
+                            >
+                              <span aria-hidden="true" style={{ fontSize: "10px" }}>✎</span>
+                            </button>
+                          )}
+                          {onDeleteSession && (
+                            <button
+                              type="button"
+                              title="Delete conversation"
+                              aria-label={`Delete conversation: ${label}`}
+                              onClick={() => {
+                                setConfirmDeleteSessionId(session.id);
+                                setDeleteError(null);
+                              }}
+                              className="p-1 rounded"
+                              style={{ color: "var(--tutor-sidebar-text-muted)" }}
+                            >
+                              <span aria-hidden="true" style={{ fontSize: "10px" }}>✕</span>
+                            </button>
+                          )}
+                        </span>
                       </li>
                     );
                   })}

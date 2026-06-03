@@ -24,3 +24,7 @@ export interface RenameSessionInput {
   title: string;
   workspaceId: string;
 }
+
+export interface DeleteSessionInput {
+  workspaceId: string;
+}

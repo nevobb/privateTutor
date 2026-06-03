@@ -149,6 +149,29 @@ export function serializeSession(record: SessionRecord): SessionApiResponse {
   };
 }
 
+export interface DeleteSessionApiRequest {
+  workspaceId: string;
+}
+
+export type DeleteSessionValidationResult =
+  | { ok: true; input: DeleteSessionApiRequest }
+  | { ok: false; error: string };
+
+export function parseDeleteSessionRequest(body: unknown): DeleteSessionValidationResult {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return { ok: false, error: "Request body must be a JSON object." };
+  }
+
+  const raw = body as Record<string, unknown>;
+  const workspaceId = asTrimmedString(raw.workspaceId);
+
+  if (!workspaceId) {
+    return { ok: false, error: "workspaceId is required." };
+  }
+
+  return { ok: true, input: { workspaceId } };
+}
+
 function asTrimmedString(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;

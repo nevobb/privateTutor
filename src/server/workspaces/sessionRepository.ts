@@ -82,7 +82,10 @@ export async function listSessions(userId: string, workspaceId: string): Promise
       .get();
 
     return snapshot.docs
-      .filter((d) => (d.data() as { userId?: string }).userId === userId)
+      .filter((d) => {
+        const data = d.data() as { userId?: string; isDeleted?: boolean };
+        return data.userId === userId && data.isDeleted !== true;
+      })
       .map((d) => mapSessionRecord(d.id, d.data() as Record<string, unknown>));
   });
 }
@@ -92,11 +95,41 @@ export async function getSession(userId: string, workspaceId: string, sessionId:
 
   return withFirestoreEmulatorClient(userId, async ({ db }) => {
     const snapshot = await db.doc(sessionPath(userId, workspaceId, sessionId).join("/")).get();
-    const data = snapshot.data() as { userId?: string } | undefined;
-    if (!snapshot.exists || data?.userId !== userId) {
+    const data = snapshot.data() as { userId?: string; isDeleted?: boolean } | undefined;
+    if (!snapshot.exists || data?.userId !== userId || data?.isDeleted === true) {
       return null;
     }
     return mapSessionRecord(snapshot.id, data as Record<string, unknown>);
+  });
+}
+
+export async function softDeleteSession(
+  userId: string,
+  workspaceId: string,
+  sessionId: string
+): Promise<SessionRecord | null> {
+  await assertWorkspaceOwnership(userId, workspaceId);
+
+  return withFirestoreEmulatorClient(userId, async ({ db }) => {
+    const ref = db.doc(sessionPath(userId, workspaceId, sessionId).join("/"));
+    const snapshot = await ref.get();
+    const data = snapshot.data() as { userId?: string; isDeleted?: boolean } | undefined;
+
+    if (!snapshot.exists || data?.userId !== userId) {
+      return null;
+    }
+
+    if (data?.isDeleted === true) {
+      return mapSessionRecord(snapshot.id, data as Record<string, unknown>);
+    }
+
+    const now = new Date();
+    await ref.update({ isDeleted: true, deletedAt: now, updatedAt: now });
+
+    return mapSessionRecord(
+      snapshot.id,
+      { ...(data as Record<string, unknown>), isDeleted: true, deletedAt: now, updatedAt: now }
+    );
   });
 }
 
@@ -149,5 +182,7 @@ function mapSessionRecord(id: string, data: Record<string, unknown>): SessionRec
     messageCount: Number.isFinite(Number(data.messageCount)) ? Number(data.messageCount) : 0,
     lastMessageAt: data.lastMessageAt ? toDate(data.lastMessageAt) : undefined,
     summary: typeof data.summary === "string" ? data.summary : undefined,
+    isDeleted: data.isDeleted === true,
+    deletedAt: data.deletedAt ? toDate(data.deletedAt) : null,
   };
 }
