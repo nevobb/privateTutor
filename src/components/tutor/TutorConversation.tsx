@@ -1050,7 +1050,7 @@ export function SourcesSection({ citations }: { citations: NormalizedCitation[] 
                 className="text-[11px] font-medium flex items-center gap-1.5 flex-wrap"
                 style={{ color: "var(--tutor-text-secondary)" }}
               >
-                {hasFileName && <span aria-hidden>📄</span>}
+                {hasFileName && <span aria-hidden="true">📄</span>}
                 <span>{cite.sourceLabel}</span>
                 {hasPage && (
                   <span style={{ color: "var(--tutor-text-muted)" }}>· עמ׳ {cite.pageNumber}</span>

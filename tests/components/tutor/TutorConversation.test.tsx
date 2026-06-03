@@ -318,16 +318,25 @@ describe("source rendering", () => {
       {
         id: "chunk_0001",
         sourceId: "fileA:chunk_0001",
-        referenceText: "text",
+        referenceText: "with metadata",
         originalFileName: "Physics.pdf",
         pageNumber: 3,
         sectionLabel: "שאלה 2",
+      },
+      {
+        id: "chunk_0002",
+        sourceId: "fileB:chunk_0002",
+        referenceText: "without metadata",
+        originalFileName: "Bare.pdf",
       },
     ]);
 
     const html = renderToStaticMarkup(<SourcesSection citations={normalized} />);
     expect(html).toContain("עמ׳ 3");
     expect(html).toContain("שאלה 2");
+    // exactly one card carries page/section — the second (bare) card adds none
+    expect(html.match(/עמ׳/g) ?? []).toHaveLength(1);
+    expect(html.match(/שאלה/g) ?? []).toHaveLength(1);
   });
 
   it("omits page when pageNumber is absent or not positive", () => {
