@@ -1976,3 +1976,26 @@ Copy this block and fill all fields:
 - Filter semantics confirmed correct: listUploadedFiles uses !== true (includes missing/null/false), getUploadedFile uses === true (strict, blocks only true)
 - Validation: 75 files, 947 tests, build clean
 - Ready for Batch 9D commit: YES
+
+## 2026-06-03 — Batch 9E deleted-file exclusion audit
+- Summary:
+  - Audited deleted uploaded-file exclusion across FilePanel, inventory, retrieval, artifact grounding, tutor context, direct extract/chunks/embeddings routes, and Deep PDF orchestration.
+  - Confirmed all normal runtime paths inherit deleted-file blocking through `listUploadedFiles(...)` and `getUploadedFile(...)`.
+  - Found no active deleted-file leak; noted one remaining regression-test gap for a tutor-facing deleted-file path.
+- Files touched:
+  - `agent-memory/WORKSPACE_CLEANUP_BATCH_9E_DELETED_FILE_EXCLUSION_AUDIT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx tsc --noEmit`
+  - `npx vitest run`
+  - `npm run build`
+  - `git diff --check`
+  - `graphify update .`
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: soft-deleted uploaded files are excluded from all audited normal user-facing and tutor-facing paths.
+  - Next recommended step: optional small regression follow-up for one tutor-facing deleted-file path, then proceed to the next workspace-cleanup phase.
+  - Blockers/Risks: stale chunks/artifacts still exist physically by design, so future runtime paths must keep checking uploaded-file state before direct chunk/artifact access.
