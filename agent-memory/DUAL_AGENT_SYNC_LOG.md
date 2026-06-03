@@ -1999,3 +1999,29 @@ Copy this block and fill all fields:
   - Current state: soft-deleted uploaded files are excluded from all audited normal user-facing and tutor-facing paths.
   - Next recommended step: optional small regression follow-up for one tutor-facing deleted-file path, then proceed to the next workspace-cleanup phase.
   - Blockers/Risks: stale chunks/artifacts still exist physically by design, so future runtime paths must keep checking uploaded-file state before direct chunk/artifact access.
+
+## 2026-06-03 13:35 (Asia/Jerusalem) — Claude
+- Step/Task ID: Batch 10A
+- Task summary: UI/UX fit check and design direction lock before visual cleanup phase
+- What I changed:
+  - Read and audited all required source files: page.tsx, WorkspaceSelector.tsx, FilePanel.tsx, TutorConversation.tsx, MainLayout.tsx, ThemePicker.tsx, globals.css, all Batch 9 memory files, TUTOR_FILE_BEHAVIOR_MATRIX.md, DOCUMENT_UNDERSTANDING_LAYER.md
+  - Produced full UI structure map, problem list, feature placement table, data model implications, and batch plan
+  - Created `agent-memory/UI_UX_BATCH_10A_FIT_CHECK_AND_DESIGN_DIRECTION.md`
+  - Appended this sync entry
+- Files touched:
+  - `agent-memory/UI_UX_BATCH_10A_FIT_CHECK_AND_DESIGN_DIRECTION.md` (new)
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx tsc --noEmit` — ✅ passed
+  - `npx vitest run` — ✅ 75 files passed, 18 skipped; 947 tests passed, 121 skipped
+  - `npm run build` — ✅ passed
+  - `git diff --check` — ✅ passed
+  - `graphify update .` — ✅ 4602 nodes, 6288 edges, 306 communities
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): none (diagnostic only)
+  - Pushed: no
+- Handoff status:
+  - Current state: UI/UX design direction locked. Full fit check complete. Recommended Batch 10 sequence (10B–10H) documented.
+  - Next recommended step: Batch 10B — Sidebar information architecture + replace hover-reveal buttons with three-dot menu per conversation row (WorkspaceSelector.tsx only, no backend changes).
+  - Blockers/Risks: Session-file attachment model (primaryFileId) must be deferred until after visual cleanup. Sources redesign blocked on Document Understanding Layer Phase C. ThemePicker placement decision (full move to Settings vs. keep quick-toggle in sidebar) to be decided in 10F.
