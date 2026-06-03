@@ -1468,3 +1468,35 @@ Copy this block and fill all fields:
   - Current state: Batch 6D is validation-clean; normal tutor grounding now gets narrow, quality-filtered artifact hints for explicit section/page questions while leaving retrieval, inventory, UI, and Gemini runtime isolation intact.
   - Next recommended step: Batch 7 verification can now focus on broader smoke/golden coverage and whether user-visible source/page references should become part of the tutor response contract.
   - Blockers/Risks: artifact matching is intentionally narrow and heuristic, so future real PDFs may still expose cases that need one more focused match/filter rule.
+
+## 2026-06-03 03:17 (IDT) — Codex
+- Step/Task ID: Batch 7 — PDF reading runtime validation and stabilization audit
+- Task summary: Audit the full PDF reading / document-understanding runtime after Batches 1–6D, without changing code, and confirm whether the current layer is stable enough to proceed.
+- What I checked:
+  - Verified branch, clean working tree, and recent commit chain through Batch 6D.
+  - Ran Graphify queries for the runtime pipeline, post-chunking text-only understanding, conversational artifact-aware inventory, artifact-aware question grounding, Gemini provider callers, and quality-gate auto-run policy.
+  - Confirmed upload → extract → chunk → text-only understanding remains a best-effort lifecycle.
+  - Confirmed document-understanding failure does not fail chunking.
+  - Confirmed inventory uses artifacts when useful and otherwise falls back safely to chunk-based behavior.
+  - Confirmed inventory tone is conversational and weak snippets are suppressed.
+  - Confirmed normal tutor Q&A still works and artifact-aware grounding only augments the existing grounded second provider call for explicit page/section questions.
+  - Confirmed Gemini remains isolated with no runtime callers and that the quality gate still does not auto-run Gemini.
+  - Confirmed old files without artifacts remain safe via fallback behavior.
+  - Wrote `agent-memory/PDF_READING_BATCH_7_RUNTIME_VALIDATION_REPORT.md` and refreshed Graphify.
+- Files touched:
+  - `agent-memory/PDF_READING_BATCH_7_RUNTIME_VALIDATION_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — passed
+- Git status:
+  - Branch: `repair/artifact-aware-question-grounding`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: the PDF reading runtime layer is stable enough to proceed; text-only understanding, artifact-aware inventory, and artifact-aware question grounding all behave within their intended boundaries while Gemini stays isolated.
+  - Next recommended step: run the manual smoke checklist on a clean PDF, a noisy math-heavy PDF, and an older artifact-less file before deciding whether to expose deeper PDF recommendations more visibly.
+  - Blockers/Risks: matching and weak-text suppression remain heuristic and may still need one more small pass if a new real PDF exposes a different corruption pattern.
