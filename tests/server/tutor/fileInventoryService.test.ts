@@ -217,7 +217,7 @@ describe("formatFileInventoryResponse", () => {
       makeChunk(0, "שאלה 1\n0 0 1 2  a B I "),
     ]);
     const text = formatFileInventoryResponse(result);
-    expect(text).toMatch(/חלק מהנוסחאות.*לא חולצו מספיק טוב/);
+    expect(text).toMatch(/חלק מהנוסחאות לא יצאו ברורות/);
     expect(text).toMatch(/אני לא רוצה להציג אותן כאילו הן ודאיות/);
     expect(text).not.toMatch(/הקובץ זוהה והטקסט חולץ|מקטעים שזוהו חלקית/);
   });
@@ -373,11 +373,11 @@ describe("artifact-aware inventory", () => {
     });
 
     const text = formatArtifactAwareFileInventoryResponse(inventory!);
-    expect(text).toMatch(/חלק מהנוסחאות.*לא חולצו מספיק טוב/);
-    expect(text).toMatch(/אלה הדברים שאני מצליח להוציא ממנו בזהירות/);
+    expect(text).toMatch(/חלק מהנוסחאות לא יצאו ברורות/);
+    expect(text).toMatch(/הנה הסעיפים שמצאתי בקובץ/);
   });
 
-  it("includes deepPdfStatus recommendation wording without claiming Gemini already ran", () => {
+  it("recommended + partial: says deeper reading needed, no Gemini claim", () => {
     const inventory = buildArtifactAwareFileInventory({
       fileName: "f.pdf",
       extractionQuality: "partial",
@@ -387,7 +387,7 @@ describe("artifact-aware inventory", () => {
     });
 
     const text = formatArtifactAwareFileInventoryResponse(inventory!);
-    expect(text).toMatch(/אם יש שם נוסחה או תרשים|עדיף לבחור שאלה או סעיף מסוים/);
+    expect(text).toMatch(/קריאה עמוקה יותר|הטקסט שחולץ לא מספיק ברור/);
     expect(text).not.toMatch(/Gemini|נותח כבר|נותח באמצעות/);
   });
 
@@ -410,7 +410,7 @@ describe("artifact-aware inventory", () => {
 
     const text = formatArtifactAwareFileInventoryResponse(inventory!);
     expect(text).not.toContain("א ת השטף המגנטי");
-    expect(text).toMatch(/החילוץ לא מספיק נקי כדי להציג אותם כסיכום בטוח/);
+    expect(text).toMatch(/לא מספיק ברור כדי להציג אותם בבטחה/);
   });
 
   it("de-duplicates duplicate low-quality labels like 'מקטע ג׳'", () => {
@@ -462,7 +462,7 @@ describe("artifact-aware inventory", () => {
 
     const text = formatArtifactAwareFileInventoryResponse(inventory!);
     expect(text).not.toContain("פרמטרים,,, a b R I");
-    expect(text).toMatch(/החילוץ לא מספיק נקי כדי להציג אותם כסיכום בטוח/);
+    expect(text).toMatch(/לא מספיק ברור כדי להציג אותם בבטחה/);
   });
 
   it("keeps clean artifacts visible normally", () => {
@@ -484,5 +484,314 @@ describe("artifact-aware inventory", () => {
     const text = formatArtifactAwareFileInventoryResponse(inventory!);
     expect(text).toContain("חשב את השטף המגנטי דרך הלולאה");
     expect(text).not.toMatch(/איכות החילוץ לא מספיקה/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Batch 8E — Deep PDF state behavior tests
+// ---------------------------------------------------------------------------
+
+describe("formatArtifactAwareFileInventoryResponse — Deep PDF state behavior", () => {
+  const cleanQuestion = makeDetectedQuestion({
+    label: "שאלה 1",
+    summary: "חשב את כוח קולון.",
+    confidence: 0.9,
+  });
+  const cleanOutline = makeOutline();
+
+  // ── 1. recommended + weak/partial/poor extraction → hides list ───────────
+
+  it("recommended + partial: hides list, says deeper reading needed", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "recommended",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).toMatch(/קריאה עמוקה יותר|הטקסט שחולץ לא מספיק ברור/);
+    expect(text).not.toMatch(/\n1\. שאלה/); // no numbered list
+  });
+
+  it("recommended + poor: hides list, gives next action", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "poor",
+      deepPdfStatus: "recommended",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).toMatch(/קריאה עמוקה יותר/);
+    expect(text).toMatch(/תבחר שאלה|תדביק קטע|נעבוד עליו/);
+    expect(text).not.toMatch(/\n1\. שאלה/);
+  });
+
+  it("recommended + partial: no broken snippet list", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "recommended",
+      outline: cleanOutline,
+      detectedQuestions: [
+        makeDetectedQuestion({
+          label: "שאלה 1",
+          summary: "א ת השטף המגנטי",
+          confidence: 0.52,
+          extractionNotes: "spacing_corruption",
+        }),
+      ],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).not.toContain("א ת השטף המגנטי");
+    expect(text).not.toMatch(/\n1\. שאלה/);
+  });
+
+  it("recommended + partial: no parser/status wording", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "recommended",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).not.toMatch(/הקובץ זוהה והטקסט חולץ|אני עובד עם הטקסט שחולץ/);
+    expect(text).not.toMatch(/אלה הסעיפים שאני מצליח/);
+  });
+
+  it("recommended + partial: no claim that Gemini or advanced analysis ran", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "recommended",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).not.toMatch(/Gemini|נותח כבר|ניתוח עמוק הושלם/);
+  });
+
+  // ── 1b. recommended + genuinely clean artifacts → short list allowed ──────
+
+  it("recommended + clean/good: shows list with focus suggestion", () => {
+    const cleanGoodQuestion = makeDetectedQuestion({
+      label: "שאלה 1",
+      summary: "חשב את כוח קולון בין שתי מטענים.",
+      confidence: 0.95,
+    });
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "good",
+      deepPdfStatus: "recommended",
+      outline: cleanOutline,
+      detectedQuestions: [cleanGoodQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).toContain("שאלה 1");
+    expect(text).toMatch(/אם יש שם נוסחה או תרשים|עדיף לבחור שאלה או סעיף מסוים/);
+    expect(text).not.toMatch(/Gemini|נותח כבר/);
+  });
+
+  // ── 2. pending ────────────────────────────────────────────────────────────
+
+  it("pending: says deeper reading is in progress", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "pending",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).toMatch(/קורא את הקובץ לעומק/);
+  });
+
+  it("pending: offers paste/choose as next action", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "pending",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).toMatch(/תדביק|תכתוב איזה שאלה|נעבוד עליה בינתיים/);
+  });
+
+  it("pending: does not show weak snippet list", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "pending",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    // Should NOT show artifact list items when pending
+    expect(text).not.toMatch(/\n1\. שאלה/);
+  });
+
+  it("pending: no parser/status wording", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "pending",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).not.toMatch(/הקובץ זוהה והטקסט חולץ|אני עובד עם הטקסט שחולץ/);
+    expect(text).not.toMatch(/אלה הסעיפים שאני מצליח/);
+  });
+
+  // ── 3. completed ──────────────────────────────────────────────────────────
+
+  it("completed: shows list with confident intro (no cautious extraction phrasing)", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "completed",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).toMatch(/עברתי על הקובץ ואלה הנושאים שמצאתי/);
+  });
+
+  it("completed: no extraction weakness warning shown", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "completed",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).not.toMatch(/לא יצאו ברורות|חלק מהנוסחאות/);
+  });
+
+  it("completed: still shows artifact content", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "completed",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).toContain("שאלה 1");
+  });
+
+  it("completed: does not claim false formula certainty", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "completed",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    // Should not claim visual analysis
+    expect(text).not.toMatch(/ניתוח חזותי|ראיתי את הגרף|הסתכלתי על התמונה/);
+  });
+
+  // ── 4. failed ─────────────────────────────────────────────────────────────
+
+  it("failed: says deeper reading did not complete", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "failed",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).toMatch(/הקריאה העמוקה.*לא הושלמה/);
+  });
+
+  it("failed: offers honest fallback next step", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "failed",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).toMatch(/תשלח את הסעיף|תבחר שאלה|נוכל לעבוד/);
+  });
+
+  it("failed: no technical error dump", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "failed",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).not.toMatch(/error|exception|stack|orchestration_error|bytes_load/);
+    expect(text).not.toMatch(/Gemini|provider/);
+  });
+
+  it("failed: does not show fake summary from weak snippets", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "partial",
+      deepPdfStatus: "failed",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    // No numbered list of items
+    expect(text).not.toMatch(/\n1\. שאלה/);
+  });
+
+  // ── 5. regression: clean text-only still works ────────────────────────────
+
+  it("clean text-only (not_started): shows normal list without state warnings", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "good",
+      deepPdfStatus: "not_started",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).toContain("שאלה 1");
+    expect(text).not.toMatch(/קריאה העמוקה|קורא לעומק/);
+  });
+
+  it("no-status file (undefined): shows normal list without crashing", () => {
+    const inv = buildArtifactAwareFileInventory({
+      fileName: "f.pdf",
+      extractionQuality: "good",
+      outline: cleanOutline,
+      detectedQuestions: [cleanQuestion],
+    });
+    const text = formatArtifactAwareFileInventoryResponse(inv!);
+
+    expect(text).toContain("שאלה 1");
   });
 });

@@ -1055,10 +1055,9 @@ async function maybeBuildArtifactAwareGroundingInstruction(
       );
     }
 
-    if (notes.length > 0 && file.deepPdfStatus === "recommended") {
-      notes.push(
-        "Advanced document understanding may be needed for formulas or diagrams in this file. Do not claim that such analysis already ran."
-      );
+    const deepPdfGroundingNote = buildDeepPdfGroundingNote(file.deepPdfStatus);
+    if (deepPdfGroundingNote) {
+      notes.push(deepPdfGroundingNote);
     }
   }
 
@@ -1067,6 +1066,22 @@ async function maybeBuildArtifactAwareGroundingInstruction(
   }
 
   return notes.join(" ");
+}
+
+function buildDeepPdfGroundingNote(deepPdfStatus: unknown): string | null {
+  if (deepPdfStatus === "completed") {
+    return "Advanced document understanding completed for this file. You may express moderate confidence about document structure and section layout, but still ground factual claims in the retrieved chunk text.";
+  }
+  if (deepPdfStatus === "pending") {
+    return "Advanced document understanding is currently in progress for this file. Keep your response tentative — do not claim deep analysis has completed.";
+  }
+  if (deepPdfStatus === "failed") {
+    return "Advanced document understanding failed for this file. Do not claim the file was deeply analysed. Keep responses based only on retrieved chunk text and be honest about limitations.";
+  }
+  if (deepPdfStatus === "recommended") {
+    return "Advanced document understanding may be needed for formulas or diagrams in this file. Do not claim that such analysis already ran.";
+  }
+  return null;
 }
 
 function extractRequestedPages(message: string): number[] {

@@ -134,11 +134,46 @@ function buildInventoryIntro(...parts: Array<string | undefined>): string[] {
 }
 
 function buildWeakExtractionWarning(): string {
-  return "חלק מהנוסחאות לא חולצו מספיק טוב, אז אני לא רוצה להציג אותן כאילו הן ודאיות.";
+  return "חלק מהנוסחאות לא יצאו ברורות, אז אני לא רוצה להציג אותן כאילו הן ודאיות.";
 }
 
 function buildPracticalNextStep(): string {
-  return "הכי טוב לבחור סעיף/שאלה מסוימים ונעבוד עליהם בזהירות.";
+  return "הכי טוב לבחור סעיף/שאלה מסוימים ונעבוד עליהם.";
+}
+
+function buildDeepPdfPendingMessage(): string {
+  return "אני עדיין קורא את הקובץ לעומק. אם אתה רוצה להתקדם מיד, תדביק כאן את הסעיף או תכתוב איזה שאלה, ונעבוד עליה בינתיים.";
+}
+
+function buildDeepPdfFailedMessage(): string {
+  return "הקריאה העמוקה של הקובץ לא הושלמה, אז אני לא רוצה להמציא סיכום לא אמין. אם תשלח את הסעיף או תבחר שאלה, נוכל לעבוד עליה ישירות.";
+}
+
+function buildDeepPdfRecommendedWeakMessage(): string {
+  return [
+    "נראה שזה קובץ שמצריך קריאה עמוקה יותר לפני שאפשר לסכם אותו בביטחון — הטקסט שחולץ לא מספיק ברור לסיכום הנוסחאות והסעיפים.",
+    "אם אתה רוצה להתקדם מיד, תבחר שאלה מסוימת או תדביק קטע — ונעבוד עליו ישירות.",
+  ].join("\n");
+}
+
+function canShowListForRecommended(result: ArtifactAwareFileInventoryResult): boolean {
+  // Only allow the list when artifacts are genuinely clean and complete.
+  // Weak, partial, or absent extraction → hide the list entirely.
+  if (result.items.length === 0) return false;
+  if (result.extractionQuality !== "good") return false;
+  if (result.isPartial) return false;
+  if (result.items.some((item) => item.isPartial)) return false;
+  return true;
+}
+
+function buildListIntroLine(deepPdfStatus?: DeepPdfStatus, isPartial?: boolean): string {
+  if (deepPdfStatus === "completed") {
+    return "עברתי על הקובץ ואלה הנושאים שמצאתי:";
+  }
+  if (isPartial) {
+    return "הנה הסעיפים שמצאתי בקובץ — הצגתי רק את הברורים שביניהם:";
+  }
+  return "אלה הנושאים שמצאתי בקובץ:";
 }
 
 function parseSectionHeading(heading: string): { label: string; detail?: string } {
@@ -618,6 +653,22 @@ export function formatArtifactAwareFileInventoryResponse(
     result.outlineTitle,
     ...result.items.flatMap((item) => [item.label, item.detail])
   );
+
+  // State-specific early exits: pending and failed always override the list.
+  if (result.deepPdfStatus === "pending") {
+    return [...intro, "", buildDeepPdfPendingMessage()].join("\n");
+  }
+
+  if (result.deepPdfStatus === "failed") {
+    return [...intro, "", buildDeepPdfFailedMessage()].join("\n");
+  }
+
+  // Recommended + weak/partial extraction → hide list, show natural message.
+  // Only allow a list when artifacts are genuinely clean (good quality, no partial items).
+  if (result.deepPdfStatus === "recommended" && !canShowListForRecommended(result)) {
+    return [...intro, "", buildDeepPdfRecommendedWeakMessage()].join("\n");
+  }
+
   const extractionWarning = buildWeakExtractionWarning();
   const carefulFocusSuggestion =
     "אם יש שם נוסחה או תרשים שחשובים לך במיוחד, עדיף לבחור שאלה או סעיף מסוים ונתמקד רק בהם.";
@@ -625,7 +676,7 @@ export function formatArtifactAwareFileInventoryResponse(
   const facts = [
     result.outlineTitle ? `הכיוון הכללי שנראה מהקובץ: ${result.outlineTitle}.` : undefined,
     typeof result.detectedQuestionCount === "number" && result.detectedQuestionCount > 0
-      ? `אני מצליח לזהות בו בערך ${result.detectedQuestionCount} שאלות/סעיפים.`
+      ? `יש בו בערך ${result.detectedQuestionCount} שאלות/סעיפים.`
       : undefined,
   ].filter(Boolean) as string[];
 
@@ -635,7 +686,8 @@ export function formatArtifactAwareFileInventoryResponse(
   });
 
   const hasExtractionWarning =
-    result.extractionQuality === "partial" || result.extractionQuality === "poor";
+    result.deepPdfStatus !== "completed" &&
+    (result.extractionQuality === "partial" || result.extractionQuality === "poor");
 
   if (result.items.length === 0) {
     return [
@@ -644,14 +696,13 @@ export function formatArtifactAwareFileInventoryResponse(
       ...facts,
       ...(facts.length > 0 ? [""] : []),
       ...(hasExtractionWarning ? [extractionWarning, ""] : []),
-      ...(result.deepPdfStatus === "recommended" ? [carefulFocusSuggestion, ""] : []),
       ...(result.weakArtifactsSuppressed
         ? [
-            "אני כן רואה שיש שם שאלות או סעיפים, אבל החילוץ לא מספיק נקי כדי להציג אותם כסיכום בטוח.",
+            "יש שם שאלות או סעיפים, אבל הטקסט שלהם לא מספיק ברור כדי להציג אותם בבטחה.",
             buildPracticalNextStep(),
           ]
         : [
-            "כרגע אין לי ממנו רשימה מספיק נקייה של שאלות או סעיפים.",
+            "אין לי עדיין רשימה ברורה של שאלות או סעיפים.",
             "אם תרצה, אפשר לבחור שאלה, עמוד או ציטוט קצר ונעבוד משם.",
           ]),
     ].join("\n");
@@ -663,8 +714,9 @@ export function formatArtifactAwareFileInventoryResponse(
     ...facts,
     ...(facts.length > 0 ? [""] : []),
     ...(hasExtractionWarning ? [extractionWarning, ""] : []),
+    // recommended + clean artifacts: show focus suggestion before the list
     ...(result.deepPdfStatus === "recommended" ? [carefulFocusSuggestion, ""] : []),
-    result.isPartial ? "אלה הדברים שאני מצליח להוציא ממנו בזהירות:" : "אלה הדברים שאני מצליח לראות ממנו כרגע:",
+    buildListIntroLine(result.deepPdfStatus, result.isPartial),
     "",
     ...listLines,
     "",
@@ -713,7 +765,7 @@ export function formatFileInventoryResponse(result: FileInventoryResult): string
     ...intro,
     ...(hasLowQualityMathPreview ? ["", extractionQualityWarning] : []),
     "",
-    hasLowQualityMathPreview ? "אלה הסעיפים שאני מצליח לקרוא ממנו בזהירות:" : "אלה הסעיפים שאני מצליח לראות ממנו כרגע:",
+    hasLowQualityMathPreview ? "הנה הסעיפים שמצאתי — חלק מהניסוחים עשוי להיות פחות מדויק:" : "אלה הנושאים שמצאתי בקובץ:",
     "",
     ...listLines,
     "",

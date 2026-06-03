@@ -1457,7 +1457,7 @@ describeService("sessionMessageApiService", () => {
       expect(assistant.content).not.toMatch(/אין לי גישה ישירה/i);
       expect(assistant.content).not.toContain("0 0 1 2  a B I ");
       expect(assistant.content).toMatch(/כן, אני רואה|נראה שזה קובץ/);
-      expect(assistant.content).toMatch(/חלק מהנוסחאות.*לא חולצו מספיק טוב/);
+      expect(assistant.content).toMatch(/חלק מהנוסחאות לא יצאו ברורות/);
       expect(assistant.content).toMatch(/אני לא רוצה להציג אותן כאילו הן ודאיות/);
       expect(assistant.content).not.toContain("תצוגת הנוסחה/הסימון הושמטה");
       expect(assistant.content).not.toMatch(/הקובץ זוהה והטקסט חולץ|מקטעים שזוהו חלקית|אני עובד עם הטקסט שחולץ/);
@@ -1516,7 +1516,7 @@ describeService("sessionMessageApiService", () => {
       });
 
       const assistant = result.assistantMessage as { content?: string };
-      expect(assistant.content).toMatch(/חלק מהנוסחאות.*לא חולצו מספיק טוב/);
+      expect(assistant.content).toMatch(/חלק מהנוסחאות לא יצאו ברורות/);
       expect(assistant.content).not.toMatch(/נוסחה תקינה|אני רואה את ה-PDF|Gemini|אני עובד עם הטקסט שחולץ/);
     });
 
@@ -1570,7 +1570,8 @@ describeService("sessionMessageApiService", () => {
       });
 
       const assistant = result.assistantMessage as { content?: string };
-      expect(assistant.content).toMatch(/כדאי לבחור|הכי טוב לבחור|עדיף לבחור/);
+      // recommended + partial → hides list, says deeper reading needed
+      expect(assistant.content).toMatch(/קריאה עמוקה יותר|הטקסט שחולץ לא מספיק ברור|תבחר שאלה|תדביק קטע/);
       expect(assistant.content).not.toMatch(/Gemini|נותח כבר|נותח באמצעות/);
     });
 
@@ -1644,7 +1645,7 @@ describeService("sessionMessageApiService", () => {
       expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
       expect(repos.listFileChunks).not.toHaveBeenCalled();
       const assistant = result.assistantMessage as { content?: string };
-      expect(assistant.content).toMatch(/חלק מהנוסחאות.*לא חולצו מספיק טוב|אני לא רוצה להציג/);
+      expect(assistant.content).toMatch(/חלק מהנוסחאות לא יצאו ברורות|אני לא רוצה להציג/);
       expect(assistant.content).not.toContain("א ת השטף המגנטי");
       expect(assistant.content).not.toContain("פרמטרים,,, a b R I");
       expect(assistant.content?.match(/מקטע ג׳/g)?.length ?? 0).toBeLessThanOrEqual(1);

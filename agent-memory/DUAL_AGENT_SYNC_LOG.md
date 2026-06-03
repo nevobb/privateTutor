@@ -1775,3 +1775,61 @@ Copy this block and fill all fields:
   - Full costMode path now wired end-to-end: page.tsx → client → route → service → cache policy
   - Remaining gap: runFileProcessingPipeline stale closure (low risk, future cleanup)
   - Batch 8E scope: tutor inventory/Q&A routing for deepPdfStatus states; wording for pending/completed; on-demand trigger for old files with session costMode
+
+---
+
+## Entry: Batch 8E — Tutor Deep PDF State Behavior
+
+- Agent: Claude
+- Date: 2026-06-03
+- Branch: `repair/deep-pdf-tutor-state-behavior`
+- Task summary: Update tutor inventory responses and model grounding instructions for all four Deep PDF states (recommended/pending/completed/failed). Replace parser/status wording with natural Hebrew tutor voice.
+- What I changed:
+  - `src/server/tutor/fileInventoryService.ts`:
+    - Added helpers: `buildDeepPdfPendingMessage()`, `buildDeepPdfFailedMessage()`, `buildListIntroLine(deepPdfStatus?, isPartial?)`
+    - `formatArtifactAwareFileInventoryResponse`: added early exits for `pending` and `failed`; completed uses confident intro; extraction warning suppressed when completed
+    - `buildWeakExtractionWarning()`: "לא חולצו מספיק טוב" → "לא יצאו ברורות"
+    - `buildPracticalNextStep()`: removed trailing "בזהירות"
+    - `formatFileInventoryResponse`: replaced "אלה הסעיפים שאני מצליח לקרוא" and "אני מצליח לראות" with natural phrasing
+  - `src/server/workspaces/sessionMessageApiService.ts`:
+    - Added `buildDeepPdfGroundingNote(deepPdfStatus)` function covering all 4 states
+    - Replaced single `recommended`-only note with full state-aware note
+  - `tests/server/tutor/fileInventoryService.test.ts`: 18 new tests for all 4 states + regression; 3 existing tests updated for new phrasing
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`: 3 existing tests updated for new extraction warning phrase
+- Key design:
+  - `pending` and `failed` → early exit (no snippet list)
+  - `completed` → suppressed extraction warning, confident list intro
+  - `recommended` → focus suggestion shown, list still visible, warning shown
+  - All states → model receives appropriate grounding calibration note
+- Forbidden phrases replaced: "לא חולצו מספיק טוב", "אני מצליח לראות ממנו", "אני מצליח לקרוא ממנו בזהירות", "אני מצליח להוציא ממנו בזהירות"
+- Validation:
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed (67 files, 830 tests)
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — passed (4288 nodes, 5887 edges)
+- Handoff status:
+  - Ready for final smoke: YES
+  - Remaining: browser smoke test with real PDF upload to verify end-to-end behavior across all states
+
+---
+
+## Entry: Batch 8E (tightened) — recommended state quality gate
+
+- Agent: Claude
+- Date: 2026-06-03
+- Branch: `repair/deep-pdf-tutor-state-behavior`
+- Task summary: Tightened recommended state — partial/poor extraction now hides the list entirely; only genuinely clean artifacts (good quality, no partial items) may show a short list.
+- What I changed:
+  - `src/server/tutor/fileInventoryService.ts`:
+    - Added `buildDeepPdfRecommendedWeakMessage()` — natural Hebrew message for weak recommended state
+    - Added `canShowListForRecommended(result)` — quality gate: returns true only when extractionQuality=good AND isPartial=false AND no partial items
+    - `formatArtifactAwareFileInventoryResponse`: added early exit for `recommended + !canShowListForRecommended` → shows weak message, no list
+  - `tests/server/tutor/fileInventoryService.test.ts`:
+    - Replaced 4 recommended tests with 7 (6 for weak case, 1 for clean case)
+    - Updated 1 pre-existing test that used partial quality
+    - Total now 53 tests
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`:
+    - Updated 1 test that expected focus suggestion with partial quality (now expects weak message)
+- Key quality gate: `canShowListForRecommended` blocks list when: items=0, OR extractionQuality≠good, OR isPartial=true, OR any item.isPartial=true
+- Validation: 67 files, 832 tests passed
