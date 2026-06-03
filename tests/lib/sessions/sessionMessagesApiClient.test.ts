@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const CLIENT_FILE = resolve(process.cwd(), "src/lib/sessions/sessionMessagesApiClient.ts");
@@ -120,5 +120,18 @@ describeClient("sessionMessagesApiClient", () => {
 
   it("throws SessionMessagesApiError(401) when token is empty", async () => {
     await expect(mod.fetchSessionMessages("", "ws", "sess")).rejects.toMatchObject({ status: 401 });
+  });
+});
+
+// Timeout budget assertion — kept outside describeClient so it always runs,
+// even if the module file does not exist yet (guards against accidental regression).
+describe("sessionMessagesApiClient — timeout budget", () => {
+  it("REQUEST_TIMEOUT_MS is at least 25000 to cover grounded two-LLM-call pipeline", () => {
+    if (!hasClientFile) return;
+    const source = readFileSync(CLIENT_FILE, "utf-8");
+    const match = /const REQUEST_TIMEOUT_MS\s*=\s*(\d+)/.exec(source);
+    expect(match, "REQUEST_TIMEOUT_MS constant must be defined in the source file").not.toBeNull();
+    const value = Number(match![1]);
+    expect(value).toBeGreaterThanOrEqual(25000);
   });
 });

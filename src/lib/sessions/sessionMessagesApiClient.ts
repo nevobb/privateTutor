@@ -1,7 +1,7 @@
 import type { TutorMessage } from "../../types";
 import type { FetchMessagesApiResponse, SendMessageApiResponse, SendMessageInput } from "./sessionMessagesApiTypes";
 
-const REQUEST_TIMEOUT_MS = 8000;
+const REQUEST_TIMEOUT_MS = 25000;
 
 export class SessionMessagesApiError extends Error {
   constructor(

@@ -1853,3 +1853,17 @@ Copy this block and fill all fields:
 - Robust fix: async job model — POST returns immediately, client polls for assistant message
 - Created: agent-memory/SESSION_MESSAGE_TIMEOUT_LATE_RESPONSE_DIAGNOSTIC.md
 - Ready for repair: YES
+
+---
+
+## Entry: Session Message Timeout Repair
+
+- Agent: Claude
+- Date: 2026-06-03
+- Branch: `repair/deep-pdf-tutor-state-behavior`
+- Task summary: Increased client session message timeout from 8s to 25s. One-line fix + one new test.
+- What I changed:
+  - `src/lib/sessions/sessionMessagesApiClient.ts`: REQUEST_TIMEOUT_MS 8000 → 25000
+  - `tests/lib/sessions/sessionMessagesApiClient.test.ts`: added source-file assertion that timeout ≥ 25000; added readFileSync import
+- Validation: 67 files, 833 tests passed, build clean
+- Deferred: async job model, idempotency key, per-request timeout scaling
