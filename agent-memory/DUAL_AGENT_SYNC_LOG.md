@@ -2456,3 +2456,56 @@ Copy this block and fill all fields:
   - Current state: the safest MVP is message-level `attachedFileIds` plus derived active conversation file context from the latest attachment-bearing user message
   - Next recommended step: C1 data model/schema for message attachments only, then staged composer UX and retrieval prioritization
   - Blockers/Risks: upload-with-message cannot be faked at UI level; it requires real message persistence and retrieval prioritization while preserving workspace-wide upload and soft-delete boundaries
+
+## 2026-06-03 20:08 (Asia/Jerusalem) — Codex
+- Step/Task ID: Product Batch C1 — Message attachment data model and schema
+- Task summary: Add minimal safe support for message-level file attachment IDs without changing UI flow, retrieval priority, Deep PDF, or session-level file context.
+- What I changed:
+  - Added optional `attachedFileIds` to the shared tutor message type, session message request types, schema parsing, and message persistence.
+  - Normalized request attachments by trimming, de-duplicating, and rejecting invalid/non-string/empty/too-many IDs.
+  - Added pre-append attachment validation in `sessionMessageApiService` using `getUploadedFile(...)` so foreign, deleted, missing, or wrong-workspace files are rejected before any message append or tutor/model call.
+  - Added `400` route handling for attachment validation failures.
+  - Created `agent-memory/CONVERSATION_FILE_ATTACHMENT_C1_DATA_MODEL_REPORT.md`.
+- Files touched:
+  - `src/types/index.ts`
+  - `src/lib/sessions/sessionMessagesApiClient.ts`
+  - `src/lib/sessions/sessionMessagesApiTypes.ts`
+  - `src/server/workspaces/workspaceTypes.ts`
+  - `src/server/workspaces/sessionMessageApiSchemas.ts`
+  - `src/server/workspaces/messageRepository.ts`
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `src/app/api/sessions/[sessionId]/messages/route.ts`
+  - `tests/lib/sessions/sessionMessagesApiClient.test.ts`
+  - `tests/server/workspaces/sessionMessageApiSchemas.test.ts`
+  - `tests/server/workspaces/messageRepository.test.ts`
+  - `tests/server/workspaces/sessionMessageApiRoute.test.ts`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `tests/firebase/workspacePersistence.emulator.test.ts`
+  - `agent-memory/CONVERSATION_FILE_ATTACHMENT_C1_DATA_MODEL_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git branch --show-current`
+  - `git status --short`
+  - `git diff --name-only`
+  - required brain-file reads
+  - `graphify query "message repository message record user message"`
+  - `graphify query "sessionMessagesApiTypes sendSessionMessage request"`
+  - `graphify query "sessionMessageApiSchemas userMessage workMode costMode"`
+  - `graphify query "sessionMessageApiService append user message"`
+  - `graphify query "uploadedFileRepository getUploadedFile isDeleted"`
+  - `graphify query "message attachments file ids"`
+  - `npx vitest run tests/server/workspaces/sessionMessageApiSchemas.test.ts tests/lib/sessions/sessionMessagesApiClient.test.ts tests/server/workspaces/messageRepository.test.ts tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `npx vitest run tests/server/workspaces/sessionMessageApiSchemas.test.ts tests/lib/sessions/sessionMessagesApiClient.test.ts tests/server/workspaces/messageRepository.test.ts tests/server/workspaces/sessionMessageApiService.test.ts tests/server/workspaces/sessionMessageApiRoute.test.ts`
+  - `npx tsc --noEmit`
+  - `npx vitest run`
+  - `npm run build`
+  - `git diff --check`
+  - `graphify update .`
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: user messages can now safely reference uploaded file IDs, and invalid file references are blocked before persistence or tutor execution
+  - Next recommended step: C2 staged composer attachments and send-time upload flow
+  - Blockers/Risks: retrieval and tutor wording still ignore attachment context until later batches by design
