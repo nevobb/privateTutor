@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import type { WorkspaceListItem } from "../../lib/workspaces/workspaceApiTypes";
 import type { SessionApiSession } from "../../lib/sessions/sessionApiTypes";
 
@@ -53,6 +53,21 @@ export default function WorkspaceSelector({
   const [renameError, setRenameError] = useState<string | null>(null);
   const [confirmDeleteSessionId, setConfirmDeleteSessionId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [openMenuSessionId, setOpenMenuSessionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!openMenuSessionId) return;
+    const handleMouseDown = () => setOpenMenuSessionId(null);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenMenuSessionId(null);
+    };
+    document.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openMenuSessionId]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +85,8 @@ export default function WorkspaceSelector({
       setCreatingWorkspace(false);
     }
   };
+
+  const hasMenuActions = Boolean(onRenameSession || onDeleteSession);
 
   return (
     <div className="flex flex-col py-2" dir="ltr">
@@ -178,6 +195,8 @@ export default function WorkspaceSelector({
                     const isActive = selectedSessionId === session.id;
                     const label = session.title?.trim() || `Conversation ${index + 1}`;
                     const isRenaming = renamingSessionId === session.id;
+                    const isConfirmingDelete = confirmDeleteSessionId === session.id;
+                    const isMenuOpen = openMenuSessionId === session.id;
 
                     if (isRenaming) {
                       return (
@@ -236,7 +255,7 @@ export default function WorkspaceSelector({
                       );
                     }
 
-                    if (confirmDeleteSessionId === session.id) {
+                    if (isConfirmingDelete) {
                       return (
                         <li key={session.id} className="px-1 py-1 space-y-1">
                           <p className="text-[10px] truncate" style={{ color: "var(--tutor-sidebar-text)" }}>
@@ -277,46 +296,68 @@ export default function WorkspaceSelector({
                     }
 
                     return (
-                      <li key={session.id} className="group flex items-center gap-0.5">
+                      <li key={session.id} className="group relative flex items-center">
                         <NavItem
                           label={label}
                           active={isActive}
                           small
                           onClick={() => onSessionSelect(session.id)}
                         />
-                        <span className="flex-shrink-0 opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity">
-                          {onRenameSession && (
+                        {hasMenuActions && (
+                          <div className="flex-shrink-0 relative pr-1">
                             <button
                               type="button"
-                              title="Rename conversation"
-                              aria-label={`Rename conversation: ${label}`}
-                              onClick={() => {
-                                setRenamingSessionId(session.id);
-                                setRenameValue(label);
-                                setRenameError(null);
-                              }}
-                              className="p-1 rounded"
+                              aria-label={`Conversation options: ${label}`}
+                              aria-expanded={isMenuOpen}
+                              aria-haspopup="true"
+                              data-testid="conversation-menu-trigger"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={() =>
+                                setOpenMenuSessionId(isMenuOpen ? null : session.id)
+                              }
+                              className={`w-6 h-6 flex items-center justify-center rounded transition-opacity ${
+                                isMenuOpen
+                                  ? "opacity-100"
+                                  : "opacity-0 group-hover:opacity-100"
+                              }`}
                               style={{ color: "var(--tutor-sidebar-text-muted)" }}
-                            >
-                              <span aria-hidden="true" style={{ fontSize: "10px" }}>✎</span>
-                            </button>
-                          )}
-                          {onDeleteSession && (
-                            <button
-                              type="button"
-                              title="Delete conversation"
-                              aria-label={`Delete conversation: ${label}`}
-                              onClick={() => {
-                                setConfirmDeleteSessionId(session.id);
-                                setDeleteError(null);
+                              onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLButtonElement).style.background =
+                                  "var(--tutor-sidebar-hover)";
                               }}
-                              className="p-1 rounded"
-                              style={{ color: "var(--tutor-sidebar-text-muted)" }}
+                              onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLButtonElement).style.background =
+                                  "transparent";
+                              }}
                             >
-                              <span aria-hidden="true" style={{ fontSize: "10px" }}>✕</span>
+                              <ThreeDots />
                             </button>
-                          )}
-                        </span>
+                            {isMenuOpen && (
+                              <ConversationMenu
+                                label={label}
+                                onRename={
+                                  onRenameSession
+                                    ? () => {
+                                        setOpenMenuSessionId(null);
+                                        setRenamingSessionId(session.id);
+                                        setRenameValue(label);
+                                        setRenameError(null);
+                                      }
+                                    : undefined
+                                }
+                                onDelete={
+                                  onDeleteSession
+                                    ? () => {
+                                        setOpenMenuSessionId(null);
+                                        setConfirmDeleteSessionId(session.id);
+                                        setDeleteError(null);
+                                      }
+                                    : undefined
+                                }
+                              />
+                            )}
+                          </div>
+                        )}
                       </li>
                     );
                   })}
@@ -343,6 +384,125 @@ export default function WorkspaceSelector({
     </div>
   );
 }
+
+/* ── Three-dot icon ── */
+
+function ThreeDots() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <circle cx="2" cy="6" r="1.2" />
+      <circle cx="6" cy="6" r="1.2" />
+      <circle cx="10" cy="6" r="1.2" />
+    </svg>
+  );
+}
+
+/* ── Conversation dropdown menu ── */
+
+interface ConversationMenuProps {
+  label: string;
+  onRename?: () => void;
+  onDelete?: () => void;
+}
+
+export function ConversationMenu({ onRename, onDelete }: ConversationMenuProps) {
+  return (
+    <div
+      role="menu"
+      aria-label="Conversation options"
+      data-testid="conversation-menu"
+      onMouseDown={(e) => e.stopPropagation()}
+      className="absolute right-0 top-full mt-0.5 z-50 min-w-[120px] rounded-lg overflow-hidden"
+      style={{
+        background: "var(--tutor-surface)",
+        border: "1px solid var(--tutor-border-subtle)",
+        boxShadow: "var(--tutor-shadow)",
+      }}
+    >
+      {onRename && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={onRename}
+          className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs transition-colors"
+          style={{ color: "var(--tutor-sidebar-text)" }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background =
+              "var(--tutor-sidebar-hover)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+          }}
+        >
+          <RenameIcon />
+          <span>Rename</span>
+        </button>
+      )}
+      {onDelete && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={onDelete}
+          className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs transition-colors"
+          style={{ color: "#c0392b" }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "rgba(192,57,43,0.08)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+          }}
+        >
+          <DeleteIcon />
+          <span>Delete</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function RenameIcon() {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 11 11"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M7.5 1.5l2 2-6 6H1.5v-2l6-6z" />
+    </svg>
+  );
+}
+
+function DeleteIcon() {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 11 11"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M1.5 3h8M4 3V2h3v1M2.5 3l.5 6.5h5l.5-6.5" />
+    </svg>
+  );
+}
+
+/* ── NavItem ── */
 
 function NavItem({
   label,
@@ -383,6 +543,8 @@ function NavItem({
     </button>
   );
 }
+
+/* ── NewAction ── */
 
 function NewAction({
   label,

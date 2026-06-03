@@ -2025,3 +2025,34 @@ Copy this block and fill all fields:
   - Current state: UI/UX design direction locked. Full fit check complete. Recommended Batch 10 sequence (10B–10H) documented.
   - Next recommended step: Batch 10B — Sidebar information architecture + replace hover-reveal buttons with three-dot menu per conversation row (WorkspaceSelector.tsx only, no backend changes).
   - Blockers/Risks: Session-file attachment model (primaryFileId) must be deferred until after visual cleanup. Sources redesign blocked on Document Understanding Layer Phase C. ThemePicker placement decision (full move to Settings vs. keep quick-toggle in sidebar) to be decided in 10F.
+
+## 2026-06-03 13:48 (Asia/Jerusalem) — Claude
+- Step/Task ID: Batch 10B
+- Task summary: Replace hover-reveal ✎/✕ buttons with three-dot menu per conversation row in sidebar
+- What I changed:
+  - Replaced hover-reveal rename/delete button pair on conversation rows with a single three-dot (⋯) button and a compact `ConversationMenu` dropdown
+  - Added `openMenuSessionId` state + `useEffect` close-on-outside-click/Escape behavior
+  - `ConversationMenu` exported as named export; has `role="menu"`, menu items have `role="menuitem"`
+  - Three-dot button: `aria-haspopup`, `aria-expanded`, `aria-label` with session title
+  - All existing rename/delete flows (inline form, Hebrew confirmation) unchanged — only the trigger UI changed
+  - `NavItem`, `NewAction`, page.tsx: not touched
+  - Added 21 new tests in `tests/components/workspaces/WorkspaceSelector.test.tsx`
+- Files touched:
+  - `src/components/workspaces/WorkspaceSelector.tsx`
+  - `tests/components/workspaces/WorkspaceSelector.test.tsx` (new)
+  - `agent-memory/UI_UX_BATCH_10B_SIDEBAR_THREE_DOT_MENU_REPORT.md` (new)
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx tsc --noEmit` — ✅ passed
+  - `npx vitest run` — ✅ 76 files passed, 18 skipped; 968 tests passed (+21 new), 121 skipped
+  - `npm run build` — ✅ passed
+  - `git diff --check` — ✅ passed
+  - `graphify update .` — ✅ 4663 nodes, 6352 edges, 314 communities
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): none (not committed yet)
+  - Pushed: no
+- Handoff status:
+  - Current state: Batch 10B complete. Sidebar conversation rows now use three-dot menu for Rename/Delete. All existing API behavior and flows unchanged.
+  - Next recommended step: Batch 10C — composer plus menu (+ button in input bar), move Work/Cost Mode selectors out of always-visible toolbar, wire file upload from composer.
+  - Blockers/Risks: Dropdown may clip vertically when session row is at the bottom of scroll area (position:absolute in overflow-y:auto container). Acceptable for MVP. Mobile hover behavior deferred. Full WAI-ARIA menu keyboard navigation (arrow keys) deferred.
