@@ -2509,3 +2509,39 @@ Copy this block and fill all fields:
   - Current state: user messages can now safely reference uploaded file IDs, and invalid file references are blocked before persistence or tutor execution
   - Next recommended step: C2 staged composer attachments and send-time upload flow
   - Blockers/Risks: retrieval and tutor wording still ignore attachment context until later batches by design
+
+## 2026-06-03 — Codex — C5B/C5C Working Tree Consolidation + Type-Clean Readiness Repair
+
+- Scope:
+  - Consolidated the partial ready-course-file context flow already present in the dirty tree
+  - Fixed the failing Vitest mock typing that blocked `npx tsc --noEmit`
+  - Normalized `agent-memory/PROJECT_STATE_CURRENT.md` from the existing dated state snapshot
+- Files touched in this batch:
+  - `src/components/tutor/TutorConversation.tsx`
+  - `src/components/files/FilePanel.tsx`
+  - `tests/components/tutor/TutorConversation.test.tsx`
+  - `tests/components/files/FilePanel.test.tsx`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `agent-memory/PROJECT_STATE_CURRENT.md`
+  - `agent-memory/C5B_C5C_CONTEXT_PICKER_CONSOLIDATION_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Key outcomes:
+  - Selected course files now remain active context after successful send and after timeout recovery
+  - Plus-menu upload is now clearly labeled as Study Materials upload (`העלה חומר לקורס`)
+  - Ready-file action label is now Hebrew-first (`בחר חומר מהקורס`)
+  - No upload occurs during send when using selected existing course files
+  - TypeScript is clean again
+- Validation run:
+  - `npx tsc --noEmit`
+  - `npx vitest run tests/components/files/FilePanel.test.tsx tests/components/tutor/TutorConversation.test.tsx tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `npx vitest run`
+  - `npm run build`
+  - `git diff --check`
+  - `graphify update .`
+- Git / release status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit: none
+  - Push: no
+- Handoff:
+  - Ready for Nevo manual smoke on the selected course-file context flow
+  - Remaining caution: the working tree still contains unrelated pre-existing dirty files outside this repair scope

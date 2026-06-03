@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { UploadedFile } from "../../types";
 import { ActionMenu, ActionMenuItem, IconButton, StatusPill } from "../ui/TutorUI";
+import { StagedAttachment } from "../tutor/TutorConversation";
 
 export type FileUploadStatus =
   | { state: "idle" }
@@ -18,6 +19,9 @@ interface FilePanelProps {
   onContinueProcessing?: (fileId: string) => Promise<void>;
   processingStatusByFileId?: Record<string, string | undefined>;
   onDeleteFile?: (fileId: string) => Promise<void>;
+  /** Called when the user selects a ready file to use as active chat context. */
+  onUseInChat?: (fileId: string, fileName: string) => void;
+  stagedContextFiles?: StagedAttachment[];
 }
 
 export default function FilePanel({
@@ -28,6 +32,8 @@ export default function FilePanel({
   onContinueProcessing,
   processingStatusByFileId = {},
   onDeleteFile,
+  onUseInChat,
+  stagedContextFiles = [],
 }: FilePanelProps) {
   const [confirmDeleteFileId, setConfirmDeleteFileId] = useState<string | null>(null);
   const [deleteFileError, setDeleteFileError] = useState<string | null>(null);
@@ -203,6 +209,31 @@ export default function FilePanel({
                   </button>
                 </div>
               )}
+
+              {/* Use in chat — only for ready files when a session is active */}
+              {isReadyForLearning && onUseInChat && !isConfirmingDelete && (() => {
+                const isSelected = stagedContextFiles?.some((x) => x.fileId === file.id);
+                return (
+                  <div dir="rtl">
+                    <button
+                      type="button"
+                      data-testid="use-in-chat-button"
+                      className="px-3 py-1.5 rounded-full text-[10px] font-medium transition-colors"
+                      style={{
+                        background: isSelected ? "rgba(46,125,50,0.15)" : "rgba(123,143,212,0.15)",
+                        color: isSelected ? "#2e7d32" : "var(--tutor-accent)",
+                        border: isSelected ? "1px solid rgba(46,125,50,0.2)" : "1px solid rgba(123,143,212,0.2)",
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onUseInChat(file.id, file.originalFileName ?? file.name);
+                      }}
+                    >
+                      {isSelected ? "✓ נבחר לשיחה" : "בחר חומר מהקורס"}
+                    </button>
+                  </div>
+                );
+              })()}
 
               {/* Delete confirmation */}
               {isConfirmingDelete && (

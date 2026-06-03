@@ -11,7 +11,12 @@ import WorkspaceSelector, {
 import FilePanel from "../components/files/FilePanel";
 import type { FileUploadStatus } from "../components/files/FilePanel";
 import MemoryPanel from "../components/memory/MemoryPanel";
-import TutorConversation from "../components/tutor/TutorConversation";
+import TutorConversation, {
+  buildStagedAttachment,
+  canAddMoreAttachments,
+  removeStagedAttachment,
+} from "../components/tutor/TutorConversation";
+import type { StagedAttachment } from "../components/tutor/TutorConversation";
 import { AuthShell } from "../components/auth/AuthShell";
 import { useClientAuth } from "../lib/firebase/useClientAuth";
 import { getClientFirebaseModeLabel } from "../lib/firebase/firebaseClientApp";
@@ -110,6 +115,7 @@ export default function Home() {
   const [memoryObservations, setMemoryObservations] = useState<LearnerMemoryObservationItem[]>([]);
   const [memoryLoading, setMemoryLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [stagedContextFiles, setStagedContextFiles] = useState<StagedAttachment[]>([]);
   const [fileUploadStatus, setFileUploadStatus] = useState<FileUploadStatus>({ state: "idle" });
   const [fileProcessingStatusById, setFileProcessingStatusById] = useState<
     Record<string, string | undefined>
@@ -410,52 +416,27 @@ export default function Home() {
     [activeWorkspaceId, authState, getToken, reloadWorkspaceFiles, runFileProcessingPipeline]
   );
 
-  const handleAttachmentUpload = useCallback(
-    async (file: File): Promise<string> => {
-      if (authState.status !== "signed-in" || !activeWorkspaceId || !authState.user?.userId) {
-        throw new Error("נדרש משתמש מחובר ומרחב פעיל להעלאה.");
-      }
-
-      const validation = validateLearningFile(file);
-      if (!validation.ok) {
-        throw new Error(validation.reason);
-      }
-
-      const fileId = crypto.randomUUID();
-      const uploaded = await uploadLearningFileToStorage({
-        file,
-        userId: authState.user.userId,
-        workspaceId: activeWorkspaceId,
-        fileId,
+  const handleToggleFileContext = useCallback(
+    (fileId: string, fileName: string) => {
+      setStagedContextFiles((prev) => {
+        const exists = prev.find((x) => x.fileId === fileId);
+        if (exists) {
+          return prev.filter((x) => x.fileId !== fileId);
+        }
+        if (!canAddMoreAttachments(prev.length)) return prev; // limit
+        return [...prev, buildStagedAttachment({ fileId, fileName })];
       });
-
-      const token = await getToken();
-      if (!token) {
-        throw new Error("לא ניתן לאמת את המשתמש לשמירת המטא-דאטה.");
-      }
-
-      const createdFile = await createWorkspaceFileMetadata({
-        workspaceId: activeWorkspaceId,
-        idToken: token,
-        fileName: uploaded.fileName,
-        originalFileName: uploaded.originalFileName,
-        sourceType: uploaded.sourceType,
-        storagePath: uploaded.storagePath,
-      });
-
-      setPendingFilesByFileId((prev) => ({ ...prev, [createdFile.id]: file }));
-      await reloadWorkspaceFiles();
-      void runFileProcessingPipeline({
-        workspaceId: activeWorkspaceId,
-        fileId: createdFile.id,
-        token,
-        fileBytes: file,
-      });
-
-      return createdFile.id;
     },
-    [activeWorkspaceId, authState, getToken, reloadWorkspaceFiles, runFileProcessingPipeline]
+    []
   );
+
+  const handleRemoveStagedContext = useCallback((localId: string) => {
+    setStagedContextFiles((prev) => removeStagedAttachment(prev, localId));
+  }, []);
+
+  const handleClearStagedContext = useCallback(() => {
+    setStagedContextFiles([]);
+  }, []);
 
   const handleContinueProcessing = useCallback(
     async (fileId: string): Promise<void> => {
@@ -729,6 +710,8 @@ export default function Home() {
             onContinueProcessing={handleContinueProcessing}
             processingStatusByFileId={fileProcessingStatusById}
             onDeleteFile={handleDeleteFile}
+            onUseInChat={authState.status === "signed-in" && activeWorkspaceId ? handleToggleFileContext : undefined}
+            stagedContextFiles={stagedContextFiles}
           />
         </CollapsiblePanel>
         <CollapsiblePanel
@@ -811,7 +794,11 @@ export default function Home() {
           developerDiagnosticsEnabled={developerDiagnosticsEnabled}
           uploadedFileCount={uploadedFiles.length}
           onFileSelected={authState.status === "signed-in" && activeWorkspaceId ? handleFileSelected : undefined}
-          onUploadAttachmentFile={authState.status === "signed-in" && activeWorkspaceId ? handleAttachmentUpload : undefined}
+          stagedContextFiles={stagedContextFiles}
+          onRemoveStagedContext={handleRemoveStagedContext}
+          onClearStagedContext={handleClearStagedContext}
+          files={uploadedFiles}
+          onToggleFileContext={handleToggleFileContext}
         />
       </MainLayout>
     </AuthShell>

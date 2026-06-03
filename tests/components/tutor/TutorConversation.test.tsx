@@ -107,9 +107,9 @@ describe("PlusMenu", () => {
     );
   }
 
-  it("renders upload file label", () => {
+  it("renders the study-material upload label", () => {
     const html = renderMenu();
-    expect(html).toContain("Upload file");
+    expect(html).toContain("העלה חומר לקורס");
     expect(html).toContain('data-testid="plus-upload-file"');
   });
 
@@ -373,30 +373,32 @@ describe("timeout recovery helpers", () => {
 /* ── Staged attachment helpers ── */
 
 describe("buildStagedAttachment", () => {
-  it("builds a StagedAttachment with the given file", () => {
-    const file = new File(["content"], "lecture.pdf", { type: "application/pdf" });
-    const att = buildStagedAttachment(file);
-    expect(att.file).toBe(file);
+  it("builds a StagedAttachment with fileId and fileName", () => {
+    const att = buildStagedAttachment({ fileId: "file-abc", fileName: "lecture.pdf" });
+    expect(att.fileId).toBe("file-abc");
+    expect(att.fileName).toBe("lecture.pdf");
     expect(att.localId).toBeTruthy();
     expect(att.localId).toMatch(/^staged-/);
   });
 
   it("uses provided localId when given", () => {
-    const file = new File(["x"], "x.pdf", { type: "application/pdf" });
-    const att = buildStagedAttachment(file, "custom-id");
+    const att = buildStagedAttachment({ fileId: "x", fileName: "x.pdf" }, "custom-id");
     expect(att.localId).toBe("custom-id");
   });
 
   it("generates distinct localIds for two calls at the same time", () => {
-    const file = new File(["x"], "x.pdf", { type: "application/pdf" });
-    const ids = new Set(Array.from({ length: 5 }, () => buildStagedAttachment(file).localId));
+    const ids = new Set(
+      Array.from({ length: 5 }, () =>
+        buildStagedAttachment({ fileId: "f", fileName: "f.pdf" }).localId
+      )
+    );
     expect(ids.size).toBeGreaterThan(1);
   });
 });
 
 describe("removeStagedAttachment", () => {
   function makeAtt(localId: string): StagedAttachment {
-    return { localId, file: new File([], "f.pdf") };
+    return { localId, fileId: "file-1", fileName: "f.pdf" };
   }
 
   it("removes the matching attachment", () => {
@@ -469,7 +471,7 @@ describe("StagedAttachmentChip", () => {
 /* ── Composer staged attachment static render ── */
 
 describe("TutorConversation staged attachment prop wiring", () => {
-  it("renders without crashing when onUploadAttachmentFile is provided", () => {
+  it("renders chips when stagedContextFiles provided", () => {
     const html = renderToStaticMarkup(
       <TutorConversation
         activeSessionId="session-1"
@@ -481,14 +483,37 @@ describe("TutorConversation staged attachment prop wiring", () => {
         onCostModeChange={() => {}}
         activeTopicName={null}
         getToken={async () => "token"}
-        onUploadAttachmentFile={async () => "file-id-1"}
+        stagedContextFiles={[{ localId: "l1", fileId: "f1", fileName: "lecture.pdf" }]}
+        onRemoveStagedContext={() => {}}
+        onClearStagedContext={() => {}}
       />
     );
     expect(html).toContain('data-testid="plus-menu-button"');
     expect(html).toContain('data-testid="message-textarea"');
+    expect(html).toContain('data-testid="staged-attachments"');
+    expect(html).toContain("lecture.pdf");
   });
 
-  it("plus menu shows upload file option when onUploadAttachmentFile provided", () => {
+  it("renders without crashing when no context files provided", () => {
+    const html = renderToStaticMarkup(
+      <TutorConversation
+        activeSessionId="session-1"
+        activeWorkspaceId="ws-1"
+        developerDiagnosticsEnabled={false}
+        workMode="Learning"
+        onWorkModeChange={() => {}}
+        costMode="Normal Learning"
+        onCostModeChange={() => {}}
+        activeTopicName={null}
+        getToken={async () => "token"}
+      />
+    );
+    expect(html).toContain('data-testid="plus-menu-button"');
+    expect(html).toContain('data-testid="message-textarea"');
+    expect(html).not.toContain('data-testid="staged-attachments"');
+  });
+
+  it("plus menu shows study-material upload option when onUploadAttachmentFile provided", () => {
     const html = renderToStaticMarkup(
       <PlusMenu
         workMode="Learning"
@@ -502,7 +527,7 @@ describe("TutorConversation staged attachment prop wiring", () => {
         onUploadFile={async () => {}}
       />
     );
-    expect(html).toContain("Upload file");
+    expect(html).toContain("העלה חומר לקורס");
     // The file input must not be disabled (Upload image is separately disabled — that's expected)
     expect(html).toContain('data-testid="plus-upload-file-input"');
     expect(html).not.toContain('data-testid="plus-upload-file-input" disabled');

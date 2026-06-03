@@ -2481,5 +2481,92 @@ describeService("sessionMessageApiService", () => {
         })
       );
     });
+
+    it("injects restrictive grounding policy when attachedFileIds are specified", async () => {
+      const repos = makeRepos({
+        getUploadedFile: vi.fn(async (_uid: string, fileId: string) => ({
+          id: fileId,
+          name: `${fileId}.pdf`,
+          workspaceId: "ws-1",
+          extractionStatus: "completed",
+          chunkingStatus: "completed",
+        })),
+        retrieveFileChunks: vi.fn(async () => ({
+          chunks: [
+            {
+              chunkId: "c1",
+              fileId: "file-1",
+              workspaceId: "ws-1",
+              text: "Newton's first law of motion.",
+              chunkIndex: 0,
+              tokenEstimate: 50,
+              score: 2,
+              sourceLabel: "file-1.pdf",
+            },
+          ],
+          eligibleFileCount: 1,
+        })),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "explain Newton",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        attachedFileIds: ["file-1"],
+      });
+
+      expect(repos.getMockTutorResponse).toHaveBeenCalledWith(
+        "explain Newton",
+        "Learning",
+        "Normal Learning",
+        expect.any(Array),
+        expect.objectContaining({
+          instruction: expect.stringContaining("CRITICAL POLICY"),
+        })
+      );
+
+      const calls = (repos.getMockTutorResponse as ReturnType<typeof vi.fn>).mock.calls;
+      const context = calls[calls.length - 1][4];
+      expect(context.instruction).toContain("CRITICAL POLICY");
+      expect(context.instruction).toContain("האם תרצה שאחפש בשאר חומרי הקורס?");
+    });
+
+    it("injects grounding instructions even when 0 chunks are retrieved if attachedFileIds are present", async () => {
+      const repos = makeRepos({
+        getUploadedFile: vi.fn(async (_uid: string, fileId: string) => ({
+          id: fileId,
+          name: `${fileId}.pdf`,
+          workspaceId: "ws-1",
+          extractionStatus: "completed",
+          chunkingStatus: "completed",
+        })),
+        retrieveFileChunks: vi.fn(async () => ({
+          chunks: [],
+          eligibleFileCount: 1,
+        })),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "explain quantum physics",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        attachedFileIds: ["file-1"],
+      });
+
+      expect(repos.getMockTutorResponse).toHaveBeenCalledWith(
+        "explain quantum physics",
+        "Learning",
+        "Normal Learning",
+        expect.any(Array),
+        expect.objectContaining({
+          instruction: expect.stringContaining("CRITICAL POLICY"),
+          chunks: [],
+        })
+      );
+    });
   });
 });

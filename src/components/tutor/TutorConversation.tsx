@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { MessageContent } from "../chat/MessageContent";
-import { TutorMessage, WorkMode, CostMode } from "../../types";
+import { TutorMessage, WorkMode, CostMode, UploadedFile } from "../../types";
 import CollapsiblePanel from "../layout/CollapsiblePanel";
 import {
   fetchSessionMessages,
@@ -30,13 +30,18 @@ export const MAX_STAGED_ATTACHMENTS = 10;
 
 export interface StagedAttachment {
   localId: string;
-  file: File;
+  fileId: string;
+  fileName: string;
 }
 
-export function buildStagedAttachment(file: File, localId?: string): StagedAttachment {
+export function buildStagedAttachment(
+  input: { fileId: string; fileName: string },
+  localId?: string
+): StagedAttachment {
   return {
     localId: localId ?? `staged-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    file,
+    fileId: input.fileId,
+    fileName: input.fileName,
   };
 }
 
@@ -74,7 +79,12 @@ interface TutorConversationProps {
   getToken: () => Promise<string | null>;
   uploadedFileCount?: number;
   onFileSelected?: (file: File) => Promise<void>;
-  onUploadAttachmentFile?: (file: File) => Promise<string>;
+  /** Externally managed staged context files selected from Study Materials. */
+  stagedContextFiles?: StagedAttachment[];
+  onRemoveStagedContext?: (localId: string) => void;
+  onClearStagedContext?: () => void;
+  files?: UploadedFile[];
+  onToggleFileContext?: (fileId: string, fileName: string) => void;
 }
 
 export type ChatUploadFeedback = {
@@ -101,7 +111,11 @@ export default function TutorConversation({
   getToken,
   uploadedFileCount,
   onFileSelected,
-  onUploadAttachmentFile,
+  stagedContextFiles,
+  onRemoveStagedContext,
+  onClearStagedContext,
+  files = [],
+  onToggleFileContext,
 }: TutorConversationProps) {
   const [messages, setMessages] = useState<TutorMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -120,7 +134,7 @@ export default function TutorConversation({
   const [workModeMenuOpen, setWorkModeMenuOpen] = useState(false);
   const [costModeMenuOpen, setCostModeMenuOpen] = useState(false);
   const [chatUploadFeedback, setChatUploadFeedback] = useState<ChatUploadFeedback | null>(null);
-  const [stagedAttachments, setStagedAttachments] = useState<StagedAttachment[]>([]);
+  const contextFiles = stagedContextFiles ?? [];
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const plusMenuContainerRef = useRef<HTMLDivElement>(null);
@@ -244,16 +258,10 @@ export default function TutorConversation({
         const token = await getToken();
         if (!token) throw new SessionMessagesApiError("Unauthorized.", 401);
 
-        // Upload staged attachments first; if any fail, do not send the message.
-        let attachedFileIds: string[] | undefined;
-        if (stagedAttachments.length > 0 && onUploadAttachmentFile) {
-          const ids: string[] = [];
-          for (const att of stagedAttachments) {
-            const fileId = await onUploadAttachmentFile(att.file);
-            ids.push(fileId);
-          }
-          attachedFileIds = ids;
-        }
+        // Use IDs of already-processed course files selected as context. No upload needed.
+        const attachedFileIds = contextFiles.length > 0
+          ? contextFiles.map((f) => f.fileId)
+          : undefined;
 
         const result = await sendSessionMessage(token, {
           workspaceId: activeWorkspaceId,
@@ -269,15 +277,13 @@ export default function TutorConversation({
           result.userMessage,
           result.assistantMessage,
         ]);
-        // Clear staged chips only after a confirmed successful send.
-        setStagedAttachments([]);
         setComposerNotice(null);
         if (developerDiagnosticsEnabled) {
           setDecisionLogRefreshKey((prev) => prev + 1);
         }
       } catch (error: unknown) {
         console.error(error);
-        // Staged attachment chips are intentionally NOT cleared on any error path.
+        // Context chips are intentionally NOT cleared on any error path.
         if (isTimeoutError(error)) {
           setComposerNotice("המורה עדיין מעבד את התשובה...");
           const recovered = await recoverAfterTimeout({
@@ -288,7 +294,6 @@ export default function TutorConversation({
           });
           if (recovered) {
             setMessages(recovered.messages);
-            setStagedAttachments([]);
             setComposerNotice(null);
             if (developerDiagnosticsEnabled) {
               setDecisionLogRefreshKey((prev) => prev + 1);
@@ -299,12 +304,7 @@ export default function TutorConversation({
           }
         } else {
           setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-          const baseNotice = "שליחת ההודעה נכשלה. נסה שוב.";
-          const uploadHint =
-            stagedAttachments.length > 0 && error instanceof Error
-              ? ` (${error.message})`
-              : "";
-          setComposerNotice(baseNotice + uploadHint);
+          setComposerNotice("שליחת ההודעה נכשלה. נסה שוב.");
         }
       } finally {
         setIsTyping(false);
@@ -313,14 +313,14 @@ export default function TutorConversation({
     [
       activeSessionId,
       activeWorkspaceId,
+      contextFiles,
       costMode,
       developerDiagnosticsEnabled,
       getToken,
       inputValue,
       isTyping,
       messages,
-      onUploadAttachmentFile,
-      stagedAttachments,
+      onClearStagedContext,
       workMode,
     ]
   );
@@ -343,21 +343,6 @@ export default function TutorConversation({
     },
     [onFileSelected]
   );
-
-  const handleStageAttachment = useCallback(
-    async (file: File): Promise<void> => {
-      if (!canAddMoreAttachments(stagedAttachments.length)) {
-        setComposerNotice(`לא ניתן לצרף יותר מ-${MAX_STAGED_ATTACHMENTS} קבצים.`);
-        return;
-      }
-      setStagedAttachments((prev) => [...prev, buildStagedAttachment(file)]);
-    },
-    [stagedAttachments.length]
-  );
-
-  const handleRemoveStagedAttachment = useCallback((localId: string) => {
-    setStagedAttachments((prev) => removeStagedAttachment(prev, localId));
-  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (shouldSubmitOnKeyDown(e.key, e.shiftKey)) {
@@ -544,14 +529,11 @@ export default function TutorConversation({
                 setWorkModeMenuOpen={setWorkModeMenuOpen}
                 costModeMenuOpen={costModeMenuOpen}
                 setCostModeMenuOpen={setCostModeMenuOpen}
-                onUploadFile={
-                  onUploadAttachmentFile
-                    ? handleStageAttachment
-                    : onFileSelected
-                      ? handleUploadWithFeedback
-                      : undefined
-                }
+                onUploadFile={onFileSelected ? handleUploadWithFeedback : undefined}
                 onMenuClose={() => setPlusMenuOpen(false)}
+                files={files}
+                stagedContextFiles={contextFiles}
+                onToggleFileContext={onToggleFileContext}
               />
             )}
           </div>
@@ -564,18 +546,39 @@ export default function TutorConversation({
               boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)",
             }}
           >
-            {stagedAttachments.length > 0 && (
+            {contextFiles.length > 0 && (
               <div
-                className="flex flex-wrap gap-1.5 px-3 pt-3 pb-1"
+                className="flex flex-wrap items-center gap-1.5 px-3 pt-3 pb-1"
                 data-testid="staged-attachments"
+                dir="rtl"
               >
-                {stagedAttachments.map((att) => (
+                {contextFiles.map((att) => (
                   <StagedAttachmentChip
                     key={att.localId}
-                    fileName={att.file.name}
-                    onRemove={() => handleRemoveStagedAttachment(att.localId)}
+                    fileName={att.fileName}
+                    onRemove={() => onRemoveStagedContext?.(att.localId)}
                   />
                 ))}
+                <button
+                  type="button"
+                  onClick={onClearStagedContext}
+                  className="px-2 py-1 rounded text-[10px] font-medium transition-colors"
+                  style={{
+                    background: "transparent",
+                    color: "var(--tutor-text-muted)",
+                    border: "1px dashed var(--tutor-border)",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = "#c0392b";
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "#c0392b";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = "var(--tutor-text-muted)";
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--tutor-border)";
+                  }}
+                >
+                  נקה קונטקסט
+                </button>
               </div>
             )}
             <textarea
@@ -662,6 +665,9 @@ export interface PlusMenuProps {
   setCostModeMenuOpen: (open: boolean) => void;
   onUploadFile?: (file: File) => Promise<void>;
   onMenuClose?: () => void;
+  files?: UploadedFile[];
+  stagedContextFiles?: StagedAttachment[];
+  onToggleFileContext?: (fileId: string, fileName: string) => void;
 }
 
 export function PlusMenu({
@@ -675,7 +681,11 @@ export function PlusMenu({
   setCostModeMenuOpen,
   onUploadFile,
   onMenuClose,
+  files = [],
+  stagedContextFiles = [],
+  onToggleFileContext,
 }: PlusMenuProps) {
+  const [filesMenuOpen, setFilesMenuOpen] = useState(false);
   return (
     <ActionMenu
       align="left"
@@ -699,7 +709,7 @@ export function PlusMenu({
           }}
         >
           <UploadFileIcon />
-          <span>Upload file</span>
+          <span>העלה חומר לקורס</span>
         <input
           type="file"
           className="hidden"
@@ -798,6 +808,77 @@ export function PlusMenu({
             ))}
           </div>
         )}
+      <div>
+        <ActionMenuItem
+          icon={<FolderIcon />}
+          onClick={() => {
+            setFilesMenuOpen(!filesMenuOpen);
+            setWorkModeMenuOpen(false);
+            setCostModeMenuOpen(false);
+          }}
+          trailing={<ChevronIcon open={filesMenuOpen} />}
+        >
+          בחר חומר מהקורס
+        </ActionMenuItem>
+        {filesMenuOpen && (
+          <div className="px-2 pb-2 max-h-[200px] overflow-y-auto space-y-1" dir="rtl">
+            {files.length === 0 ? (
+              <div className="px-4 py-2 text-xs text-center text-muted-foreground" style={{ color: "var(--tutor-text-muted)" }}>
+                אין חומרים בקורס זה
+              </div>
+            ) : (
+              files.map((file) => {
+                const isReady =
+                  file.extractionStatus === "completed" &&
+                  file.chunkingStatus === "completed" &&
+                  file.embeddingStatus === "completed";
+                const isSelected = stagedContextFiles.some((x) => x.fileId === file.id);
+                const statusLabel =
+                  file.extractionStatus === "failed" ||
+                  file.chunkingStatus === "failed" ||
+                  file.embeddingStatus === "failed"
+                    ? "(נכשל)"
+                    : "(בעיבוד...)";
+
+                return (
+                  <button
+                    key={file.id}
+                    type="button"
+                    disabled={!isReady}
+                    onClick={() => {
+                      if (onToggleFileContext) {
+                        onToggleFileContext(file.id, file.originalFileName ?? file.name);
+                      }
+                    }}
+                    className="w-full text-right px-4 py-2 text-xs rounded-xl transition-colors flex items-center justify-between gap-2"
+                    style={{
+                      color: isSelected ? "var(--tutor-accent)" : "var(--tutor-text-secondary)",
+                      fontWeight: isSelected ? 600 : 400,
+                      opacity: isReady ? 1 : 0.5,
+                      cursor: isReady ? "pointer" : "not-allowed",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (isReady) (e.currentTarget as HTMLButtonElement).style.background = "var(--tutor-border-subtle)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                    }}
+                  >
+                    <span className="truncate flex-1 text-right bdi">
+                      {file.name} {!isReady && <span className="text-[10px] opacity-75">{statusLabel}</span>}
+                    </span>
+                    {isReady && (
+                      <span className="text-[14px] flex-shrink-0">
+                        {isSelected ? "✓" : "☐"}
+                      </span>
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
       </div>
       </div>
     </ActionMenu>
@@ -1218,5 +1299,13 @@ export function isTimeoutError(error: unknown): boolean {
     error instanceof SessionMessagesApiError &&
     error.status === 503 &&
     error.message.includes("לא הגיב בזמן")
+  );
+}
+
+function FolderIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M1.5 2.5a1 1 0 0 1 1-1h3.5a1 1 0 0 1 .7.3l1.2 1.2a1 1 0 0 0 .7.3h3.7a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1H2.5a1 1 0 0 1-1-1z" />
+    </svg>
   );
 }
