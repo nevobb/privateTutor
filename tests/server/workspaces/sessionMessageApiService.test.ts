@@ -1869,17 +1869,18 @@ describeService("sessionMessageApiService", () => {
       expect(assistant.content).toMatch(/לא נמצאו קבצים/);
     });
 
-    it("does not route specific question 'תסביר שאלה 3' to inventory", async () => {
+    it("does not route specific question 'תסביר שאלה 3' to inventory or silent whole-course search", async () => {
       const repos = makeInventoryRepos();
       const service = mod.createSessionMessageApiService(repos);
-      await service.sendMessageForUser("alice", "s-1", {
+      const result = await service.sendMessageForUser("alice", "s-1", {
         workspaceId: "ws-1",
         userMessage: "תסביר לי שאלה 3",
         workMode: "Learning",
         costMode: "Normal Learning",
       });
 
-      expect(repos.getMockTutorResponse).toHaveBeenCalled();
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect((result.assistantMessage as { content?: string }).content).toMatch(/איזה קובץ|איזה חומר/);
       expect(repos.listFileChunks).not.toHaveBeenCalled();
     });
   });
@@ -1919,6 +1920,150 @@ describeService("sessionMessageApiService", () => {
 
       const assistant = result.assistantMessage as { content?: string };
       expect(assistant.content).toMatch(/חזותי/i);
+    });
+  });
+
+  describe("active context wording and clarification", () => {
+    it("answers 'איזה חומר פעיל בשיחה?' from selected attached files by name", async () => {
+      const repos = makeRepos({
+        appendMessage: vi.fn(
+          async (_uid: string, _wsId: string, _sessId: string, input: Record<string, unknown>) =>
+            input.role === "user"
+              ? { ...baseMessage, attachedFileIds: input.attachedFileIds }
+              : { ...tutorMessage, content: input.content as string }
+        ),
+        listSessionMessages: vi.fn(async () => [
+          {
+            ...baseMessage,
+            role: "user",
+            attachedFileIds: ["file-1", "file-2"],
+          },
+          { ...baseMessage, id: "m-t1", role: "tutor", content: "ok" },
+        ]),
+        getUploadedFile: vi.fn(async (_uid: string, fileId: string) => ({
+          id: fileId,
+          name: fileId === "file-1" ? "lecture.pdf" : "hw1.pdf",
+          originalFileName: fileId === "file-1" ? "lecture.pdf" : "hw1.pdf",
+          workspaceId: "ws-1",
+          extractionStatus: "completed",
+          chunkingStatus: "completed",
+        })),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "איזה חומר פעיל בשיחה?",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect((result.assistantMessage as { content?: string }).content).toContain("lecture.pdf");
+      expect((result.assistantMessage as { content?: string }).content).toContain("hw1.pdf");
+      expect((result.assistantMessage as { content?: string }).content).not.toContain("file-1");
+    });
+
+    it("asks for file/material selection instead of silently searching whole course on vague specific-file question without active context", async () => {
+      const repos = makeRepos({
+        appendMessage: vi.fn(
+          async (_uid: string, _wsId: string, _sessId: string, input: Record<string, unknown>) =>
+            input.role === "user"
+              ? { ...baseMessage, attachedFileIds: input.attachedFileIds }
+              : { ...tutorMessage, content: input.content as string }
+        ),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "תפתור את שאלה 3",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect(repos.retrieveFileChunks).not.toHaveBeenCalled();
+      expect((result.assistantMessage as { content?: string }).content).toMatch(/איזה קובץ|איזה חומר/);
+    });
+
+    it("includes selected file names in grounding context instruction", async () => {
+      const repos = makeRepos({
+        getUploadedFile: vi.fn(async (_uid: string, fileId: string) => ({
+          id: fileId,
+          name: fileId === "file-1" ? "lecture.pdf" : "hw1.pdf",
+          originalFileName: fileId === "file-1" ? "lecture.pdf" : "hw1.pdf",
+          workspaceId: "ws-1",
+          extractionStatus: "completed",
+          chunkingStatus: "completed",
+        })),
+        retrieveFileChunks: vi.fn(async () => ({
+          chunks: [
+            {
+              chunkId: "c1",
+              fileId: "file-1",
+              workspaceId: "ws-1",
+              text: "Newton's first law of motion.",
+              chunkIndex: 0,
+              tokenEstimate: 50,
+              score: 2,
+              sourceLabel: "lecture.pdf",
+            },
+          ],
+          eligibleFileCount: 1,
+        })),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "explain Newton",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        attachedFileIds: ["file-1", "file-2"],
+      });
+
+      const calls = (repos.getMockTutorResponse as ReturnType<typeof vi.fn>).mock.calls;
+      const context = calls[calls.length - 1][4];
+      expect(context.instruction).toContain("active conversation context");
+      expect(context.instruction).toContain("lecture.pdf");
+      expect(context.instruction).toContain("hw1.pdf");
+    });
+
+    it("does not pretend it found content when selected-file retrieval returns no chunks", async () => {
+      const repos = makeRepos({
+        appendMessage: vi.fn(
+          async (_uid: string, _wsId: string, _sessId: string, input: Record<string, unknown>) =>
+            input.role === "user"
+              ? { ...baseMessage, attachedFileIds: input.attachedFileIds }
+              : { ...tutorMessage, content: input.content as string }
+        ),
+        getUploadedFile: vi.fn(async (_uid: string, fileId: string) => ({
+          id: fileId,
+          name: "lecture.pdf",
+          originalFileName: "lecture.pdf",
+          workspaceId: "ws-1",
+          extractionStatus: "completed",
+          chunkingStatus: "completed",
+        })),
+        retrieveFileChunks: vi.fn(async () => ({
+          chunks: [],
+          eligibleFileCount: 1,
+        })),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "תסביר את זה",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        attachedFileIds: ["file-1"],
+      });
+
+      expect((result.assistantMessage as { content?: string }).content).toMatch(/לא מצאתי מספיק|לא מצאתי/);
+      expect((result.assistantMessage as { content?: string }).content).toContain("lecture.pdf");
+      expect((result.assistantMessage as { content?: string }).content).toContain("האם תרצה שאחפש בשאר חומרי הקורס?");
     });
   });
 
@@ -2110,6 +2255,14 @@ describeService("sessionMessageApiService", () => {
 
     it("adds artifact-aware question hints to grounding for a specific Hebrew section reference", async () => {
       const repos = makeRepos({
+        getUploadedFile: vi.fn(async (_uid: string, fileId: string) => ({
+          id: fileId,
+          name: "Electromagnetics.pdf",
+          originalFileName: "Electromagnetics.pdf",
+          workspaceId: "ws-1",
+          extractionStatus: "completed",
+          chunkingStatus: "completed",
+        })),
         listUploadedFiles: vi.fn(async () => [
           {
             id: "file-G",
@@ -2155,6 +2308,7 @@ describeService("sessionMessageApiService", () => {
         userMessage: "תעזור לי עם סעיף ג׳",
         workMode: "Learning",
         costMode: "Normal Learning",
+        attachedFileIds: ["file-G"],
       });
 
       const calls = (repos.getMockTutorResponse as ReturnType<typeof vi.fn>).mock.calls;
@@ -2170,6 +2324,14 @@ describeService("sessionMessageApiService", () => {
 
     it("suppresses weak artifact snippets from grounding and keeps only a cautious note", async () => {
       const repos = makeRepos({
+        getUploadedFile: vi.fn(async (_uid: string, fileId: string) => ({
+          id: fileId,
+          name: "Electromagnetics.pdf",
+          originalFileName: "Electromagnetics.pdf",
+          workspaceId: "ws-1",
+          extractionStatus: "completed",
+          chunkingStatus: "completed",
+        })),
         listUploadedFiles: vi.fn(async () => [
           {
             id: "file-G",
@@ -2231,6 +2393,7 @@ describeService("sessionMessageApiService", () => {
         userMessage: "תעזור לי עם סעיף ג׳",
         workMode: "Learning",
         costMode: "Normal Learning",
+        attachedFileIds: ["file-G"],
       });
 
       const calls = (repos.getMockTutorResponse as ReturnType<typeof vi.fn>).mock.calls;
@@ -2533,11 +2696,18 @@ describeService("sessionMessageApiService", () => {
       expect(context.instruction).toContain("האם תרצה שאחפש בשאר חומרי הקורס?");
     });
 
-    it("injects grounding instructions even when 0 chunks are retrieved if attachedFileIds are present", async () => {
+    it("returns an honest selected-file fallback when 0 chunks are retrieved for attached files", async () => {
       const repos = makeRepos({
+        appendMessage: vi.fn(
+          async (_uid: string, _wsId: string, _sessId: string, input: Record<string, unknown>) =>
+            input.role === "user"
+              ? { ...baseMessage, attachedFileIds: input.attachedFileIds }
+              : { ...tutorMessage, content: input.content as string }
+        ),
         getUploadedFile: vi.fn(async (_uid: string, fileId: string) => ({
           id: fileId,
-          name: `${fileId}.pdf`,
+          name: "quantum.pdf",
+          originalFileName: "quantum.pdf",
           workspaceId: "ws-1",
           extractionStatus: "completed",
           chunkingStatus: "completed",
@@ -2549,7 +2719,7 @@ describeService("sessionMessageApiService", () => {
       });
       const service = mod.createSessionMessageApiService(repos);
 
-      await service.sendMessageForUser("alice", "s-1", {
+      const result = await service.sendMessageForUser("alice", "s-1", {
         workspaceId: "ws-1",
         userMessage: "explain quantum physics",
         workMode: "Learning",
@@ -2557,16 +2727,9 @@ describeService("sessionMessageApiService", () => {
         attachedFileIds: ["file-1"],
       });
 
-      expect(repos.getMockTutorResponse).toHaveBeenCalledWith(
-        "explain quantum physics",
-        "Learning",
-        "Normal Learning",
-        expect.any(Array),
-        expect.objectContaining({
-          instruction: expect.stringContaining("CRITICAL POLICY"),
-          chunks: [],
-        })
-      );
+      expect(repos.getMockTutorResponse).toHaveBeenCalledTimes(1);
+      expect((result.assistantMessage as { content?: string }).content).toContain("quantum.pdf");
+      expect((result.assistantMessage as { content?: string }).content).toContain("האם תרצה שאחפש בשאר חומרי הקורס?");
     });
   });
 });

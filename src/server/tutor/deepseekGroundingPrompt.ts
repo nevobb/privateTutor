@@ -1,11 +1,25 @@
 import type { TutorGroundingContext } from "./schemas";
 
 export function buildGroundingSection(groundingContext?: TutorGroundingContext): string {
-  if (!groundingContext || groundingContext.mode === "none" || groundingContext.chunks.length === 0) {
+  if (!groundingContext || groundingContext.mode === "none") {
     return "";
   }
 
   const customInstruction = groundingContext.instruction.trim();
+
+  if (groundingContext.chunks.length === 0) {
+    if (!customInstruction) {
+      return "";
+    }
+    return [
+      "",
+      "---",
+      "No relevant source chunks were retrieved from the selected files for this question.",
+      customInstruction,
+      "---",
+    ].join("\n");
+  }
+
   const sourceBlocks = groundingContext.chunks
     .map(
       (chunk) =>

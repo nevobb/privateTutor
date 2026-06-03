@@ -491,6 +491,7 @@ describe("TutorConversation staged attachment prop wiring", () => {
     expect(html).toContain('data-testid="plus-menu-button"');
     expect(html).toContain('data-testid="message-textarea"');
     expect(html).toContain('data-testid="staged-attachments"');
+    expect(html).toContain("חומר פעיל בשיחה");
     expect(html).toContain("lecture.pdf");
   });
 

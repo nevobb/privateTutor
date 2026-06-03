@@ -104,6 +104,20 @@ describe("classifyTutorRequest — file_content_inventory", () => {
   });
 });
 
+describe("classifyTutorRequest — active_context_status", () => {
+  it("classifies 'איזה חומר פעיל בשיחה?' as active_context_status", () => {
+    expect(intent("איזה חומר פעיל בשיחה?")).toBe("active_context_status");
+  });
+
+  it("classifies 'איזה קובץ בחרתי?' as active_context_status", () => {
+    expect(intent("איזה קובץ בחרתי?")).toBe("active_context_status");
+  });
+
+  it("classifies 'על איזה קובץ אנחנו עובדים?' as active_context_status", () => {
+    expect(intent("על איזה קובץ אנחנו עובדים?")).toBe("active_context_status");
+  });
+});
+
 describe("classifyTutorRequest — file_summary_request", () => {
   it("classifies 'תסכם את הקובץ' as file_summary_request", () => {
     expect(intent("תסכם את הקובץ")).toBe("file_summary_request");

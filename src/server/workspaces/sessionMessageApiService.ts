@@ -294,6 +294,39 @@ export function createSessionMessageApiService(
 
       // Derive active attachment context: current turn's IDs, or latest prior user attachment.
       const activeAttachedFileIds = deriveActiveAttachedFileIds(attachedFileIds, existingMessages);
+      const activeAttachedFileNames = activeAttachedFileIds
+        ? await resolveAttachedFileDisplayNames(
+            repositories,
+            userId,
+            input.workspaceId,
+            activeAttachedFileIds
+          )
+        : [];
+
+      if (requestClassification.intent === "active_context_status") {
+        const content =
+          activeAttachedFileNames.length > 0
+            ? `חומר פעיל בשיחה כרגע:\n${activeAttachedFileNames.map((name) => `• ${name}`).join("\n")}\n\nאמשיך להשתמש בחומרים האלה עד שתבחר חומר אחר או תנקה את ההקשר.`
+            : "כרגע לא נבחר חומר פעיל מהקורס לשיחה הזו. בחר חומר מהקורס כדי שאעבוד עליו, או ציין במפורש אם תרצה שאחפש בכל חומרי הקורס.";
+        const assistantRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
+          role: "tutor",
+          content,
+        });
+        return makeDeterministicReturn(userRecord, assistantRecord, "active_context_status_shortcut");
+      }
+
+      if (
+        requestClassification.intent === "specific_file_question" &&
+        !activeAttachedFileIds &&
+        !explicitWholeCourseSearchRequested(input.userMessage)
+      ) {
+        const assistantRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
+          role: "tutor",
+          content:
+            "כדי לענות על שאלה כזאת אני צריך לדעת על איזה קובץ או חומר מהקורס לעבוד. בחר חומר מהקורס לשיחה, או כתוב במפורש אם תרצה שאחפש בכל חומרי הקורס.",
+        });
+        return makeDeterministicReturn(userRecord, assistantRecord, "specific_file_question_needs_active_context");
+      }
 
       // Readiness gate: if active attached files are not yet extracted/chunked, return an
       // honest deterministic response instead of silently retrieving from other workspace files.
@@ -351,13 +384,41 @@ export function createSessionMessageApiService(
         activeAttachedFileIds
       );
 
-      if (retrievalExecution.retrievedChunks.length > 0) {
+      const hasActiveAttachedFiles = activeAttachedFileIds && activeAttachedFileIds.length > 0;
+
+      if (hasActiveAttachedFiles && retrievalExecution.retrievedChunks.length === 0) {
+        const selectedNames =
+          activeAttachedFileNames.length > 0
+            ? activeAttachedFileNames.map((name) => `• ${name}`).join("\n")
+            : activeAttachedFileIds!.map((fileId) => `• ${fileId}`).join("\n");
+        const assistantRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
+          role: "tutor",
+          content:
+            `לא מצאתי מספיק מידע רלוונטי בחומר שנבחר לשיחה:\n${selectedNames}\n\nאם תרצה, אפשר לנסח שאלה מדויקת יותר על החומר הזה, או שאחפש בשאר חומרי הקורס. האם תרצה שאחפש בשאר חומרי הקורס?`,
+        });
+        await persistDecisionLogEvents(
+          repositories,
+          userId,
+          input.workspaceId,
+          sessionId,
+          tutorResponse.decisionLogEvents
+        );
+        return {
+          userMessage: serializeMessage(userRecord),
+          assistantMessage: serializeMessage(assistantRecord),
+          internalUpdate: tutorResponse.internalUpdate,
+        };
+      }
+
+      if (retrievalExecution.retrievedChunks.length > 0 || hasActiveAttachedFiles) {
         const groundingContext = await buildArtifactAwareGroundingContext(
           repositories,
           userId,
           input.workspaceId,
           input.userMessage,
-          retrievalExecution.retrievedChunks
+          retrievalExecution.retrievedChunks,
+          activeAttachedFileIds,
+          activeAttachedFileNames
         );
         const groundedResponse = await repositories.getMockTutorResponse(
           input.userMessage,
@@ -1079,7 +1140,9 @@ async function buildArtifactAwareGroundingContext(
   userId: string,
   workspaceId: string,
   userMessage: string,
-  chunks: RetrievedFileChunk[]
+  chunks: RetrievedFileChunk[],
+  activeAttachedFileIds?: string[],
+  activeAttachedFileNames: string[] = []
 ): Promise<TutorGroundingContext> {
   const baseContext = buildGroundingContextFromChunks(chunks);
   const artifactInstruction = await maybeBuildArtifactAwareGroundingInstruction(
@@ -1090,14 +1153,52 @@ async function buildArtifactAwareGroundingContext(
     chunks
   );
 
-  if (!artifactInstruction) {
-    return baseContext;
+  let instruction = baseContext.instruction;
+  if (activeAttachedFileIds && activeAttachedFileIds.length > 0) {
+    const selectedNames =
+      activeAttachedFileNames.length > 0
+        ? activeAttachedFileNames.join(", ")
+        : activeAttachedFileIds.join(", ");
+    instruction = `CRITICAL POLICY: The user selected these files as active conversation context: ${selectedNames}.
+You MUST answer the question using ONLY the provided source chunks from the selected files. Do NOT use outside knowledge or imply that you searched the rest of the course.
+If the answer to the query cannot be found in the provided sources, or if no source chunks are provided, you MUST respond in natural Hebrew stating that you couldn't find the answer in the selected files, and ask exactly: "האם תרצה שאחפש בשאר חומרי הקורס?" (Do not answer using general knowledge).`;
+  }
+
+  if (artifactInstruction) {
+    instruction = `${instruction} ${artifactInstruction}`.trim();
   }
 
   return {
     ...baseContext,
-    instruction: `${baseContext.instruction} ${artifactInstruction}`.trim(),
+    instruction,
   };
+}
+
+async function resolveAttachedFileDisplayNames(
+  repositories: Repositories,
+  userId: string,
+  workspaceId: string,
+  attachedFileIds: string[]
+): Promise<string[]> {
+  const names: string[] = [];
+  for (const fileId of attachedFileIds) {
+    const file = await repositories.getUploadedFile(userId, fileId);
+    if (!file || file.workspaceId !== workspaceId) continue;
+    names.push(file.originalFileName ?? file.name ?? fileId);
+  }
+  return names;
+}
+
+function explicitWholeCourseSearchRequested(message: string): boolean {
+  return [
+    /בכל\s+חומרי\s+הקורס/i,
+    /בשאר\s+חומרי\s+הקורס/i,
+    /חפש\s+בכל\s+הקורס/i,
+    /חפש\s+בכל\s+חומרי\s+הקורס/i,
+    /search\s+the\s+whole\s+course/i,
+    /search\s+all\s+course\s+materials/i,
+    /search\s+the\s+rest\s+of\s+the\s+course/i,
+  ].some((pattern) => pattern.test(message));
 }
 
 async function maybeBuildArtifactAwareGroundingInstruction(

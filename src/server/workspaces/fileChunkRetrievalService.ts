@@ -183,13 +183,8 @@ export async function retrieveRelevantFileChunks(
         });
 
       const prioritizedResult = selectByBudget(prioritizedScored, maxChunks, maxTokens);
-      // Only use prioritized results if at least one chunk is relevant (score > 0).
-      // Zero-score results mean the prioritized file has no matching content — fall back.
-      if (prioritizedResult.some((c) => c.score > 0)) {
-        return { chunks: prioritizedResult, eligibleFileCount: eligible.length };
-      }
-
-      // Prioritized files found no useful chunks — fall through to workspace-wide.
+      // Strictly restrict search to prioritized files when specified; do not fall back workspace-wide.
+      return { chunks: prioritizedResult, eligibleFileCount: eligible.length };
     }
   }
 

@@ -369,7 +369,7 @@ describeService("retrieveRelevantFileChunks", () => {
     expect(result.eligibleFileCount).toBe(2);
   });
 
-  it("falls back to workspace-wide when prioritized file has no matching chunks", async () => {
+  it("does not fall back to workspace-wide when prioritized file has no matching chunks", async () => {
     const deps = {
       listUploadedFiles: vi.fn(async () => [
         makeEligibleFile("attached-file", "lecture.pdf"),
@@ -381,8 +381,8 @@ describeService("retrieveRelevantFileChunks", () => {
       }),
     };
 
-    // No prioritized result because score is 0 for "attached-file" chunk on query "newton force".
-    // Keyword scores: attached file gets 0, other file gets matches → falls back to workspace-wide.
+    // When prioritizedFileIds is set, keyword retrieval strictly restricts search to the prioritized files.
+    // Zero-score chunks from prioritized file are included, and workspace-wide is NOT checked.
     const result = await mod.retrieveRelevantFileChunks(
       {
         userId: "alice",
@@ -395,9 +395,11 @@ describeService("retrieveRelevantFileChunks", () => {
       deps
     );
 
-    // Must include the workspace-wide result since prioritized file returned nothing useful
+    // Must NOT include the workspace-wide result since we strictly limit retrieval to prioritized files
     const fileIds = result.chunks.map((c) => c.fileId);
-    expect(fileIds).toContain("other-file");
+    expect(fileIds).not.toContain("other-file");
+    expect(result.chunks.length).toBeGreaterThan(0);
+    expect(result.chunks.every((c) => c.fileId === "attached-file")).toBe(true);
   });
 
   it("behaves as workspace-wide when prioritizedFileIds is empty array", async () => {

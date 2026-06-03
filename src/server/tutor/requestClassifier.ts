@@ -1,6 +1,7 @@
 export type TutorRequestIntent =
   | "file_access_status"
   | "file_content_inventory"
+  | "active_context_status"
   | "specific_file_question"
   | "file_summary_request"
   | "visual_reference_request"
@@ -78,6 +79,16 @@ const FILE_ACCESS_STATUS_PATTERNS: RegExp[] = [
   /can you read.*(?:file|pdf|docx)/i,
 ];
 
+const ACTIVE_CONTEXT_STATUS_PATTERNS: RegExp[] = [
+  /איזה\s+(?:חומר|קובץ)\s+פעיל/i,
+  /איזה\s+קובץ\s+בחרתי/i,
+  /על\s+איזה\s+קובץ\s+אנחנו\s+עובדים/i,
+  /על\s+איזה\s+חומר\s+אנחנו\s+עובדים/i,
+  /which\s+(?:file|material)\s+is\s+active/i,
+  /what\s+file\s+(?:did i select|is active)/i,
+  /what\s+material\s+is\s+active/i,
+];
+
 const FILE_SUMMARY_PATTERNS: RegExp[] = [
   /^תסכם/i,
   /^summarize/i,
@@ -151,6 +162,18 @@ export function classifyTutorRequest(message: string): TutorRequestClassificatio
       shouldAnswerFromSystemState: true,
       needsClarification: false,
       reason: "message asks whether the tutor can access the file (capability, not content)",
+    };
+  }
+
+  // 3.5 Active selected chat-context status
+  if (ACTIVE_CONTEXT_STATUS_PATTERNS.some((p) => p.test(message))) {
+    return {
+      intent: "active_context_status",
+      shouldUseRetrieval: false,
+      shouldUseFileInventory: false,
+      shouldAnswerFromSystemState: true,
+      needsClarification: false,
+      reason: "message asks which selected course file/material is currently active in chat context",
     };
   }
 

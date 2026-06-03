@@ -44,14 +44,39 @@ describeGrounding("buildGroundingSection", () => {
     expect(mod.buildGroundingSection(ctx)).toBe("");
   });
 
-  it("returns empty string when chunks array is empty", () => {
+  it("returns empty string when chunks array is empty and instruction is empty", () => {
     const ctx = {
       mode: "file_chunks" as const,
       chunks: [],
       totalTokenEstimate: 0,
-      instruction: "test",
+      instruction: "",
     };
     expect(mod.buildGroundingSection(ctx)).toBe("");
+  });
+
+  it("returns instruction text when chunks array is empty but instruction is present", () => {
+    const ctx = {
+      mode: "file_chunks" as const,
+      chunks: [],
+      totalTokenEstimate: 0,
+      instruction: "CRITICAL POLICY: Restrict to selected files.",
+    };
+    const section = mod.buildGroundingSection(ctx);
+    expect(section).toContain("No relevant source chunks were retrieved");
+    expect(section).toContain("CRITICAL POLICY: Restrict to selected files.");
+  });
+
+  it("states that selected files are active conversation context when provided in instruction", () => {
+    const ctx = {
+      mode: "file_chunks" as const,
+      chunks: [],
+      totalTokenEstimate: 0,
+      instruction: "The user selected these files as active conversation context: lecture.pdf, hw1.pdf.",
+    };
+    const section = mod.buildGroundingSection(ctx);
+    expect(section).toContain("active conversation context");
+    expect(section).toContain("lecture.pdf");
+    expect(section).toContain("hw1.pdf");
   });
 
   it("includes SOURCE blocks with sourceId and text when chunks present", () => {

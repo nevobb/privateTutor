@@ -552,6 +552,12 @@ export default function TutorConversation({
                 data-testid="staged-attachments"
                 dir="rtl"
               >
+                <span
+                  className="text-[11px] font-medium ml-1"
+                  style={{ color: "var(--tutor-text-secondary)" }}
+                >
+                  חומר פעיל בשיחה
+                </span>
                 {contextFiles.map((att) => (
                   <StagedAttachmentChip
                     key={att.localId}

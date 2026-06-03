@@ -2545,3 +2545,44 @@ Copy this block and fill all fields:
 - Handoff:
   - Ready for Nevo manual smoke on the selected course-file context flow
   - Remaining caution: the working tree still contains unrelated pre-existing dirty files outside this repair scope
+
+## 2026-06-04 00:19 (Asia/Jerusalem) — Codex
+- Step/Task ID: C5D
+- Task summary: Polish active-context tutor wording so selected course files are explicit, stable, and not confused with whole-course search.
+- What I changed:
+  - Added deterministic active-context status handling for questions like `איזה חומר פעיל בשיחה?`
+  - Added deterministic clarification for vague file-specific questions when no active file is selected
+  - Added honest selected-file empty-retrieval fallback asking whether to search the rest of the course
+  - Updated grounding instruction wording to name active selected files and forbid implying whole-course search
+  - Added a minimal composer label: `חומר פעיל בשיחה`
+- Files touched:
+  - `src/server/tutor/requestClassifier.ts`
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `src/components/tutor/TutorConversation.tsx`
+  - `tests/server/tutor/requestClassifier.test.ts`
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+  - `tests/server/tutor/deepseekProviderGrounding.test.ts`
+  - `tests/components/tutor/TutorConversation.test.tsx`
+  - `agent-memory/C5D_ACTIVE_CONTEXT_WORDING_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx vitest run tests/server/tutor/requestClassifier.test.ts tests/components/tutor/TutorConversation.test.tsx tests/server/tutor/deepseekProviderGrounding.test.ts tests/server/workspaces/sessionMessageApiService.test.ts`
+  - Result: passed
+  - `npx tsc --noEmit`
+  - Result: passed
+  - `npx vitest run`
+  - Result: passed
+  - `npm run build`
+  - Result: passed
+  - `git diff --check`
+  - Result: passed
+  - `graphify update .`
+  - Result: passed
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: Nevo manual smoke on active selected-file wording and the no-whole-course clarification path
+  - Blockers/Risks: unrelated pre-existing dirty tracked files still exist outside this batch scope
