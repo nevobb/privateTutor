@@ -1026,37 +1026,52 @@ export function SourcesSection({ citations }: { citations: NormalizedCitation[] 
       <summary
         className="cursor-pointer select-none text-[11px] font-semibold tracking-wide"
         style={{ color: "var(--tutor-text-muted)" }}
-        dir="ltr"
+        dir="rtl"
       >
-        Sources ({citations.length})
+        מקורות ({citations.length})
       </summary>
       <div className="mt-2 space-y-2">
-        {citations.map((cite) => (
-          <div
-            key={cite.renderKey}
-            className="text-[11px] px-3 py-2.5 rounded-xl space-y-1"
-            style={{
-              background: "var(--tutor-bg-elevated)",
-              border: "1px solid var(--tutor-border-subtle)",
-              color: "var(--tutor-text-secondary)",
-            }}
-            dir="auto"
-          >
-            <div className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--tutor-text-muted)" }} dir="ltr">
-              {cite.sourceLabel}
-            </div>
+        {citations.map((cite) => {
+          const hasFileName = Boolean(cite.originalFileName?.trim());
+          const hasPage = typeof cite.pageNumber === "number" && cite.pageNumber > 0;
+          const hasSection = Boolean(cite.sectionLabel?.trim());
+          return (
             <div
+              key={cite.renderKey}
+              className="text-[11px] px-3 py-2.5 rounded-xl space-y-1"
               style={{
-                display: "-webkit-box",
-                WebkitLineClamp: 3,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
+                background: "var(--tutor-bg-elevated)",
+                border: "1px solid var(--tutor-border-subtle)",
+                color: "var(--tutor-text-secondary)",
               }}
+              dir="rtl"
             >
-              &ldquo;{cite.referenceText}&rdquo;
+              <div
+                className="text-[11px] font-medium flex items-center gap-1.5 flex-wrap"
+                style={{ color: "var(--tutor-text-secondary)" }}
+              >
+                {hasFileName && <span aria-hidden>📄</span>}
+                <span>{cite.sourceLabel}</span>
+                {hasPage && (
+                  <span style={{ color: "var(--tutor-text-muted)" }}>· עמ׳ {cite.pageNumber}</span>
+                )}
+                {hasSection && (
+                  <span style={{ color: "var(--tutor-text-muted)" }}>· {cite.sectionLabel!.trim()}</span>
+                )}
+              </div>
+              <div
+                style={{
+                  display: "-webkit-box",
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                &ldquo;{cite.referenceText}&rdquo;
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </details>
   );
@@ -1085,7 +1100,7 @@ export function normalizeCitations(citations: SourceCitation[] | undefined): Nor
 
 function formatSourceLabel(citation: SourceCitation, index: number): string {
   if (citation.originalFileName?.trim()) return citation.originalFileName.trim();
-  return `Source ${index + 1}`;
+  return `מקור ${index + 1}`;
 }
 
 /* ── ChatUploadCard ── */

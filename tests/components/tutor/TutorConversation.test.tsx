@@ -286,28 +286,85 @@ describe("source rendering", () => {
     expect(new Set(result.map((item) => item.renderKey)).size).toBe(2);
   });
 
-  it("renders sources in a collapsible section (closed by default)", () => {
+  it("renders sources in a collapsible Hebrew section (closed by default)", () => {
     const normalized = normalizeCitations([
       { id: "chunk_0001", sourceId: "fileA:chunk_0001", referenceText: "example snippet" },
     ]);
 
-    const html = renderToStaticMarkup(
-      <SourcesSection citations={normalized} />
-    );
+    const html = renderToStaticMarkup(<SourcesSection citations={normalized} />);
     expect(html).toContain("<details");
-    expect(html).toContain("Sources (1)");
+    expect(html).toContain("מקורות (1)");
     expect(html).not.toContain("<details open");
+  });
+
+  it("renders the file name and excerpt for a file-backed citation", () => {
+    const normalized = normalizeCitations([
+      {
+        id: "chunk_0001",
+        sourceId: "fileA:chunk_0001",
+        referenceText: "Newton second law",
+        originalFileName: "Physics.pdf",
+      },
+    ]);
+
+    const html = renderToStaticMarkup(<SourcesSection citations={normalized} />);
+    expect(html).toContain("Physics.pdf");
+    expect(html).toContain("Newton second law");
+    expect(html).toContain("📄");
+  });
+
+  it("renders page and section only when present", () => {
+    const normalized = normalizeCitations([
+      {
+        id: "chunk_0001",
+        sourceId: "fileA:chunk_0001",
+        referenceText: "text",
+        originalFileName: "Physics.pdf",
+        pageNumber: 3,
+        sectionLabel: "שאלה 2",
+      },
+    ]);
+
+    const html = renderToStaticMarkup(<SourcesSection citations={normalized} />);
+    expect(html).toContain("עמ׳ 3");
+    expect(html).toContain("שאלה 2");
+  });
+
+  it("omits page when pageNumber is absent or not positive", () => {
+    const normalized = normalizeCitations([
+      {
+        id: "chunk_0001",
+        sourceId: "fileA:chunk_0001",
+        referenceText: "text",
+        originalFileName: "Physics.pdf",
+        pageNumber: 0,
+      },
+    ]);
+
+    const html = renderToStaticMarkup(<SourcesSection citations={normalized} />);
+    expect(html).not.toContain("עמ׳");
+  });
+
+  it("never renders raw sourceId / chunk IDs", () => {
+    const normalized = normalizeCitations([
+      { id: "chunk_0001", sourceId: "abc-123-def:chunk_0001", referenceText: "text" },
+    ]);
+
+    const html = renderToStaticMarkup(<SourcesSection citations={normalized} />);
+    expect(html).not.toContain("abc-123-def");
+    expect(html).not.toContain("chunk_0001");
+    expect(html).not.toContain("abc-123-def:chunk_0001");
   });
 });
 
 describe("source label formatting", () => {
-  it("shows ordinal Source N when originalFileName is absent", () => {
+  it("shows ordinal מקור N when originalFileName is absent", () => {
     const result = normalizeCitations([
       { id: "chunk_0001", sourceId: "fileA:chunk_0001", referenceText: "some text" },
       { id: "chunk_0002", sourceId: "fileB:chunk_0002", referenceText: "other text" },
     ]);
-    expect(result[0].sourceLabel).toBe("Source 1");
-    expect(result[1].sourceLabel).toBe("Source 2");
+    expect(result[0].sourceLabel).toBe("מקור 1");
+    expect(result[1].sourceLabel).toBe("מקור 2");
   });
 
   it("shows originalFileName when provided", () => {
@@ -328,7 +385,7 @@ describe("source label formatting", () => {
     ]);
     expect(result[0].sourceLabel).not.toContain("abc-123-def");
     expect(result[0].sourceLabel).not.toContain("chunk_0001");
-    expect(result[0].sourceLabel).toBe("Source 1");
+    expect(result[0].sourceLabel).toBe("מקור 1");
   });
 });
 
