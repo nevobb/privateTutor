@@ -46,3 +46,6 @@ graphify-out/
 
 # Stitch generated artifacts
 .tmp/
+
+# Evaluation run artifacts
+tests/evaluation/eval_report.json
