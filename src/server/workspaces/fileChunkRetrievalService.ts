@@ -12,6 +12,8 @@ export type FileChunkRetrievalInput = {
   query: string;
   maxChunks: number;
   maxTokens: number;
+  /** When provided, retrieval tries these file IDs first before falling back to workspace-wide. */
+  prioritizedFileIds?: string[];
 };
 
 export type RetrievedFileChunk = {
@@ -79,7 +81,9 @@ export async function retrieveRelevantFileChunks(
     retrieveSemantically: retrieveRelevantFileChunksSemantically,
   }
 ): Promise<FileChunkRetrievalResult> {
-  const { userId, workspaceId, query, maxChunks, maxTokens } = input;
+  const { userId, workspaceId, query, maxChunks, maxTokens, prioritizedFileIds } = input;
+  const prioritizedSet =
+    prioritizedFileIds && prioritizedFileIds.length > 0 ? new Set(prioritizedFileIds) : null;
 
   const files = await deps.listUploadedFiles(userId, workspaceId);
   const eligible = files.filter(
@@ -107,6 +111,89 @@ export async function retrieveRelevantFileChunks(
     return { chunks: [], eligibleFileCount: eligible.length };
   }
 
+  // When prioritized file IDs are present, try them first before falling back
+  // to workspace-wide retrieval. This implements C4 attached-file prioritization.
+  if (prioritizedSet) {
+    const prioritizedPairs = allPairs.filter(({ file }) => prioritizedSet.has(file.id));
+
+    if (prioritizedPairs.length > 0) {
+      // Semantic retrieval restricted to prioritized files.
+      let semResult: SemanticChunkRetrievalResult = { attempted: false, chunks: [] };
+      if (deps.retrieveSemantically) {
+        try {
+          semResult = await deps.retrieveSemantically({
+            userId,
+            workspaceId,
+            query,
+            maxChunks,
+            maxTokens,
+            candidates: prioritizedPairs.map(({ file, chunk }) => ({
+              fileId: file.id,
+              sourceLabel: file.name,
+              chunk,
+            })),
+          });
+        } catch {
+          semResult = { attempted: true, chunks: [] };
+        }
+      }
+
+      if (semResult.chunks.length > 0) {
+        return {
+          chunks: semResult.chunks.map((chunk) => ({
+            chunkId: chunk.chunkId,
+            fileId: chunk.fileId,
+            workspaceId: chunk.workspaceId,
+            text: chunk.text,
+            chunkIndex: chunk.chunkIndex,
+            tokenEstimate: chunk.tokenEstimate,
+            score: chunk.finalScore,
+            semanticScore: chunk.semanticScore,
+            keywordScore: chunk.keywordScore,
+            finalScore: chunk.finalScore,
+            sourceLabel: chunk.sourceLabel,
+            retrievalMethod: "semantic",
+          })),
+          eligibleFileCount: eligible.length,
+        };
+      }
+
+      // Keyword retrieval restricted to prioritized files.
+      const queryTokens = tokenize(query);
+      const prioritizedMethod: RetrievedFileChunk["retrievalMethod"] = semResult.attempted
+        ? "keyword_fallback"
+        : "keyword_only";
+      const prioritizedScored: RetrievedFileChunk[] = prioritizedPairs
+        .map(({ file, chunk }) => ({
+          chunkId: chunk.chunkId,
+          fileId: file.id,
+          workspaceId,
+          text: chunk.text,
+          chunkIndex: chunk.chunkIndex,
+          tokenEstimate: chunk.tokenEstimate,
+          score: scoreChunk(queryTokens, chunk.text),
+          keywordScore: scoreChunk(queryTokens, chunk.text),
+          finalScore: scoreChunk(queryTokens, chunk.text),
+          sourceLabel: file.name,
+          retrievalMethod: prioritizedMethod,
+        }))
+        .sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          return a.chunkIndex - b.chunkIndex;
+        });
+
+      const prioritizedResult = selectByBudget(prioritizedScored, maxChunks, maxTokens);
+      // Only use prioritized results if at least one chunk is relevant (score > 0).
+      // Zero-score results mean the prioritized file has no matching content — fall back.
+      if (prioritizedResult.some((c) => c.score > 0)) {
+        return { chunks: prioritizedResult, eligibleFileCount: eligible.length };
+      }
+
+      // Prioritized files found no useful chunks — fall through to workspace-wide.
+    }
+  }
+
+  // Workspace-wide retrieval (existing behavior, unchanged).
   let semanticResult: SemanticChunkRetrievalResult = { attempted: false, chunks: [] };
   if (deps.retrieveSemantically) {
     try {

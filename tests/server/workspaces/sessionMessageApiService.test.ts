@@ -62,6 +62,7 @@ type ServiceModule = {
       query: string;
       maxChunks: number;
       maxTokens: number;
+      prioritizedFileIds?: string[];
     }) => Promise<ChunkRetrievalResult>;
     getMockTutorResponse: (
       msg: string,
@@ -2241,6 +2242,244 @@ describeService("sessionMessageApiService", () => {
       expect(groundingContext.instruction).not.toContain("פרמטרים,,,");
       expect(groundingContext.instruction).not.toContain("a b R I");
       expect(groundingContext.instruction).toContain("not clean enough");
+    });
+  });
+
+  /* ── C4: attachment readiness gate + retrieval prioritization ── */
+
+  describe("deriveActiveAttachedFileIds", () => {
+    let deriveFn: (ids: string[] | undefined, msgs: Record<string, unknown>[]) => string[] | undefined;
+
+    beforeAll(async () => {
+      const svc = (await import("../../../src/server/workspaces/sessionMessageApiService")) as unknown as {
+        deriveActiveAttachedFileIds: typeof deriveFn;
+      };
+      deriveFn = svc.deriveActiveAttachedFileIds;
+    });
+
+    it("returns current IDs when present", () => {
+      const result = deriveFn(["file-1"], []);
+      expect(result).toEqual(["file-1"]);
+    });
+
+    it("returns undefined when no current IDs and no prior attachments", () => {
+      const result = deriveFn(undefined, [
+        { role: "user", content: "hi", attachedFileIds: undefined },
+        { role: "tutor", content: "response" },
+      ]);
+      expect(result).toBeUndefined();
+    });
+
+    it("derives from latest prior user message with attachedFileIds when current has none", () => {
+      const result = deriveFn(undefined, [
+        { role: "user", content: "first", attachedFileIds: ["file-old"] },
+        { role: "tutor", content: "r1" },
+        { role: "user", content: "second", attachedFileIds: ["file-new"] },
+        { role: "tutor", content: "r2" },
+      ]);
+      expect(result).toEqual(["file-new"]);
+    });
+
+    it("returns undefined when all prior user messages have no attachedFileIds", () => {
+      const result = deriveFn(undefined, [
+        { role: "user", content: "q1" },
+        { role: "tutor", content: "a1" },
+      ]);
+      expect(result).toBeUndefined();
+    });
+
+    it("skips tutor messages when scanning for prior attachments", () => {
+      const result = deriveFn(undefined, [
+        { role: "user", content: "q", attachedFileIds: ["file-x"] },
+        { role: "tutor", content: "a", attachedFileIds: ["should-not-use"] },
+      ]);
+      expect(result).toEqual(["file-x"]);
+    });
+  });
+
+  describe("C4 — readiness gate and retrieval prioritization", () => {
+    it("returns deterministic not-ready response and does NOT call tutor provider when attached file is not extracted", async () => {
+      const repos = makeRepos({
+        getUploadedFile: vi.fn(async (_uid: string, fileId: string) => ({
+          id: fileId,
+          name: `${fileId}.pdf`,
+          originalFileName: `${fileId}.pdf`,
+          workspaceId: "ws-1",
+          extractionStatus: "not_started",
+          chunkingStatus: "not_started",
+        })),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "explain this file",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        attachedFileIds: ["file-1"],
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect(repos.retrieveFileChunks).not.toHaveBeenCalled();
+      // The appendMessage call for the tutor must carry the processing message.
+      expect(repos.appendMessage).toHaveBeenCalledWith(
+        "alice", "ws-1", "s-1",
+        expect.objectContaining({
+          role: "tutor",
+          content: expect.stringMatching(/עיבוד/),
+        })
+      );
+      expect(repos.appendMessage).toHaveBeenCalledWith(
+        "alice", "ws-1", "s-1",
+        expect.objectContaining({
+          role: "tutor",
+          content: expect.stringMatching(/file-1\.pdf/),
+        })
+      );
+    });
+
+    it("does NOT fall back to workspace-wide retrieval when attached file is not ready", async () => {
+      const repos = makeRepos({
+        getUploadedFile: vi.fn(async (_uid: string, fileId: string) => ({
+          id: fileId,
+          name: `${fileId}.pdf`,
+          workspaceId: "ws-1",
+          extractionStatus: "pending",
+          chunkingStatus: "not_started",
+        })),
+        listUploadedFiles: vi.fn(async () => [
+          {
+            id: "other-file",
+            name: "other.pdf",
+            extractionStatus: "completed",
+            chunkingStatus: "completed",
+            chunkCount: 5,
+          },
+        ]),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "explain this",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        attachedFileIds: ["file-1"],
+      });
+
+      expect(repos.retrieveFileChunks).not.toHaveBeenCalled();
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+    });
+
+    it("passes prioritizedFileIds to retrieveFileChunks when attached file is ready", async () => {
+      const repos = makeRepos({
+        getUploadedFile: vi.fn(async (_uid: string, fileId: string) => ({
+          id: fileId,
+          name: `${fileId}.pdf`,
+          workspaceId: "ws-1",
+          extractionStatus: "completed",
+          chunkingStatus: "completed",
+        })),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "explain this",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        attachedFileIds: ["file-1"],
+      });
+
+      expect(repos.retrieveFileChunks).toHaveBeenCalledWith(
+        expect.objectContaining({ prioritizedFileIds: ["file-1"] })
+      );
+    });
+
+    it("does not pass prioritizedFileIds when no attached files", async () => {
+      const repos = makeRepos();
+      const service = mod.createSessionMessageApiService(repos);
+
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "explain this",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.retrieveFileChunks).toHaveBeenCalledWith(
+        expect.objectContaining({ prioritizedFileIds: undefined })
+      );
+    });
+
+    it("derives attachment context from prior messages on follow-up with no current attachment", async () => {
+      const repos = makeRepos({
+        listSessionMessages: vi.fn(async () => [
+          {
+            ...baseMessage,
+            role: "user",
+            attachedFileIds: ["prior-file"],
+          },
+          { ...baseMessage, id: "m-t1", role: "tutor", content: "response about prior file" },
+        ]),
+        getUploadedFile: vi.fn(async (_uid: string, fileId: string) => ({
+          id: fileId,
+          name: `${fileId}.pdf`,
+          workspaceId: "ws-1",
+          extractionStatus: "completed",
+          chunkingStatus: "completed",
+        })),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "follow-up question",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        // No attachedFileIds in current turn
+      });
+
+      expect(repos.retrieveFileChunks).toHaveBeenCalledWith(
+        expect.objectContaining({ prioritizedFileIds: ["prior-file"] })
+      );
+    });
+
+    it("not-ready response for derived prior attachment on follow-up", async () => {
+      const repos = makeRepos({
+        listSessionMessages: vi.fn(async () => [
+          {
+            ...baseMessage,
+            role: "user",
+            attachedFileIds: ["prior-file"],
+          },
+          { ...baseMessage, id: "m-t1", role: "tutor", content: "processing..." },
+        ]),
+        getUploadedFile: vi.fn(async (_uid: string, fileId: string) => ({
+          id: fileId,
+          name: `${fileId}.pdf`,
+          workspaceId: "ws-1",
+          extractionStatus: "not_started",
+          chunkingStatus: "not_started",
+        })),
+      });
+      const service = mod.createSessionMessageApiService(repos);
+
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "follow up",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+      });
+
+      expect(repos.getMockTutorResponse).not.toHaveBeenCalled();
+      expect(repos.appendMessage).toHaveBeenCalledWith(
+        "alice", "ws-1", "s-1",
+        expect.objectContaining({
+          role: "tutor",
+          content: expect.stringMatching(/עיבוד/),
+        })
+      );
     });
   });
 });

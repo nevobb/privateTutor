@@ -292,6 +292,32 @@ export function createSessionMessageApiService(
         return makeDeterministicReturn(userRecord, assistantRecord, "visual_reference_shortcut");
       }
 
+      // Derive active attachment context: current turn's IDs, or latest prior user attachment.
+      const activeAttachedFileIds = deriveActiveAttachedFileIds(attachedFileIds, existingMessages);
+
+      // Readiness gate: if active attached files are not yet extracted/chunked, return an
+      // honest deterministic response instead of silently retrieving from other workspace files.
+      if (activeAttachedFileIds) {
+        const readiness = await checkAttachedFilesReadiness(
+          repositories,
+          userId,
+          input.workspaceId,
+          activeAttachedFileIds
+        );
+        if (!readiness.ready) {
+          const fileList = readiness.processingFileNames
+            .map((n) => `"${n}"`)
+            .join(", ");
+          const plural = readiness.processingFileNames.length > 1;
+          const content = `הקובץ${plural ? "ים" : ""} ${fileList} שצירפת עדיין בעיבוד — חילוץ טקסט, יצירת צ'אנקים, או יצירת embeddings. המתן כמה שניות ושאל שוב.`;
+          const assistantRecord = await repositories.appendMessage(userId, input.workspaceId, sessionId, {
+            role: "tutor",
+            content,
+          });
+          return makeDeterministicReturn(userRecord, assistantRecord, "attached_file_not_ready");
+        }
+      }
+
       const tutorResponse = await repositories.getMockTutorResponse(
         input.userMessage,
         input.workMode,
@@ -321,7 +347,8 @@ export function createSessionMessageApiService(
         input.workMode,
         tutorResponse,
         guardedDecision,
-        input.costMode
+        input.costMode,
+        activeAttachedFileIds
       );
 
       if (retrievalExecution.retrievedChunks.length > 0) {
@@ -513,6 +540,53 @@ async function validateAttachedFileIds(
   return attachedFileIds;
 }
 
+/**
+ * Returns the active attached file IDs for a tutor turn.
+ * Uses the current message's IDs if present; otherwise derives from the most recent
+ * prior user message that carried attachedFileIds. Returns undefined when no context exists.
+ */
+export function deriveActiveAttachedFileIds(
+  currentAttachedFileIds: string[] | undefined,
+  existingMessages: MessageRecord[]
+): string[] | undefined {
+  if (currentAttachedFileIds && currentAttachedFileIds.length > 0) {
+    return currentAttachedFileIds;
+  }
+  for (let i = existingMessages.length - 1; i >= 0; i--) {
+    const msg = existingMessages[i];
+    if (msg.role === "user" && msg.attachedFileIds && msg.attachedFileIds.length > 0) {
+      return msg.attachedFileIds;
+    }
+  }
+  return undefined;
+}
+
+async function checkAttachedFilesReadiness(
+  repositories: Repositories,
+  userId: string,
+  workspaceId: string,
+  attachedFileIds: string[]
+): Promise<{ ready: true } | { ready: false; processingFileNames: string[] }> {
+  const notReadyNames: string[] = [];
+  for (const fileId of attachedFileIds) {
+    const file = await repositories.getUploadedFile(userId, fileId);
+    const isReady =
+      file &&
+      file.workspaceId === workspaceId &&
+      file.extractionStatus === "completed" &&
+      file.chunkingStatus === "completed";
+    if (!isReady) {
+      notReadyNames.push(
+        (file as { originalFileName?: string; name?: string } | null)?.originalFileName ??
+        (file as { name?: string } | null)?.name ??
+        fileId
+      );
+    }
+  }
+  if (notReadyNames.length === 0) return { ready: true };
+  return { ready: false, processingFileNames: notReadyNames };
+}
+
 async function persistDecisionLogEvents(
   repositories: Repositories,
   userId: string,
@@ -544,7 +618,8 @@ async function executeRetrievalForTutorResponse(
   workMode: WorkMode,
   tutorResponse: TutorBoundaryResponse,
   decision: RetrievalBoundaryDecision,
-  costMode: CostMode
+  costMode: CostMode,
+  prioritizedFileIds?: string[]
 ): Promise<{ citations: TutorBoundaryResponse["message"]["citations"]; retrievedChunks: RetrievedFileChunk[] }> {
   if (!decision.needs_retrieval) {
     tutorResponse.internalUpdate.retrieval = {
@@ -587,6 +662,7 @@ async function executeRetrievalForTutorResponse(
       query: userMessage,
       maxChunks: effectiveMaxChunks,
       maxTokens: effectiveMaxTokens,
+      prioritizedFileIds,
     });
 
     if (chunkResult.eligibleFileCount > 0) {

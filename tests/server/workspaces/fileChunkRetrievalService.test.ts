@@ -17,6 +17,7 @@ type RetrievalModule = {
       query: string;
       maxChunks: number;
       maxTokens: number;
+      prioritizedFileIds?: string[];
     },
     deps?: {
       listUploadedFiles: (userId: string, workspaceId: string) => Promise<Record<string, unknown>[]>;
@@ -335,5 +336,102 @@ describeService("retrieveRelevantFileChunks", () => {
     );
 
     expect(result.chunks[0].retrievalMethod).toBe("keyword_fallback");
+  });
+
+  /* ── C4: prioritizedFileIds ── */
+
+  it("returns chunks only from prioritized file when prioritizedFileIds is set and file has chunks", async () => {
+    const deps = {
+      listUploadedFiles: vi.fn(async () => [
+        makeEligibleFile("attached-file", "lecture.pdf"),
+        makeEligibleFile("other-file", "background.pdf"),
+      ]),
+      listFileChunks: vi.fn(async (_uid: string, _ws: string, fileId: string) => {
+        if (fileId === "attached-file") return [makeChunk("c-att-1", "attached-file", 0, "newton force law")];
+        return [makeChunk("c-other-1", "other-file", 0, "quantum mechanics wave function")];
+      }),
+    };
+
+    const result = await mod.retrieveRelevantFileChunks(
+      {
+        userId: "alice",
+        workspaceId: "ws-1",
+        query: "newton force",
+        maxChunks: 5,
+        maxTokens: 10000,
+        prioritizedFileIds: ["attached-file"],
+      },
+      deps
+    );
+
+    expect(result.chunks.length).toBeGreaterThan(0);
+    expect(result.chunks.every((c) => c.fileId === "attached-file")).toBe(true);
+    expect(result.eligibleFileCount).toBe(2);
+  });
+
+  it("falls back to workspace-wide when prioritized file has no matching chunks", async () => {
+    const deps = {
+      listUploadedFiles: vi.fn(async () => [
+        makeEligibleFile("attached-file", "lecture.pdf"),
+        makeEligibleFile("other-file", "background.pdf"),
+      ]),
+      listFileChunks: vi.fn(async (_uid: string, _ws: string, fileId: string) => {
+        if (fileId === "attached-file") return [makeChunk("c-att-1", "attached-file", 0, "xyz irrelevant gibberish")];
+        return [makeChunk("c-other-1", "other-file", 0, "newton force law directly relevant")];
+      }),
+    };
+
+    // No prioritized result because score is 0 for "attached-file" chunk on query "newton force".
+    // Keyword scores: attached file gets 0, other file gets matches → falls back to workspace-wide.
+    const result = await mod.retrieveRelevantFileChunks(
+      {
+        userId: "alice",
+        workspaceId: "ws-1",
+        query: "newton force",
+        maxChunks: 5,
+        maxTokens: 10000,
+        prioritizedFileIds: ["attached-file"],
+      },
+      deps
+    );
+
+    // Must include the workspace-wide result since prioritized file returned nothing useful
+    const fileIds = result.chunks.map((c) => c.fileId);
+    expect(fileIds).toContain("other-file");
+  });
+
+  it("behaves as workspace-wide when prioritizedFileIds is empty array", async () => {
+    const deps = {
+      listUploadedFiles: vi.fn(async () => [makeEligibleFile("f1", "notes.pdf")]),
+      listFileChunks: vi.fn(async () => [makeChunk("c1", "f1", 0, "newton force law")]),
+    };
+
+    const result = await mod.retrieveRelevantFileChunks(
+      {
+        userId: "alice",
+        workspaceId: "ws-1",
+        query: "newton",
+        maxChunks: 5,
+        maxTokens: 10000,
+        prioritizedFileIds: [],
+      },
+      deps
+    );
+
+    expect(result.chunks.some((c) => c.fileId === "f1")).toBe(true);
+  });
+
+  it("behaves as workspace-wide when prioritizedFileIds is absent", async () => {
+    const deps = {
+      listUploadedFiles: vi.fn(async () => [makeEligibleFile("f1", "notes.pdf")]),
+      listFileChunks: vi.fn(async () => [makeChunk("c1", "f1", 0, "newton force law")]),
+    };
+
+    const result = await mod.retrieveRelevantFileChunks(
+      { userId: "alice", workspaceId: "ws-1", query: "newton", maxChunks: 5, maxTokens: 10000 },
+      deps
+    );
+
+    expect(result.chunks.some((c) => c.fileId === "f1")).toBe(true);
   });
 });
