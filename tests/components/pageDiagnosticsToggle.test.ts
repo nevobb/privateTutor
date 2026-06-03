@@ -3,7 +3,7 @@ import {
   DEV_DIAGNOSTICS_STORAGE_KEY,
   parseDeveloperDiagnosticsFlag,
   serializeDeveloperDiagnosticsFlag,
-} from "../../src/app/page";
+} from "../../src/lib/settings/settingsPreferences";
 
 describe("developer diagnostics toggle persistence helpers", () => {
   it("uses the expected localStorage key", () => {

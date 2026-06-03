@@ -1,9 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import MainLayout from "../components/layout/MainLayout";
 import CollapsiblePanel from "../components/layout/CollapsiblePanel";
-import ThemePicker from "../components/settings/ThemePicker";
 import WorkspaceSelector, {
   type SessionLoadState,
   type WorkspaceLoadState,
@@ -47,16 +47,12 @@ import {
   WorkspaceFilesApiError,
 } from "../lib/workspaces/workspaceFilesApiClient";
 import { uploadLearningFileToStorage, validateLearningFile } from "../lib/firebase/storageUploadClient";
-
-export const DEV_DIAGNOSTICS_STORAGE_KEY = "privateTutor.devDiagnostics.enabled";
-
-export function parseDeveloperDiagnosticsFlag(raw: string | null): boolean {
-  return raw === "true";
-}
-
-export function serializeDeveloperDiagnosticsFlag(enabled: boolean): string {
-  return enabled ? "true" : "false";
-}
+import {
+  applyStoredDisplayPreferences,
+  DEV_DIAGNOSTICS_STORAGE_KEY,
+  readStoredDevDiagnosticsPreference,
+  serializeDeveloperDiagnosticsFlag,
+} from "../lib/settings/settingsPreferences";
 
 function sortSessionsByRecent(sessions: SessionApiSession[]): SessionApiSession[] {
   return [...sessions].sort((a, b) => {
@@ -104,7 +100,13 @@ export default function Home() {
 
   const [workMode, setWorkMode] = useState<WorkMode>("Learning");
   const [costMode, setCostMode] = useState<CostMode>("Normal Learning");
-  const [developerDiagnosticsEnabled, setDeveloperDiagnosticsEnabled] = useState(false);
+  const [developerDiagnosticsEnabled, setDeveloperDiagnosticsEnabled] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return readStoredDevDiagnosticsPreference(window.localStorage);
+  });
   const [memoryObservations, setMemoryObservations] = useState<LearnerMemoryObservationItem[]>([]);
   const [memoryLoading, setMemoryLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -114,15 +116,6 @@ export default function Home() {
   >({});
   const [pendingFilesByFileId, setPendingFilesByFileId] = useState<Record<string, File | undefined>>({});
   const processingInFlightRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(DEV_DIAGNOSTICS_STORAGE_KEY);
-      setDeveloperDiagnosticsEnabled(parseDeveloperDiagnosticsFlag(saved));
-    } catch {
-      setDeveloperDiagnosticsEnabled(false);
-    }
-  }, []);
 
   useEffect(() => {
     try {
@@ -137,18 +130,7 @@ export default function Home() {
 
   // Apply saved display settings (font size, chat max-width) from Settings page
   useEffect(() => {
-    try {
-      const savedFontSize = window.localStorage.getItem("tutor-chat-font-size");
-      const savedChatWidth = window.localStorage.getItem("tutor-chat-max-width");
-      if (savedFontSize) {
-        document.documentElement.style.setProperty("--tutor-chat-font-size", savedFontSize);
-      }
-      if (savedChatWidth) {
-        document.documentElement.style.setProperty("--tutor-chat-max-width", savedChatWidth);
-      }
-    } catch {
-      // Ignore read errors.
-    }
+    applyStoredDisplayPreferences(window.localStorage, document.documentElement.style);
   }, []);
 
   const handleWorkspaceSelect = useCallback((workspaceId: string): void => {
@@ -598,12 +580,12 @@ export default function Home() {
     <div className="flex flex-col h-full" dir="ltr">
       {/* Sidebar header: app name + user */}
       <div
-        className="px-4 py-3 flex-shrink-0 space-y-2"
+        className="px-4 py-5 flex-shrink-0 space-y-3"
         style={{ borderBottom: "1px solid var(--tutor-sidebar-border)" }}
       >
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-3 pr-10">
           <span
-            className="text-lg font-semibold"
+            className="text-[2rem] font-semibold leading-none"
             style={{
               fontFamily: "'Lora', Georgia, serif",
               color: "var(--tutor-sidebar-text-active)",
@@ -630,32 +612,36 @@ export default function Home() {
         </div>
         {authState.status === "signed-in" && (
           <div
-            className="flex items-center gap-2 rounded-md px-2 py-1 min-w-0"
+            className="flex items-center gap-3 rounded-2xl px-3 py-3 min-w-0"
             style={{
               border: "1px solid var(--tutor-sidebar-border)",
               background: "var(--tutor-sidebar-hover)",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
             }}
           >
             <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-              style={{ background: "var(--tutor-accent)" }}
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+              style={{
+                background: "linear-gradient(135deg, var(--tutor-accent), #96a7e5)",
+                boxShadow: "0 8px 16px rgba(123,143,212,0.28)",
+              }}
               title={displayName ?? undefined}
               aria-label={displayName ?? "משתמש"}
             >
               {avatarLetter}
             </div>
             <div className="min-w-0 leading-tight">
-              <div className="text-[11px] font-medium truncate" style={{ color: "var(--tutor-sidebar-text-active)" }}>
+              <div className="text-[15px] font-medium truncate" style={{ color: "var(--tutor-sidebar-text-active)" }}>
                 {authState.user?.displayName ?? "Signed in"}
               </div>
               <div
-                className="text-[10px] truncate"
+                className="text-[12px] truncate mt-0.5"
                 style={{ color: "var(--tutor-sidebar-text-muted)" }}
                 title={authState.user?.email ?? undefined}
               >
                 {authState.user?.email ?? "No email"}
               </div>
-              <div className="text-[10px]" style={{ color: "var(--tutor-sidebar-text-muted)" }}>
+              <div className="text-[11px] mt-1" style={{ color: "var(--tutor-sidebar-text-muted)" }}>
                 Mode: {getClientFirebaseModeLabel()}
               </div>
             </div>
@@ -723,21 +709,26 @@ export default function Home() {
             }}
           />
         </CollapsiblePanel>
-        <ThemePicker />
         <div
-          className="px-4 py-3 flex items-center justify-between gap-3"
+          className="px-4 py-5 flex items-center justify-between gap-3"
           style={{ borderTop: "1px solid var(--tutor-sidebar-border)" }}
         >
-          <span className="text-xs" style={{ color: "var(--tutor-sidebar-text-muted)" }}>
-            Private Tutor
-          </span>
-          <a
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--tutor-sidebar-text-muted)" }}>
+              Workspace
+            </div>
+            <div className="text-[13px] mt-1" style={{ color: "var(--tutor-sidebar-text-active)" }}>
+              Private Tutor
+            </div>
+          </div>
+          <Link
             href="/settings"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors"
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs transition-colors"
             style={{
-              color: "var(--tutor-sidebar-text-muted)",
+              color: "var(--tutor-sidebar-text)",
               border: "1px solid var(--tutor-sidebar-border)",
               textDecoration: "none",
+              background: "rgba(255,255,255,0.04)",
             }}
             title="Settings"
             aria-label="Open Settings"
@@ -752,7 +743,7 @@ export default function Home() {
           >
             <GearIcon />
             <span>Settings</span>
-          </a>
+          </Link>
         </div>
       </div>
     </div>
