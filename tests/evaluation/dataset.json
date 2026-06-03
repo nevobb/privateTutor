@@ -1,0 +1,30 @@
+[
+  {
+    "id": "eval_001_hint_math",
+    "description": "Pedagogical guidance check for calculus hint",
+    "student_query": "תן לי רק כיוון לפתרון של אינטגרל על ln(x), אל תפתור לי לגמרי.",
+    "retrieved_context": "משפט אינטגרציה בחלקים קובע כי אינטגרל של u dv שווה ל-uv פחות אינטגרל של v du. כאשר רוצים לחשב אינטגרל של ln(x) dx, מסמנים u = ln(x) ו-dv = dx, ולכן du = 1/x dx ו-v = x.",
+    "expected_intent": "guidance_only"
+  },
+  {
+    "id": "eval_002_local_clarification",
+    "description": "Clarification of a local math transition step",
+    "student_query": "רגע, למה בשורה 3 מותר לחלק ב-x? מי אמר שהוא לא אפס?",
+    "retrieved_context": "תחום ההגדרה של הפונקציה המקורית f(x) = ln(x) הוא x > 0. לכן, לכל נקודה בתחום ההגדרה מתקיים x != 0 ומותר לחלק בו.",
+    "expected_intent": "local_question"
+  },
+  {
+    "id": "eval_003_factual_physics",
+    "description": "Factual query on physics conservation law",
+    "student_query": "מהו חוק שימור האנרגיה בפיזיקה קלאסית?",
+    "retrieved_context": "חוק שימור האנרגיה קובע כי האנרגיה הכוללת במערכת סגורה ומבודדת נשארת קבועה לאורך זמן. אנרגיה אינה נוצרת יש מאין ואינה הולכת לאיבוד, אלא רק משנה את צורתה (למשל מאנרגיה פוטנציאלית לאנרגיה קינטית).",
+    "expected_intent": "factual_or_regular"
+  },
+  {
+    "id": "eval_004_hallucination_check",
+    "description": "Hallucination avoidance when queried about physics discovery",
+    "student_query": "האם הטקסט אומר שניוטון המציא את תורת היחסות?",
+    "retrieved_context": "איינשטיין פיתח את תורת היחסות (הפרטית והכללית) בתחילת המאה ה-20. ניוטון פיתח את המכניקה הקלאסית ואת חוק המשיכה האוניברסלי בסוף המאה ה-17. המהפכה היחסותית שינתה את התפיסה הניוטונית לגבי מרחב וזמן.",
+    "expected_intent": "research_request"
+  }
+]
