@@ -218,6 +218,41 @@ Copy this block and fill all fields:
   - Blockers/Risks: workspace already contains unrelated modified/untracked files; kept out of this task edits.
 
 ## 2026-05-18 23:00 (Asia/Jerusalem) — Codex
+
+## 2026-06-03 15:31 (IDT) — Codex
+- Step/Task ID: UI visual design codex pass
+- Task summary: Perform a frontend-only visual polish pass using the provided screenshots as the target and validate with Playwright plus full repo checks.
+- What I changed:
+  - Added a small shared UI primitive layer for menus, icon buttons, status pills, chat status cards, and section headers.
+  - Polished the sidebar, composer, chat bubbles, sources, file panel, settings page, layout shell, and theme entry for a calmer academic workspace feel.
+  - Created `agent-memory/UI_VISUAL_DESIGN_CODEX_PASS_REPORT.md` with the gap analysis, design strategy, Playwright notes, and validation results.
+- Files touched:
+  - `src/app/globals.css`
+  - `src/app/page.tsx`
+  - `src/app/settings/page.tsx`
+  - `src/components/files/FilePanel.tsx`
+  - `src/components/layout/CollapsiblePanel.tsx`
+  - `src/components/layout/MainLayout.tsx`
+  - `src/components/settings/ThemePicker.tsx`
+  - `src/components/tutor/TutorConversation.tsx`
+  - `src/components/workspaces/WorkspaceSelector.tsx`
+  - `src/components/ui/TutorUI.tsx`
+  - `tests/components/tutor/TutorConversation.test.tsx`
+  - `agent-memory/UI_VISUAL_DESIGN_CODEX_PASS_REPORT.md`
+- Tests/checks run:
+  - `npx tsc --noEmit`
+  - `npx vitest run`
+  - `npm run build`
+  - `git diff --check`
+  - `graphify update .`
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): not committed
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: Nevo should manually review the signed-in workspace screens in a real authenticated session and decide whether the remaining theme-picker/sidebar refinements are worth a follow-up pass.
+  - Blockers/Risks: Playwright could not inherit the existing Firebase signed-in session, so authenticated workspace visual QA relied on the provided screenshots plus code inspection rather than live automated navigation.
 - Step/Task ID: Step 41E
 - Task summary: Finish diagnostics UX polish with sidebar toggle persistence/hydration and strict diagnostics gating.
 - What I changed:
@@ -2125,3 +2160,224 @@ Copy this block and fill all fields:
   - Current state: Plus menu fully functional. Course hierarchy with folder icons. Ready for manual smoke.
   - Next recommended step: Manual smoke by Nevo, then either wire "Open file panel" from plus menu OR proceed to next feature phase.
   - Blockers/Risks: "Open file panel" from plus menu removed (not wired). No other functional blockers.
+
+## 2026-06-03 — Diagram awareness Deep PDF diagnostic
+- Summary:
+  - Audited the Deep PDF provider, artifact persistence, tutor inventory path, grounding path, and prompt behavior to explain why manual use still produced a text-only/diagrams-not-visible answer.
+  - Found that Deep PDF is not yet diagram-aware in a first-class way: the provider prompt only weakly mentions diagrams, the schema has no dedicated visual-description field, no diagram descriptions are persisted, and tutor runtime still carries explicit text-only visual limitation wording.
+  - Concluded the likely issue is not simply “Deep PDF did not run,” but a combination of limited provider schema + missing visual artifact persistence + hard visual-limitation routing/prompt behavior.
+- Files touched:
+  - `agent-memory/DIAGRAM_AWARE_DEEP_PDF_DIAGNOSTIC.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - read-only diagnostic; no code/test execution required by task
+  - `graphify query "Deep PDF diagram figure visual extraction"`
+  - `graphify query "GeminiPdfUnderstandingProvider diagrams figures output"`
+  - `graphify query "document artifacts pages visual descriptions"`
+  - `graphify query "fileInventoryService deepPdf completed diagrams"`
+  - `graphify query "sessionMessageApiService artifact grounding diagram"`
+  - `graphify query "prompt diagrams not visible text only"`
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: the system can use Deep PDF for structure/question detection, but not yet for first-class circuit/diagram tutoring.
+  - Next recommended step: implement a narrow visual-description artifact field and thread it into artifact-aware grounding before touching full image/vision flows.
+  - Blockers/Risks: weakening the text-only prompt without adding visual artifacts would encourage overclaiming.
+
+
+## 2026-06-03 14:47 (Asia/Jerusalem) — Claude
+- Step/Task ID: UI/UX Polish — Product Feel, Upload Feedback, Menus, Visual System
+- Task summary: Added upload feedback in chat timeline; polished menus; sidebar + composer polish
+- What I changed:
+  - `globals.css`: Added `--tutor-menu-shadow`, `--tutor-card-shadow`, `--tutor-radius-menu`, `--tutor-radius-card`; softened existing shadows
+  - `TutorConversation.tsx`: `ChatUploadFeedback` type + state; `handleUploadWithFeedback` wraps `onFileSelected` with feedback; `ChatUploadCard` component in chat timeline; plus button + textarea polish; PlusMenu shadow/width updated
+  - `WorkspaceSelector.tsx`: CourseNavItem/SessionNavItem polish; ConversationMenu new shadow/radius tokens
+  - `FilePanel.tsx`: FileRowMenu new shadow/radius tokens
+  - `tests/components/tutor/TutorConversation.test.tsx`: +7 ChatUploadCard tests
+- Tests/checks run:
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — 76 files, 1006 tests (+7), 121 skipped
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — updated
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: Upload feedback in chat, unified menu polish, sidebar polish. Ready for manual smoke.
+  - Next recommended step: Manual smoke by Nevo, then commit or proceed to next feature phase.
+  - Blockers/Risks: Upload card uses 6s heuristic for dismissal; could be improved with real status polling.
+
+
+## 2026-06-03 16:04 (Asia/Jerusalem) — Codex
+- Step/Task ID: UI Visual Alignment — Stitch Pass + Settings Palette Cleanup + Course Delete Audit
+- Task summary: Used Stitch screenshots as visual inspiration for a calmer alignment pass; moved palette selection fully into Settings; audited missing course delete support without inventing unsafe UI.
+- What I changed:
+  - `src/app/globals.css`: softened warm-neutral tokens, sidebar tones, radius, and shared shadows
+  - `src/components/layout/MainLayout.tsx`: lighter editorial shell treatment for app background/sidebar
+  - `src/components/layout/CollapsiblePanel.tsx`: calmer collapsible section headers for sidebar support panels
+  - `src/app/page.tsx`: removed `ThemePicker` from sidebar; simplified footer to workspace identity + Settings link
+  - `src/components/settings/ThemePicker.tsx`: converted ThemePicker trigger into a settings-native inline palette control; kept modal/palette functionality intact
+  - `src/app/settings/page.tsx`: tuned settings spacing/surfaces and clarified that palette now lives here
+  - `src/components/workspaces/WorkspaceSelector.tsx`: refined course/session nesting, spacing, active states, and new-action affordances
+  - `src/components/files/FilePanel.tsx`: softened study materials rows and reordered file menu so delete is isolated last
+  - `src/components/tutor/TutorConversation.tsx`: widened reading stage, softened chat header/background, refined composer shell, and strengthened send action
+  - `src/components/ui/TutorUI.tsx`: tuned shared icon-button/menu polish and section-header typography
+  - `tests/app/settingsThemePlacement.test.tsx`: added Settings palette placement coverage + sidebar ThemePicker removal assertion
+  - `tests/components/workspaces/WorkspaceSelector.test.tsx`: updated active-session style assertion for new sidebar treatment
+  - `agent-memory/UI_VISUAL_ALIGNMENT_STITCH_PASS_REPORT.md`: added required detailed report
+- Audit result:
+  - Course/workspace delete was **not** restored
+  - Reason: no safe end-to-end workspace delete/soft-delete route/service/client flow exists yet
+  - Recommendation: handle workspace/course archive or soft-delete in a dedicated backend-safe batch
+- Tests/checks run:
+  - `git branch --show-current` — `repair/workspace-cleanup-fit-check`
+  - `git status --short` — checked
+  - `git diff --name-only` — checked
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — updated
+- Visual checks run:
+  - Stitch references reviewed from `.tmp/stitch/...`
+  - Playwright checked `/settings` at desktop width and resized desktop width
+  - Playwright checked `/` shell state
+  - Limitation: Playwright still did not inherit the signed-in Firebase session, so authenticated workspace menus/screens were compared via code + user screenshots rather than direct automation
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: palette control now lives in Settings only; UI is closer to the Stitch calm/editorial direction; no fake course delete action was added
+  - Next recommended step: Nevo manual visual review in a signed-in session, especially sidebar/course list, plus menu, conversation menu, and file menu
+  - Blockers/Risks: authenticated workspace visuals still need real-session review because Playwright could not reuse the local auth session
+
+## 2026-06-03 18:49 (Asia/Jerusalem) — Codex
+- Step/Task ID: Stitch design gap analysis and implementation planning
+- Task summary: Analyze the Stitch export against current privateTutor UI, classify gaps, diagnose known issues, and produce a safe implementation roadmap without changing app code.
+- What I changed:
+  - Reviewed current repo state, prior UI reports, current frontend files, and the local Stitch export under `.tmp/stitch/stitch_academic_workspace_privatetutor/`.
+  - Ran Graphify queries for Settings, rename flow, composer upload context, sidebar hierarchy, file panel, and sources.
+  - Performed a live browser diagnostic on `/settings`; confirmed the route renders but controls do not update localStorage/CSS vars in automation, supporting a real interactivity bug rather than a pure styling issue.
+  - Created `agent-memory/STITCH_DESIGN_GAP_ANALYSIS_AND_IMPLEMENTATION_PLAN.md` with gap classification, bug analysis, and recommended roadmap.
+- Files touched:
+  - `agent-memory/STITCH_DESIGN_GAP_ANALYSIS_AND_IMPLEMENTATION_PLAN.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git branch --show-current`
+  - `git status --short`
+  - `git log --oneline -15`
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — updated
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: planning/report complete; no application code changed
+  - Next recommended step: execute `Bug Fix Batch A — Settings Navigation and Persistence Repair`
+  - Blockers/Risks: the user-requested `design-references/...` path is absent; the actual Stitch export lives in `.tmp/stitch/...`. Settings interactivity bug still needs targeted debugging to isolate the hydration/navigation root cause.
+
+## 2026-06-03 19:17 (Asia/Jerusalem) — Codex
+- Step/Task ID: Bug Fix Batch A — Settings navigation and persistence repair
+- Task summary: Repair the broken Settings experience without disturbing the current visual pass: fix slow enter/leave navigation, restore reliable Settings interactivity, and make saved preferences persist back to the main app.
+- What I changed:
+  - Confirmed the existing visual-pass worktree and re-ran the requested Graphify queries before code changes.
+  - Isolated two separate Settings failures:
+    - raw `<a href>` navigation was causing full app reloads for Settings and Back
+    - Next 16 dev hydration was breaking on `127.0.0.1` because dev resources were blocked as cross-origin, making Settings controls appear dead there
+  - Added shared Settings preference helpers in `src/lib/settings/settingsPreferences.ts` for storage keys, diagnostics serialization, and font/width CSS-var application.
+  - Switched Settings entry and Back controls to `next/link`.
+  - Added `allowedDevOrigins` for `127.0.0.1`, `localhost`, and `::1` in `next.config.ts`.
+  - Fixed a real persistence bug on `/`: the home page was overwriting `privateTutor.devDiagnostics.enabled` back to `false` on mount before finishing its storage read. Replaced that with lazy initialization from storage.
+  - Added focused tests for navigation source usage, dev-origin allowlisting, preference writes, CSS-var application, and diagnostics initialization.
+  - Created `agent-memory/SETTINGS_NAVIGATION_AND_PERSISTENCE_REPAIR_REPORT.md`.
+- Files touched:
+  - `next.config.ts`
+  - `src/app/page.tsx`
+  - `src/app/settings/page.tsx`
+  - `src/lib/settings/settingsPreferences.ts`
+  - `tests/app/settingsNavigationAndPersistence.test.ts`
+  - `tests/components/pageDiagnosticsToggle.test.ts`
+  - `agent-memory/SETTINGS_NAVIGATION_AND_PERSISTENCE_REPAIR_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git branch --show-current`
+  - `git status --short`
+  - `git diff --name-only`
+  - `graphify query "settings page localStorage font chat width theme picker"`
+  - `graphify query "settings navigation raw anchor Link"`
+  - `graphify query "ThemePicker localStorage tutor-theme-customization"`
+  - `graphify query "page.tsx reads tutor-chat-font-size tutor-chat-max-width"`
+  - `graphify query "devDiagnostics localStorage settings"`
+  - `npx vitest run tests/app/settingsNavigationAndPersistence.test.ts` — red, then green
+  - `npx vitest run tests/app/settingsNavigationAndPersistence.test.ts tests/app/settingsThemePlacement.test.tsx` — passed
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — updated
+  - Playwright/browser checks:
+    - validated `/settings` preference writes on `http://localhost:3000`
+    - validated `/settings` preference writes on `http://127.0.0.1:3000` after restarting dev server
+    - validated Back navigation preserves saved settings on `/`
+    - validated Back navigation does not trigger `beforeunload`
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: Settings navigation and persistence repair complete; font size, chat width, palette placement, and developer diagnostics now behave correctly in the repaired local flows
+  - Next recommended step: Nevo manual smoke in a signed-in session, then move to the rename-timeout repair batch
+  - Blockers/Risks: signed-in shell navigation still needs human confirmation because Playwright does not inherit the local Firebase session
+
+## 2026-06-03 19:28 (Asia/Jerusalem) — Codex
+- Step/Task ID: Agent Brain Batch 0 — Build operational project brain
+- Task summary: Create a compact operational Project Brain so future agents read the current state, understand pipeline contracts and risks, and predict regressions before implementation.
+- What I changed:
+  - Created `agent-memory/PROJECT_BRAIN/` with compact files for current state, pipeline contracts, impact matrix, risks, preflight protocol, smoke playbook, compact decisions, open issues, and a standard report template.
+  - Updated `AGENTS.md` to require future implementers to read the Project Brain and include impact prediction in implementation reports.
+  - Added `agent-memory/AGENT_BRAIN_BATCH_0_REPORT.md` to explain what the brain covers and how to use it.
+- Files touched:
+  - `AGENTS.md`
+  - `agent-memory/PROJECT_BRAIN/00_CURRENT_STATE.md`
+  - `agent-memory/PROJECT_BRAIN/01_SYSTEM_PIPELINE_CONTRACTS.md`
+  - `agent-memory/PROJECT_BRAIN/02_CHANGE_IMPACT_MATRIX.md`
+  - `agent-memory/PROJECT_BRAIN/03_RISK_REGISTER.md`
+  - `agent-memory/PROJECT_BRAIN/04_AGENT_PREFLIGHT_PROTOCOL.md`
+  - `agent-memory/PROJECT_BRAIN/05_REGRESSION_SMOKE_PLAYBOOK.md`
+  - `agent-memory/PROJECT_BRAIN/06_DECISION_LOG_COMPACT.md`
+  - `agent-memory/PROJECT_BRAIN/07_OPEN_ISSUES_AND_DEFERRED_WORK.md`
+  - `agent-memory/PROJECT_BRAIN/08_AGENT_REPORT_TEMPLATE.md`
+  - `agent-memory/AGENT_BRAIN_BATCH_0_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git branch --show-current`
+  - `git status --short`
+  - `git log --oneline -15`
+  - `graphify query "upload extract chunk Deep PDF retrieval tutor pipeline"`
+  - `graphify query "settings localStorage CSS variables ThemePicker"`
+  - `graphify query "session rename delete messages timeout"`
+  - `graphify query "uploaded file soft delete retrieval inventory grounding"`
+  - `graphify query "TutorConversation plus menu upload file send message"`
+  - `graphify query "agent memory decision log project state"`
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — updated graph data; HTML viz skipped because graph exceeded node limit
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: operational Project Brain is ready and compact enough for mandatory preflight use
+  - Next recommended step: use `PROJECT_BRAIN/04_AGENT_PREFLIGHT_PROTOCOL.md` before the rename-timeout repair batch
+  - Blockers/Risks: brain correctness now depends on future agents keeping it updated when major contracts or risks change

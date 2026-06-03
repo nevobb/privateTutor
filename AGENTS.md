@@ -5,6 +5,8 @@ Before working in this repository, read:
 2. `agent-memory/PROJECT_STATE.md`
 3. `agent-memory/CURRENT_TASK.md`
 4. `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+5. `agent-memory/PROJECT_BRAIN/00_CURRENT_STATE.md`
+6. `agent-memory/PROJECT_BRAIN/04_AGENT_PREFLIGHT_PROTOCOL.md`
 
 The repo-native memory files are the source of truth for agent continuity.
 Chat history is useful context, but not authoritative.
@@ -15,6 +17,16 @@ Do not begin implementation until the active task and scope are clear in `agent-
 After every completed step/task, the active agent must append an entry to `agent-memory/DUAL_AGENT_SYNC_LOG.md` (Codex and Claude both).
 
 More `agent-memory` files will be added in later steps.
+
+## project brain
+
+Before implementation, agents must read the relevant `agent-memory/PROJECT_BRAIN/` files for the task, not just the current task log.
+
+Every implementation report must include:
+- which brain files were read
+- an impact prediction
+- what could regress
+- which tests and smoke checks were used
 
 ## graphify
 
