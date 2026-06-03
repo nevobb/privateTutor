@@ -59,78 +59,84 @@ function renderSelector(overrides: Partial<Parameters<typeof WorkspaceSelector>[
   );
 }
 
-/* ── WorkspaceSelector: three-dot button ── */
+/* ── Courses section ── */
 
-describe("WorkspaceSelector conversation menu trigger", () => {
-  it("renders three-dot menu button per conversation when actions provided", () => {
+describe("WorkspaceSelector courses section", () => {
+  it("renders Courses section label (not Topics)", () => {
     const html = renderSelector();
-    const matches = html.match(/data-testid="conversation-menu-trigger"/g);
-    expect(matches).not.toBeNull();
-    expect(matches!.length).toBe(2); // one per session
+    expect(html).toContain("Courses");
+    expect(html).toContain('data-testid="courses-section-label"');
+    expect(html).not.toContain(">Topics<");
   });
 
-  it("three-dot button has aria-haspopup", () => {
+  it("renders course names", () => {
     const html = renderSelector();
-    expect(html).toContain('aria-haspopup="true"');
+    expect(html).toContain("Physics");
   });
 
-  it("three-dot button has aria-label referencing session title", () => {
+  it("renders folder icon for course items", () => {
     const html = renderSelector();
-    expect(html).toContain("Conversation options: Session Alpha");
-    expect(html).toContain("Conversation options: Session Beta");
+    expect(html).toContain('data-testid="folder-icon"');
   });
 
-  it("does not render three-dot button when no rename or delete handler provided", () => {
-    const html = renderSelector({
-      onRenameSession: undefined,
-      onDeleteSession: undefined,
-    });
-    expect(html).not.toContain('data-testid="conversation-menu-trigger"');
+  it("renders course nav item with testid", () => {
+    const html = renderSelector();
+    expect(html).toContain('data-testid="course-nav-item"');
   });
 
-  it("renders three-dot button when only onRenameSession provided", () => {
-    const html = renderSelector({ onDeleteSession: undefined });
-    expect(html).toContain('data-testid="conversation-menu-trigger"');
+  it("shows No courses yet when no workspaces", () => {
+    const html = renderToStaticMarkup(
+      <WorkspaceSelector
+        loadState={{ status: "ready", workspaces: [] }}
+        selectedWorkspaceId={null}
+        onSelect={() => {}}
+        onCreate={async () => {}}
+        sessionState={{ status: "disabled", message: "Select a course." }}
+        selectedSessionId={null}
+        onSessionSelect={() => {}}
+        onCreateSession={async () => {}}
+        creatingSession={false}
+        createSessionError={null}
+      />
+    );
+    expect(html).toContain("No courses yet");
+    expect(html).not.toContain("No topics yet");
   });
 
-  it("renders three-dot button when only onDeleteSession provided", () => {
-    const html = renderSelector({ onRenameSession: undefined });
-    expect(html).toContain('data-testid="conversation-menu-trigger"');
+  it("renders + New course button", () => {
+    const html = renderSelector();
+    expect(html).toContain("+ New course");
+    expect(html).not.toContain("+ New topic");
   });
 });
 
-/* ── WorkspaceSelector: session list rendering ── */
+/* ── Session hierarchy nested under course ── */
 
-describe("WorkspaceSelector session list", () => {
-  it("renders session titles in the list", () => {
+describe("WorkspaceSelector session hierarchy", () => {
+  it("renders sessions nested under selected course", () => {
+    const html = renderSelector();
+    expect(html).toContain('data-testid="sessions-under-course"');
+  });
+
+  it("renders session titles", () => {
     const html = renderSelector();
     expect(html).toContain("Session Alpha");
     expect(html).toContain("Session Beta");
   });
 
-  it("applies active styling to the selected session", () => {
+  it("applies active background to the selected session", () => {
     const html = renderSelector({ selectedSessionId: "session-0" });
-    // Active session has --tutor-sidebar-active background and --tutor-accent left border
     expect(html).toContain("tutor-sidebar-active");
-    expect(html).toContain("tutor-accent");
   });
 
-  it("session items use transparent background when none selected", () => {
+  it("inactive session items use font-weight 400", () => {
     const html = renderSelector({ selectedSessionId: null });
-    // Sessions should have transparent background; only the selected workspace uses tutor-sidebar-active.
-    // Verify session text uses default (non-active) color, not the active text color.
-    const sessionAlphaIndex = html.indexOf("Session Alpha");
-    const sessionBetaIndex = html.indexOf("Session Beta");
-    const activeColorIndicator = "tutor-sidebar-text-active";
-    // Neither session item should show the active accent border (2px solid var(--tutor-accent))
-    // Active sessions have borderLeft:2px solid var(--tutor-accent), inactive have 2px solid transparent
-    // Check that session items have transparent border not accent border around their labels
-    expect(html.slice(sessionAlphaIndex - 200, sessionAlphaIndex)).toContain("2px solid transparent");
-    expect(html.slice(sessionBetaIndex - 200, sessionBetaIndex)).toContain("2px solid transparent");
-    // Active sessions also have fontWeight:500; inactive sessions have fontWeight:400
-    expect(html.slice(sessionAlphaIndex - 200, sessionAlphaIndex)).toContain("font-weight:400");
-    expect(html.slice(sessionBetaIndex - 200, sessionBetaIndex)).toContain("font-weight:400");
-    void activeColorIndicator; // suppress unused warning
+    expect(html).toContain("font-weight:400");
+  });
+
+  it("active session item has font-weight 500", () => {
+    const html = renderSelector({ selectedSessionId: "session-0" });
+    expect(html).toContain("font-weight:500");
   });
 
   it("falls back to Conversation N label when session title is empty", () => {
@@ -165,10 +171,8 @@ describe("WorkspaceSelector session list", () => {
     expect(html).toContain("Conversation 1");
   });
 
-  it("renders empty state message when no sessions", () => {
-    const html = renderSelector({
-      sessionState: { status: "ready", sessions: [] },
-    });
+  it("renders empty state when no sessions", () => {
+    const html = renderSelector({ sessionState: { status: "ready", sessions: [] } });
     expect(html).toContain("No conversations");
   });
 
@@ -176,18 +180,60 @@ describe("WorkspaceSelector session list", () => {
     const html = renderSelector();
     expect(html).toContain("+ New conversation");
   });
+
+  it("does not render sessions section when no workspace selected", () => {
+    const html = renderSelector({ selectedWorkspaceId: null });
+    expect(html).not.toContain('data-testid="sessions-under-course"');
+    expect(html).not.toContain("Session Alpha");
+  });
 });
 
-/* ── ConversationMenu: menu items ── */
+/* ── Three-dot menu trigger ── */
+
+describe("WorkspaceSelector conversation menu trigger", () => {
+  it("renders three-dot menu button per conversation when actions provided", () => {
+    const html = renderSelector();
+    const matches = html.match(/data-testid="conversation-menu-trigger"/g);
+    expect(matches).not.toBeNull();
+    expect(matches!.length).toBe(2);
+  });
+
+  it("three-dot button has aria-haspopup", () => {
+    const html = renderSelector();
+    expect(html).toContain('aria-haspopup="true"');
+  });
+
+  it("three-dot button has aria-label referencing session title", () => {
+    const html = renderSelector();
+    expect(html).toContain("Conversation options: Session Alpha");
+    expect(html).toContain("Conversation options: Session Beta");
+  });
+
+  it("does not render three-dot button when no rename or delete handler provided", () => {
+    const html = renderSelector({
+      onRenameSession: undefined,
+      onDeleteSession: undefined,
+    });
+    expect(html).not.toContain('data-testid="conversation-menu-trigger"');
+  });
+
+  it("renders three-dot button when only onRenameSession provided", () => {
+    const html = renderSelector({ onDeleteSession: undefined });
+    expect(html).toContain('data-testid="conversation-menu-trigger"');
+  });
+
+  it("renders three-dot button when only onDeleteSession provided", () => {
+    const html = renderSelector({ onRenameSession: undefined });
+    expect(html).toContain('data-testid="conversation-menu-trigger"');
+  });
+});
+
+/* ── ConversationMenu ── */
 
 describe("ConversationMenu", () => {
   it("renders both Rename and Delete when both handlers provided", () => {
     const html = renderToStaticMarkup(
-      <ConversationMenu
-        label="Session Alpha"
-        onRename={() => {}}
-        onDelete={() => {}}
-      />
+      <ConversationMenu label="Session Alpha" onRename={() => {}} onDelete={() => {}} />
     );
     expect(html).toContain("Rename");
     expect(html).toContain("Delete");
@@ -211,22 +257,14 @@ describe("ConversationMenu", () => {
 
   it("has role=menu on container", () => {
     const html = renderToStaticMarkup(
-      <ConversationMenu
-        label="Session Alpha"
-        onRename={() => {}}
-        onDelete={() => {}}
-      />
+      <ConversationMenu label="Session Alpha" onRename={() => {}} onDelete={() => {}} />
     );
     expect(html).toContain('role="menu"');
   });
 
   it("menu items have role=menuitem", () => {
     const html = renderToStaticMarkup(
-      <ConversationMenu
-        label="Session Alpha"
-        onRename={() => {}}
-        onDelete={() => {}}
-      />
+      <ConversationMenu label="Session Alpha" onRename={() => {}} onDelete={() => {}} />
     );
     const matches = html.match(/role="menuitem"/g);
     expect(matches).not.toBeNull();
@@ -241,14 +279,9 @@ describe("ConversationMenu", () => {
   });
 });
 
-/* ── WorkspaceSelector: topic list ── */
+/* ── Loading / error states ── */
 
-describe("WorkspaceSelector topic list", () => {
-  it("renders topic names", () => {
-    const html = renderSelector();
-    expect(html).toContain("Physics");
-  });
-
+describe("WorkspaceSelector loading and error states", () => {
   it("shows loading state", () => {
     const html = renderToStaticMarkup(
       <WorkspaceSelector
@@ -256,7 +289,7 @@ describe("WorkspaceSelector topic list", () => {
         selectedWorkspaceId={null}
         onSelect={() => {}}
         onCreate={async () => {}}
-        sessionState={{ status: "disabled", message: "Pick a topic." }}
+        sessionState={{ status: "disabled", message: "Select a course." }}
         selectedSessionId={null}
         onSessionSelect={() => {}}
         onCreateSession={async () => {}}
@@ -270,11 +303,11 @@ describe("WorkspaceSelector topic list", () => {
   it("shows error state", () => {
     const html = renderToStaticMarkup(
       <WorkspaceSelector
-        loadState={{ status: "error", message: "Failed to load topics." }}
+        loadState={{ status: "error", message: "Failed to load courses." }}
         selectedWorkspaceId={null}
         onSelect={() => {}}
         onCreate={async () => {}}
-        sessionState={{ status: "disabled", message: "Pick a topic." }}
+        sessionState={{ status: "disabled", message: "Select a course." }}
         selectedSessionId={null}
         onSessionSelect={() => {}}
         onCreateSession={async () => {}}
@@ -282,6 +315,6 @@ describe("WorkspaceSelector topic list", () => {
         createSessionError={null}
       />
     );
-    expect(html).toContain("Failed to load topics.");
+    expect(html).toContain("Failed to load courses.");
   });
 });

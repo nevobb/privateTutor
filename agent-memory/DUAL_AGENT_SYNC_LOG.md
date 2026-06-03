@@ -2056,3 +2056,72 @@ Copy this block and fill all fields:
   - Current state: Batch 10B complete. Sidebar conversation rows now use three-dot menu for Rename/Delete. All existing API behavior and flows unchanged.
   - Next recommended step: Batch 10C — composer plus menu (+ button in input bar), move Work/Cost Mode selectors out of always-visible toolbar, wire file upload from composer.
   - Blockers/Risks: Dropdown may clip vertically when session row is at the bottom of scroll area (position:absolute in overflow-y:auto container). Acceptable for MVP. Mobile hover behavior deferred. Full WAI-ARIA menu keyboard navigation (arrow keys) deferred.
+
+## 2026-06-03 14:10 (Asia/Jerusalem) — Claude
+- Step/Task ID: UI/UX Design Implementation Lead (Batches 10C–10G combined)
+- Task summary: Full UI redesign pass — composer plus menu, file panel simplification, chat readability, sources cleanup, Settings screen
+- What I changed:
+  - `src/types/index.ts`: Added `originalFileName?: string` to `SourceCitation`
+  - `src/app/globals.css`: Added `--tutor-chat-font-size: 15px` and `--tutor-chat-max-width: 680px` CSS variables
+  - `src/components/files/FilePanel.tsx`: Replaced debug status codes with `FileStatusLabel` (✓ Ready/Processing…/Failed); replaced "מחק" button with `FileRowMenu` three-dot menu (Delete active, Summarize/Ask/Learn disabled); added `useEffect` for outside-click close
+  - `src/components/tutor/TutorConversation.tsx`: Removed always-visible WorkMode/CostMode toolbar; added `+` button + `PlusMenu` popover (Upload file, Upload image soon, Work Mode picker, Cost Mode picker); changed composer layout to [plus][textarea][send]; increased textarea min-height to 60px; applied CSS vars to MessageBubble (15px font, 680px max-width); fixed `formatSourceLabel` to show "Source N" instead of raw UUIDs; added `onFileSelected` prop; simplified context strip (mode badge only, not interactive controls)
+  - `src/app/settings/page.tsx`: Created new `/settings` route with font size pills, chat width pills, ThemePicker, dev diagnostics toggle
+  - `src/app/page.tsx`: Added display settings `useEffect`; wired `onFileSelected` to `TutorConversation`; replaced sidebar dev diagnostics toggle with `⚙ Settings` link; added `GearIcon` component
+  - `tests/components/files/FilePanel.test.tsx`: Updated 3 stale assertions; added FileStatusLabel (5 tests) and FileRowMenu (4 tests) describe blocks
+  - `tests/components/tutor/TutorConversation.test.tsx`: Updated layout test for new [plus][textarea][send] order; added PlusMenu tests (9); added source label tests (3); added plus-button-disabled test
+- Files touched:
+  - `src/types/index.ts`
+  - `src/app/globals.css`
+  - `src/components/files/FilePanel.tsx`
+  - `src/components/tutor/TutorConversation.tsx`
+  - `src/app/page.tsx`
+  - `src/app/settings/page.tsx` (new)
+  - `tests/components/files/FilePanel.test.tsx`
+  - `tests/components/tutor/TutorConversation.test.tsx`
+  - `agent-memory/UI_UX_DESIGN_IMPLEMENTATION_LEAD_REPORT.md` (new)
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx tsc --noEmit` — ✅ passed
+  - `npx vitest run` — ✅ 76 files passed, 18 skipped; 991 tests passed (+44 new), 121 skipped
+  - `npm run build` — ✅ passed, /settings builds as static route
+  - `git diff --check` — ✅ passed
+  - `graphify update .` — ✅ 4718 nodes, 6411 edges, 311 communities
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): none (not committed yet)
+  - Pushed: no
+- Handoff status:
+  - Current state: All minimum UI redesign targets met. App ready for manual smoke test.
+  - Next recommended step: Wire "Open file panel" from plus menu (lift filePanelOpen state to page.tsx) OR run Nevo manual UI smoke first.
+  - Blockers/Risks: primaryFileId/attachedFileIds deferred by design. "Open file panel" in plus menu not yet wired (deferred). Dev diagnostics setting requires navigating to /settings — no live cross-page sync (by design, acceptable). originalFileName not yet populated by server (Source N ordinal shown as fallback — correct and clean).
+
+## 2026-06-03 14:30 (Asia/Jerusalem) — Claude
+- Step/Task ID: UI/UX Repair — Plus Menu Functionality + Visual Completion
+- Task summary: Fixed plus menu actions not working; completed course hierarchy visual design in sidebar
+- Root cause: `stopPropagation` unreliable inside `<form>` — native document mousedown listener fired before React click handler, unmounting menu buttons. Replaced with `ref.contains()` pattern in all three menus.
+- What I changed:
+  - `TutorConversation.tsx`: Added `plusMenuContainerRef`; updated `useEffect` to use `contains()` check; removed `onMouseDown` stopPropagation from PlusMenu; removed unimplemented "Open file panel" item; attached ref to container div
+  - `WorkspaceSelector.tsx`: "Topics" → "Courses" throughout; added `FolderIcon` SVG; new `CourseNavItem` with folder icon; new `SessionNavItem` (smaller/lighter); removed "Conversations" section header; sessions now nested under selected course with branch line connector; applied `contains()` fix for conversation menu close; `openMenuRef` pattern
+  - `FilePanel.tsx`: Applied `contains()` fix for file menu close; removed `onMouseDown` stopPropagation from FileRowMenu
+  - `tests/components/workspaces/WorkspaceSelector.test.tsx`: Rewrote for new "Courses" structure; added folder icon tests; session hierarchy tests
+- Files touched:
+  - `src/components/tutor/TutorConversation.tsx`
+  - `src/components/workspaces/WorkspaceSelector.tsx`
+  - `src/components/files/FilePanel.tsx`
+  - `tests/components/workspaces/WorkspaceSelector.test.tsx`
+  - `agent-memory/UI_UX_REPAIR_PLUS_MENU_AND_VISUAL_COMPLETION_REPORT.md` (new)
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `npx tsc --noEmit` — ✅ passed
+  - `npx vitest run` — ✅ 76 files passed, 999 tests passed (+8 new), 121 skipped
+  - `npm run build` — ✅ passed
+  - `git diff --check` — ✅ passed
+  - `graphify update .` — ✅ 4743 nodes, 6435 edges, 308 communities
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: Plus menu fully functional. Course hierarchy with folder icons. Ready for manual smoke.
+  - Next recommended step: Manual smoke by Nevo, then either wire "Open file panel" from plus menu OR proceed to next feature phase.
+  - Blockers/Risks: "Open file panel" from plus menu removed (not wired). No other functional blockers.

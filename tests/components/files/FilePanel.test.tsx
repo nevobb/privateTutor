@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import FilePanel from "../../../src/components/files/FilePanel";
+import FilePanel, {
+  FileStatusLabel,
+  FileRowMenu,
+} from "../../../src/components/files/FilePanel";
 import type { UploadedFile } from "../../../src/types";
 
 function makeFile(overrides: Partial<UploadedFile> = {}): UploadedFile {
@@ -32,7 +35,7 @@ describe("FilePanel processing actions", () => {
     expect(html).toContain("Continue processing");
   });
 
-  it("shows Ready for learning when extraction, chunking, and embedding are all completed", () => {
+  it("shows ✓ Ready when extraction, chunking, and embedding are all completed", () => {
     const html = renderToStaticMarkup(
       <FilePanel
         files={[makeFile({ extractionStatus: "completed", chunkingStatus: "completed", embeddingStatus: "completed" })]}
@@ -40,7 +43,7 @@ describe("FilePanel processing actions", () => {
       />
     );
 
-    expect(html).toContain("Ready for learning");
+    expect(html).toContain("✓ Ready");
     expect(html).not.toContain("Continue processing");
   });
 
@@ -54,7 +57,7 @@ describe("FilePanel processing actions", () => {
 
     expect(html).toContain("Continue processing");
     expect(html).toContain("Create embeddings to complete file readiness");
-    expect(html).not.toContain("Ready for learning");
+    expect(html).not.toContain("✓ Ready");
   });
 
   it("shows Retry processing on failed status", () => {
@@ -80,7 +83,7 @@ describe("FilePanel processing actions", () => {
     expect(html).not.toContain("Run the next incomplete step automatically");
   });
 
-  it("shows embedding status in the persisted file state summary", () => {
+  it("shows Failed status label when embedding failed", () => {
     const html = renderToStaticMarkup(
       <FilePanel
         files={[
@@ -94,7 +97,8 @@ describe("FilePanel processing actions", () => {
       />
     );
 
-    expect(html).toContain("Emb:failed");
+    expect(html).toContain("Failed");
+    expect(html).not.toContain("Emb:failed");
   });
 
   it("keeps continue action and status visible with long filenames", () => {
@@ -106,7 +110,7 @@ describe("FilePanel processing actions", () => {
     expect(html).toContain("truncate");
   });
 
-  it("shows Ready for learning after page refresh when all three statuses are completed in Firestore", () => {
+  it("shows ✓ Ready after page refresh when all three statuses are completed in Firestore", () => {
     const html = renderToStaticMarkup(
       <FilePanel
         files={[makeFile({ extractionStatus: "completed", chunkingStatus: "completed", embeddingStatus: "completed" })]}
@@ -115,7 +119,7 @@ describe("FilePanel processing actions", () => {
       />
     );
 
-    expect(html).toContain("Ready for learning");
+    expect(html).toContain("✓ Ready");
     expect(html).not.toContain("Continue processing");
   });
 
@@ -128,5 +132,117 @@ describe("FilePanel processing actions", () => {
     );
 
     expect(html).toContain("תרגול מעגלים.pdf");
+  });
+
+  it("does not show raw debug status codes", () => {
+    const html = renderToStaticMarkup(
+      <FilePanel
+        files={[makeFile({ extractionStatus: "completed", chunkingStatus: "completed", embeddingStatus: "completed" })]}
+        onContinueProcessing={async () => {}}
+      />
+    );
+
+    expect(html).not.toContain("E:completed");
+    expect(html).not.toContain("C:completed");
+    expect(html).not.toContain("Emb:completed");
+  });
+});
+
+/* ── FileStatusLabel ── */
+
+describe("FileStatusLabel", () => {
+  it("shows ✓ Ready when all three stages complete", () => {
+    const html = renderToStaticMarkup(
+      <FileStatusLabel
+        extractionStatus="completed"
+        chunkingStatus="completed"
+        embeddingStatus="completed"
+        isReadyForLearning={true}
+      />
+    );
+    expect(html).toContain("✓ Ready");
+    expect(html).toContain('data-testid="file-status-ready"');
+  });
+
+  it("shows Processing when not ready and no failure", () => {
+    const html = renderToStaticMarkup(
+      <FileStatusLabel
+        extractionStatus="completed"
+        chunkingStatus="not_started"
+        embeddingStatus="not_started"
+        isReadyForLearning={false}
+      />
+    );
+    expect(html).toContain("Processing");
+    expect(html).toContain('data-testid="file-status-processing"');
+  });
+
+  it("shows Failed when extraction failed", () => {
+    const html = renderToStaticMarkup(
+      <FileStatusLabel
+        extractionStatus="failed"
+        chunkingStatus="not_started"
+        embeddingStatus="not_started"
+        isReadyForLearning={false}
+      />
+    );
+    expect(html).toContain("Failed");
+    expect(html).toContain('data-testid="file-status-failed"');
+  });
+
+  it("shows Failed when embedding failed", () => {
+    const html = renderToStaticMarkup(
+      <FileStatusLabel
+        extractionStatus="completed"
+        chunkingStatus="completed"
+        embeddingStatus="failed"
+        isReadyForLearning={false}
+      />
+    );
+    expect(html).toContain("Failed");
+    expect(html).toContain('data-testid="file-status-failed"');
+  });
+
+  it("does not show raw E:/C:/Emb: debug codes", () => {
+    const html = renderToStaticMarkup(
+      <FileStatusLabel
+        extractionStatus="completed"
+        chunkingStatus="completed"
+        embeddingStatus="completed"
+        isReadyForLearning={true}
+      />
+    );
+    expect(html).not.toContain("E:completed");
+    expect(html).not.toContain("C:completed");
+    expect(html).not.toContain("Emb:completed");
+  });
+});
+
+/* ── FileRowMenu ── */
+
+describe("FileRowMenu", () => {
+  it("renders Delete as an active action", () => {
+    const html = renderToStaticMarkup(<FileRowMenu onDelete={() => {}} />);
+    expect(html).toContain("Delete");
+  });
+
+  it("renders future actions as disabled", () => {
+    const html = renderToStaticMarkup(<FileRowMenu onDelete={() => {}} />);
+    expect(html).toContain("Summarize");
+    expect(html).toContain("Ask about file");
+    expect(html).toContain("Start learning");
+    expect(html).toContain("opacity-40");
+  });
+
+  it("has role=menu on container", () => {
+    const html = renderToStaticMarkup(<FileRowMenu onDelete={() => {}} />);
+    expect(html).toContain('role="menu"');
+  });
+
+  it("has role=menuitem on each item", () => {
+    const html = renderToStaticMarkup(<FileRowMenu onDelete={() => {}} />);
+    const matches = html.match(/role="menuitem"/g);
+    expect(matches).not.toBeNull();
+    expect(matches!.length).toBe(4); // Delete + 3 disabled
   });
 });

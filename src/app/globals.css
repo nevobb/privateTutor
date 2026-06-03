@@ -41,6 +41,10 @@
   --tutor-radius: 10px;
   --tutor-sidebar-width: 296px;
 
+  /* Chat readability — overridable by Settings */
+  --tutor-chat-font-size: 15px;
+  --tutor-chat-max-width: 680px;
+
   /* Legacy compat */
   --background: var(--tutor-bg);
   --foreground: var(--tutor-text);

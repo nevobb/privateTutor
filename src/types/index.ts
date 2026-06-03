@@ -322,6 +322,7 @@ export interface SourceCitation {
   id: string;
   referenceText: string;
   sourceId: string;
+  originalFileName?: string;
 }
 
 export interface TutorMessage {

@@ -135,6 +135,22 @@ export default function Home() {
     }
   }, [developerDiagnosticsEnabled]);
 
+  // Apply saved display settings (font size, chat max-width) from Settings page
+  useEffect(() => {
+    try {
+      const savedFontSize = window.localStorage.getItem("tutor-chat-font-size");
+      const savedChatWidth = window.localStorage.getItem("tutor-chat-max-width");
+      if (savedFontSize) {
+        document.documentElement.style.setProperty("--tutor-chat-font-size", savedFontSize);
+      }
+      if (savedChatWidth) {
+        document.documentElement.style.setProperty("--tutor-chat-max-width", savedChatWidth);
+      }
+    } catch {
+      // Ignore read errors.
+    }
+  }, []);
+
   const handleWorkspaceSelect = useCallback((workspaceId: string): void => {
     setActiveSessionId(null);
     setCreateSessionError(null);
@@ -712,30 +728,31 @@ export default function Home() {
           className="px-4 py-3 flex items-center justify-between gap-3"
           style={{ borderTop: "1px solid var(--tutor-sidebar-border)" }}
         >
-          <label
-            htmlFor="developer-diagnostics-toggle"
-            className="text-xs font-medium"
-            style={{ color: "var(--tutor-sidebar-text-muted)" }}
-          >
-            Developer diagnostics
-          </label>
-          <button
-            id="developer-diagnostics-toggle"
-            type="button"
-            role="switch"
-            aria-checked={developerDiagnosticsEnabled}
-            onClick={() => setDeveloperDiagnosticsEnabled((prev) => !prev)}
-            className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+          <span className="text-xs" style={{ color: "var(--tutor-sidebar-text-muted)" }}>
+            Private Tutor
+          </span>
+          <a
+            href="/settings"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors"
             style={{
-              background: developerDiagnosticsEnabled
-                ? "var(--tutor-accent)"
-                : "var(--tutor-sidebar-border)",
+              color: "var(--tutor-sidebar-text-muted)",
+              border: "1px solid var(--tutor-sidebar-border)",
+              textDecoration: "none",
+            }}
+            title="Settings"
+            aria-label="Open Settings"
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.color = "var(--tutor-sidebar-text-active)";
+              (e.currentTarget as HTMLAnchorElement).style.background = "var(--tutor-sidebar-hover)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.color = "var(--tutor-sidebar-text-muted)";
+              (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
             }}
           >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${developerDiagnosticsEnabled ? "translate-x-6" : "translate-x-1"}`}
-            />
-          </button>
+            <GearIcon />
+            <span>Settings</span>
+          </a>
         </div>
       </div>
     </div>
@@ -755,8 +772,18 @@ export default function Home() {
           getToken={getToken}
           developerDiagnosticsEnabled={developerDiagnosticsEnabled}
           uploadedFileCount={uploadedFiles.length}
+          onFileSelected={authState.status === "signed-in" && activeWorkspaceId ? handleFileSelected : undefined}
         />
       </MainLayout>
     </AuthShell>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="6" cy="6" r="1.8" />
+      <path d="M6 1v1.2M6 9.8V11M1 6h1.2M9.8 6H11M2.5 2.5l.85.85M8.65 8.65l.85.85M9.5 2.5l-.85.85M3.35 8.65l-.85.85" />
+    </svg>
   );
 }

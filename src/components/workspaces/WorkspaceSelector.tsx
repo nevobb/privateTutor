@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import type { WorkspaceListItem } from "../../lib/workspaces/workspaceApiTypes";
 import type { SessionApiSession } from "../../lib/sessions/sessionApiTypes";
 
@@ -54,10 +54,16 @@ export default function WorkspaceSelector({
   const [confirmDeleteSessionId, setConfirmDeleteSessionId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [openMenuSessionId, setOpenMenuSessionId] = useState<string | null>(null);
+  const openMenuRef = useRef<HTMLDivElement | null>(null);
 
+  // Close conversation menu on outside click — uses contains() for reliability
   useEffect(() => {
     if (!openMenuSessionId) return;
-    const handleMouseDown = () => setOpenMenuSessionId(null);
+    const handleMouseDown = (e: MouseEvent) => {
+      if (openMenuRef.current && !openMenuRef.current.contains(e.target as Node)) {
+        setOpenMenuSessionId(null);
+      }
+    };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpenMenuSessionId(null);
     };
@@ -90,8 +96,8 @@ export default function WorkspaceSelector({
 
   return (
     <div className="flex flex-col py-2" dir="ltr">
-      {/* ── Topics ── */}
-      <p className="section-nav-label">Topics</p>
+      {/* ── Courses ── */}
+      <p className="section-nav-label" data-testid="courses-section-label">Courses</p>
 
       {loadState.status === "loading" && (
         <p className="nav-state-text">Loading...</p>
@@ -103,18 +109,270 @@ export default function WorkspaceSelector({
       {loadState.status === "ready" && (
         <>
           {loadState.workspaces.length === 0 ? (
-            <p className="nav-state-text nav-state-empty">No topics yet</p>
+            <p className="nav-state-text nav-state-empty">No courses yet</p>
           ) : (
             <ul className="space-y-0.5 px-2">
               {loadState.workspaces.map((ws) => {
                 const isSelected = selectedWorkspaceId === ws.id;
                 return (
                   <li key={ws.id}>
-                    <NavItem
+                    <CourseNavItem
                       label={ws.name}
                       active={isSelected}
                       onClick={() => onSelect(ws.id)}
                     />
+
+                    {/* ── Sessions nested under selected course ── */}
+                    {isSelected && (
+                      <div
+                        data-testid="sessions-under-course"
+                        className="ml-3 mt-0.5"
+                        style={{
+                          borderLeft: "1px solid var(--tutor-sidebar-border)",
+                          paddingLeft: "8px",
+                        }}
+                      >
+                        {sessionState.status === "loading" && (
+                          <p className="nav-state-text py-1">Loading...</p>
+                        )}
+                        {sessionState.status === "error" && (
+                          <p className="nav-state-text py-1" style={{ color: "#e87070" }}>
+                            {sessionState.message}
+                          </p>
+                        )}
+                        {sessionState.status === "disabled" && (
+                          <p className="nav-state-text nav-state-empty py-1">
+                            {sessionState.message}
+                          </p>
+                        )}
+
+                        {sessionState.status === "ready" && (
+                          <>
+                            {sessionState.sessions.length === 0 ? (
+                              <p className="nav-state-text nav-state-empty py-1">No conversations</p>
+                            ) : (
+                              <ul className="space-y-0.5">
+                                {sessionState.sessions.map((session, index) => {
+                                  const isActive = selectedSessionId === session.id;
+                                  const label =
+                                    session.title?.trim() || `Conversation ${index + 1}`;
+                                  const isRenaming = renamingSessionId === session.id;
+                                  const isConfirmingDelete = confirmDeleteSessionId === session.id;
+                                  const isMenuOpen = openMenuSessionId === session.id;
+
+                                  if (isRenaming) {
+                                    return (
+                                      <li key={session.id}>
+                                        <form
+                                          onSubmit={async (e) => {
+                                            e.preventDefault();
+                                            const trimmed = renameValue.trim();
+                                            if (!trimmed || !onRenameSession) return;
+                                            setRenameError(null);
+                                            try {
+                                              await onRenameSession(session.id, trimmed);
+                                              setRenamingSessionId(null);
+                                            } catch (err: unknown) {
+                                              setRenameError(
+                                                err instanceof Error ? err.message : "Rename failed."
+                                              );
+                                            }
+                                          }}
+                                          className="px-1 py-1 space-y-1"
+                                        >
+                                          <input
+                                            type="text"
+                                            value={renameValue}
+                                            onChange={(e) => setRenameValue(e.target.value)}
+                                            maxLength={120}
+                                            autoFocus
+                                            className="w-full rounded px-2 py-1 text-xs outline-none"
+                                            style={{
+                                              background: "var(--tutor-surface)",
+                                              border: "1px solid var(--tutor-border)",
+                                              color: "var(--tutor-text)",
+                                            }}
+                                          />
+                                          {renameError && (
+                                            <p className="text-[10px]" style={{ color: "#e87070" }}>
+                                              {renameError}
+                                            </p>
+                                          )}
+                                          <div className="flex gap-1">
+                                            <button
+                                              type="submit"
+                                              disabled={!renameValue.trim()}
+                                              className="flex-1 rounded py-1 text-[10px] font-medium text-white disabled:opacity-40"
+                                              style={{ background: "var(--tutor-accent)" }}
+                                            >
+                                              Save
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setRenamingSessionId(null);
+                                                setRenameError(null);
+                                              }}
+                                              className="flex-1 rounded py-1 text-[10px]"
+                                              style={{
+                                                border: "1px solid var(--tutor-sidebar-border)",
+                                                color: "var(--tutor-sidebar-text)",
+                                              }}
+                                            >
+                                              Cancel
+                                            </button>
+                                          </div>
+                                        </form>
+                                      </li>
+                                    );
+                                  }
+
+                                  if (isConfirmingDelete) {
+                                    return (
+                                      <li key={session.id} className="px-1 py-1 space-y-1">
+                                        <p
+                                          className="text-[10px] truncate"
+                                          style={{ color: "var(--tutor-sidebar-text)" }}
+                                        >
+                                          מחק &ldquo;{label}&rdquo;?
+                                        </p>
+                                        {deleteError && (
+                                          <p className="text-[10px]" style={{ color: "#e87070" }}>
+                                            {deleteError}
+                                          </p>
+                                        )}
+                                        <div className="flex gap-1">
+                                          <button
+                                            type="button"
+                                            onClick={async () => {
+                                              if (!onDeleteSession) return;
+                                              setDeleteError(null);
+                                              try {
+                                                await onDeleteSession(session.id);
+                                                setConfirmDeleteSessionId(null);
+                                              } catch (err: unknown) {
+                                                setDeleteError(
+                                                  err instanceof Error
+                                                    ? err.message
+                                                    : "Delete failed."
+                                                );
+                                              }
+                                            }}
+                                            className="flex-1 rounded py-1 text-[10px] font-medium text-white"
+                                            style={{ background: "#c0392b" }}
+                                          >
+                                            מחק
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setConfirmDeleteSessionId(null);
+                                              setDeleteError(null);
+                                            }}
+                                            className="flex-1 rounded py-1 text-[10px]"
+                                            style={{
+                                              border: "1px solid var(--tutor-sidebar-border)",
+                                              color: "var(--tutor-sidebar-text)",
+                                            }}
+                                          >
+                                            ביטול
+                                          </button>
+                                        </div>
+                                      </li>
+                                    );
+                                  }
+
+                                  return (
+                                    <li key={session.id} className="group relative flex items-center">
+                                      <SessionNavItem
+                                        label={label}
+                                        active={isActive}
+                                        onClick={() => onSessionSelect(session.id)}
+                                      />
+                                      {hasMenuActions && (
+                                        <div
+                                          ref={isMenuOpen ? openMenuRef : undefined}
+                                          className="flex-shrink-0 relative pr-1"
+                                        >
+                                          <button
+                                            type="button"
+                                            aria-label={`Conversation options: ${label}`}
+                                            aria-expanded={isMenuOpen}
+                                            aria-haspopup="true"
+                                            data-testid="conversation-menu-trigger"
+                                            onClick={() =>
+                                              setOpenMenuSessionId(isMenuOpen ? null : session.id)
+                                            }
+                                            className={`w-6 h-6 flex items-center justify-center rounded transition-opacity ${
+                                              isMenuOpen
+                                                ? "opacity-100"
+                                                : "opacity-0 group-hover:opacity-100"
+                                            }`}
+                                            style={{ color: "var(--tutor-sidebar-text-muted)" }}
+                                            onMouseEnter={(e) => {
+                                              (
+                                                e.currentTarget as HTMLButtonElement
+                                              ).style.background = "var(--tutor-sidebar-hover)";
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              (
+                                                e.currentTarget as HTMLButtonElement
+                                              ).style.background = "transparent";
+                                            }}
+                                          >
+                                            <ThreeDots />
+                                          </button>
+                                          {isMenuOpen && (
+                                            <ConversationMenu
+                                              label={label}
+                                              onRename={
+                                                onRenameSession
+                                                  ? () => {
+                                                      setOpenMenuSessionId(null);
+                                                      setRenamingSessionId(session.id);
+                                                      setRenameValue(label);
+                                                      setRenameError(null);
+                                                    }
+                                                  : undefined
+                                              }
+                                              onDelete={
+                                                onDeleteSession
+                                                  ? () => {
+                                                      setOpenMenuSessionId(null);
+                                                      setConfirmDeleteSessionId(session.id);
+                                                      setDeleteError(null);
+                                                    }
+                                                  : undefined
+                                              }
+                                            />
+                                          )}
+                                        </div>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            )}
+
+                            <div className="mt-0.5">
+                              <NewAction
+                                label={creatingSession ? "Creating..." : "+ New conversation"}
+                                disabled={creatingSession}
+                                onClick={() => {
+                                  void onCreateSession();
+                                }}
+                              />
+                            </div>
+
+                            {createSessionError && (
+                              <p className="px-1 text-xs" style={{ color: "#e87070" }}>
+                                {createSessionError}
+                              </p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </li>
                 );
               })}
@@ -123,14 +381,14 @@ export default function WorkspaceSelector({
 
           <div className="px-2 mt-0.5">
             {!showCreate ? (
-              <NewAction label="+ New topic" onClick={() => setShowCreate(true)} />
+              <NewAction label="+ New course" onClick={() => setShowCreate(true)} />
             ) : (
               <form onSubmit={handleCreate} className="px-1 py-2 space-y-2">
                 <input
                   type="text"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Topic name"
+                  placeholder="Course name"
                   autoFocus
                   disabled={creatingWorkspace}
                   className="w-full rounded-lg px-3 py-1.5 text-sm outline-none"
@@ -151,7 +409,11 @@ export default function WorkspaceSelector({
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setShowCreate(false); setNewName(""); setCreateError(null); }}
+                    onClick={() => {
+                      setShowCreate(false);
+                      setNewName("");
+                      setCreateError(null);
+                    }}
                     className="flex-1 rounded-lg py-1.5 text-xs"
                     style={{
                       border: "1px solid var(--tutor-sidebar-border)",
@@ -169,233 +431,30 @@ export default function WorkspaceSelector({
           </div>
         </>
       )}
-
-      {/* ── Conversations ── */}
-      {selectedWorkspaceId && (
-        <>
-          <p className="section-nav-label" style={{ marginTop: "16px" }}>Conversations</p>
-
-          {sessionState.status === "disabled" && (
-            <p className="nav-state-text nav-state-empty">{sessionState.message}</p>
-          )}
-          {sessionState.status === "loading" && (
-            <p className="nav-state-text">Loading...</p>
-          )}
-          {sessionState.status === "error" && (
-            <p className="nav-state-text" style={{ color: "#e87070" }}>{sessionState.message}</p>
-          )}
-
-          {sessionState.status === "ready" && (
-            <>
-              {sessionState.sessions.length === 0 ? (
-                <p className="nav-state-text nav-state-empty">No conversations</p>
-              ) : (
-                <ul className="space-y-0.5 px-2">
-                  {sessionState.sessions.map((session, index) => {
-                    const isActive = selectedSessionId === session.id;
-                    const label = session.title?.trim() || `Conversation ${index + 1}`;
-                    const isRenaming = renamingSessionId === session.id;
-                    const isConfirmingDelete = confirmDeleteSessionId === session.id;
-                    const isMenuOpen = openMenuSessionId === session.id;
-
-                    if (isRenaming) {
-                      return (
-                        <li key={session.id}>
-                          <form
-                            onSubmit={async (e) => {
-                              e.preventDefault();
-                              const trimmed = renameValue.trim();
-                              if (!trimmed || !onRenameSession) return;
-                              setRenameError(null);
-                              try {
-                                await onRenameSession(session.id, trimmed);
-                                setRenamingSessionId(null);
-                              } catch (err: unknown) {
-                                setRenameError(err instanceof Error ? err.message : "Rename failed.");
-                              }
-                            }}
-                            className="px-1 py-1 space-y-1"
-                          >
-                            <input
-                              type="text"
-                              value={renameValue}
-                              onChange={(e) => setRenameValue(e.target.value)}
-                              maxLength={120}
-                              autoFocus
-                              className="w-full rounded px-2 py-1 text-xs outline-none"
-                              style={{
-                                background: "var(--tutor-surface)",
-                                border: "1px solid var(--tutor-border)",
-                                color: "var(--tutor-text)",
-                              }}
-                            />
-                            {renameError && (
-                              <p className="text-[10px]" style={{ color: "#e87070" }}>{renameError}</p>
-                            )}
-                            <div className="flex gap-1">
-                              <button
-                                type="submit"
-                                disabled={!renameValue.trim()}
-                                className="flex-1 rounded py-1 text-[10px] font-medium text-white disabled:opacity-40"
-                                style={{ background: "var(--tutor-accent)" }}
-                              >
-                                Save
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => { setRenamingSessionId(null); setRenameError(null); }}
-                                className="flex-1 rounded py-1 text-[10px]"
-                                style={{ border: "1px solid var(--tutor-sidebar-border)", color: "var(--tutor-sidebar-text)" }}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </form>
-                        </li>
-                      );
-                    }
-
-                    if (isConfirmingDelete) {
-                      return (
-                        <li key={session.id} className="px-1 py-1 space-y-1">
-                          <p className="text-[10px] truncate" style={{ color: "var(--tutor-sidebar-text)" }}>
-                            מחק &ldquo;{label}&rdquo;?
-                          </p>
-                          {deleteError && (
-                            <p className="text-[10px]" style={{ color: "#e87070" }}>{deleteError}</p>
-                          )}
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                if (!onDeleteSession) return;
-                                setDeleteError(null);
-                                try {
-                                  await onDeleteSession(session.id);
-                                  setConfirmDeleteSessionId(null);
-                                } catch (err: unknown) {
-                                  setDeleteError(err instanceof Error ? err.message : "Delete failed.");
-                                }
-                              }}
-                              className="flex-1 rounded py-1 text-[10px] font-medium text-white"
-                              style={{ background: "#c0392b" }}
-                            >
-                              מחק
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => { setConfirmDeleteSessionId(null); setDeleteError(null); }}
-                              className="flex-1 rounded py-1 text-[10px]"
-                              style={{ border: "1px solid var(--tutor-sidebar-border)", color: "var(--tutor-sidebar-text)" }}
-                            >
-                              ביטול
-                            </button>
-                          </div>
-                        </li>
-                      );
-                    }
-
-                    return (
-                      <li key={session.id} className="group relative flex items-center">
-                        <NavItem
-                          label={label}
-                          active={isActive}
-                          small
-                          onClick={() => onSessionSelect(session.id)}
-                        />
-                        {hasMenuActions && (
-                          <div className="flex-shrink-0 relative pr-1">
-                            <button
-                              type="button"
-                              aria-label={`Conversation options: ${label}`}
-                              aria-expanded={isMenuOpen}
-                              aria-haspopup="true"
-                              data-testid="conversation-menu-trigger"
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onClick={() =>
-                                setOpenMenuSessionId(isMenuOpen ? null : session.id)
-                              }
-                              className={`w-6 h-6 flex items-center justify-center rounded transition-opacity ${
-                                isMenuOpen
-                                  ? "opacity-100"
-                                  : "opacity-0 group-hover:opacity-100"
-                              }`}
-                              style={{ color: "var(--tutor-sidebar-text-muted)" }}
-                              onMouseEnter={(e) => {
-                                (e.currentTarget as HTMLButtonElement).style.background =
-                                  "var(--tutor-sidebar-hover)";
-                              }}
-                              onMouseLeave={(e) => {
-                                (e.currentTarget as HTMLButtonElement).style.background =
-                                  "transparent";
-                              }}
-                            >
-                              <ThreeDots />
-                            </button>
-                            {isMenuOpen && (
-                              <ConversationMenu
-                                label={label}
-                                onRename={
-                                  onRenameSession
-                                    ? () => {
-                                        setOpenMenuSessionId(null);
-                                        setRenamingSessionId(session.id);
-                                        setRenameValue(label);
-                                        setRenameError(null);
-                                      }
-                                    : undefined
-                                }
-                                onDelete={
-                                  onDeleteSession
-                                    ? () => {
-                                        setOpenMenuSessionId(null);
-                                        setConfirmDeleteSessionId(session.id);
-                                        setDeleteError(null);
-                                      }
-                                    : undefined
-                                }
-                              />
-                            )}
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-
-              <div className="px-2 mt-0.5">
-                <NewAction
-                  label={creatingSession ? "Creating..." : "+ New conversation"}
-                  disabled={creatingSession}
-                  onClick={() => { void onCreateSession(); }}
-                />
-              </div>
-
-              {createSessionError && (
-                <p className="px-4 text-xs" style={{ color: "#e87070" }}>
-                  {createSessionError}
-                </p>
-              )}
-            </>
-          )}
-        </>
-      )}
     </div>
   );
 }
 
-/* ── Three-dot icon ── */
+/* ── Icons ── */
+
+function FolderIcon() {
+  return (
+    <svg
+      width="13"
+      height="11"
+      viewBox="0 0 13 11"
+      fill="currentColor"
+      aria-hidden="true"
+      data-testid="folder-icon"
+    >
+      <path d="M1 2.5C1 1.67 1.67 1 2.5 1h2.7l1.3 1.5H10.5C11.33 2.5 12 3.17 12 4v5c0 .83-.67 1.5-1.5 1.5h-9C.67 10.5 1 9.83 1 9V2.5z" />
+    </svg>
+  );
+}
 
 function ThreeDots() {
   return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 12 12"
-      fill="currentColor"
-      aria-hidden="true"
-    >
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
       <circle cx="2" cy="6" r="1.2" />
       <circle cx="6" cy="6" r="1.2" />
       <circle cx="10" cy="6" r="1.2" />
@@ -403,7 +462,7 @@ function ThreeDots() {
   );
 }
 
-/* ── Conversation dropdown menu ── */
+/* ── ConversationMenu ── */
 
 interface ConversationMenuProps {
   label: string;
@@ -417,7 +476,6 @@ export function ConversationMenu({ onRename, onDelete }: ConversationMenuProps) 
       role="menu"
       aria-label="Conversation options"
       data-testid="conversation-menu"
-      onMouseDown={(e) => e.stopPropagation()}
       className="absolute right-0 top-full mt-0.5 z-50 min-w-[120px] rounded-lg overflow-hidden"
       style={{
         background: "var(--tutor-surface)",
@@ -433,8 +491,7 @@ export function ConversationMenu({ onRename, onDelete }: ConversationMenuProps) 
           className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs transition-colors"
           style={{ color: "var(--tutor-sidebar-text)" }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background =
-              "var(--tutor-sidebar-hover)";
+            (e.currentTarget as HTMLButtonElement).style.background = "var(--tutor-sidebar-hover)";
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLButtonElement).style.background = "transparent";
@@ -468,17 +525,7 @@ export function ConversationMenu({ onRename, onDelete }: ConversationMenuProps) 
 
 function RenameIcon() {
   return (
-    <svg
-      width="11"
-      height="11"
-      viewBox="0 0 11 11"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M7.5 1.5l2 2-6 6H1.5v-2l6-6z" />
     </svg>
   );
@@ -486,49 +533,82 @@ function RenameIcon() {
 
 function DeleteIcon() {
   return (
-    <svg
-      width="11"
-      height="11"
-      viewBox="0 0 11 11"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M1.5 3h8M4 3V2h3v1M2.5 3l.5 6.5h5l.5-6.5" />
     </svg>
   );
 }
 
-/* ── NavItem ── */
+/* ── CourseNavItem ── */
 
-function NavItem({
+function CourseNavItem({
   label,
   active,
-  small = false,
   onClick,
 }: {
   label: string;
   active: boolean;
-  small?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left flex items-center px-3 rounded-lg transition-colors"
+      data-testid="course-nav-item"
+      className="w-full text-left flex items-center gap-2 px-3 rounded-lg transition-colors"
       style={{
-        padding: small ? "5px 10px" : "7px 10px",
-        fontSize: small ? "12px" : "13px",
+        padding: "7px 10px",
+        fontSize: "13px",
         background: active ? "var(--tutor-sidebar-active)" : "transparent",
         color: active ? "var(--tutor-sidebar-text-active)" : "var(--tutor-sidebar-text)",
         fontWeight: active ? 500 : 400,
-        borderLeft: active
-          ? "2px solid var(--tutor-accent)"
-          : "2px solid transparent",
+        borderLeft: active ? "2px solid var(--tutor-accent)" : "2px solid transparent",
+      }}
+      onMouseEnter={(e) => {
+        if (!active)
+          (e.currentTarget as HTMLButtonElement).style.background = "var(--tutor-sidebar-hover)";
+      }}
+      onMouseLeave={(e) => {
+        if (!active)
+          (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+      }}
+    >
+      <span
+        className="flex-shrink-0"
+        style={{
+          color: active ? "var(--tutor-accent)" : "var(--tutor-sidebar-text-muted)",
+          opacity: 0.8,
+        }}
+      >
+        <FolderIcon />
+      </span>
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+/* ── SessionNavItem ── */
+
+function SessionNavItem({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left flex items-center px-2 rounded-md transition-colors"
+      style={{
+        padding: "4px 8px",
+        fontSize: "11.5px",
+        background: active ? "var(--tutor-sidebar-active)" : "transparent",
+        color: active ? "var(--tutor-sidebar-text-active)" : "var(--tutor-sidebar-text)",
+        fontWeight: active ? 500 : 400,
       }}
       onMouseEnter={(e) => {
         if (!active)
@@ -560,11 +640,10 @@ function NewAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="w-full text-left flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-40"
+      className="w-full text-left flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors disabled:opacity-40"
       style={{ color: "var(--tutor-sidebar-text-muted)" }}
       onMouseEnter={(e) => {
-        if (!disabled)
-          (e.currentTarget as HTMLButtonElement).style.color = "var(--tutor-accent)";
+        if (!disabled) (e.currentTarget as HTMLButtonElement).style.color = "var(--tutor-accent)";
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLButtonElement).style.color = "var(--tutor-sidebar-text-muted)";
