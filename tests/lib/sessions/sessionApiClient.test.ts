@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   createSession,
   deleteSession,
@@ -7,6 +8,9 @@ import {
   SessionApiError,
 } from "../../../src/lib/sessions/sessionApiClient";
 import type { SessionApiSession } from "../../../src/lib/sessions/sessionApiTypes";
+
+const CLIENT_FILE =
+  "/Users/nevobiton/private-tutor-project/privateTutor/src/lib/sessions/sessionApiClient.ts";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -34,6 +38,16 @@ function makeJsonResponse(status: number, body: unknown): Response {
 
 beforeEach(() => {
   mockFetch.mockReset();
+});
+
+describe("sessionApiClient — timeout budget", () => {
+  it("REQUEST_TIMEOUT_MS is at least 25000 to avoid false late-success rename failures", () => {
+    const source = readFileSync(CLIENT_FILE, "utf-8");
+    const match = /const REQUEST_TIMEOUT_MS\s*=\s*(\d+)/.exec(source);
+
+    expect(match, "REQUEST_TIMEOUT_MS constant must be defined in the source file").not.toBeNull();
+    expect(Number(match![1])).toBeGreaterThanOrEqual(25000);
+  });
 });
 
 describe("fetchSessions", () => {

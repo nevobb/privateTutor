@@ -2381,3 +2381,41 @@ Copy this block and fill all fields:
   - Current state: operational Project Brain is ready and compact enough for mandatory preflight use
   - Next recommended step: use `PROJECT_BRAIN/04_AGENT_PREFLIGHT_PROTOCOL.md` before the rename-timeout repair batch
   - Blockers/Risks: brain correctness now depends on future agents keeping it updated when major contracts or risks change
+
+## 2026-06-03 19:39 (Asia/Jerusalem) — Codex
+- Step/Task ID: Bug Fix Batch B — Rename timeout / late success repair
+- Task summary: Fix the false timeout / eventual success behavior when renaming conversations, using the smallest safe change.
+- What I changed:
+  - Followed the Project Brain preflight and documented an impact prediction before coding.
+  - Confirmed `src/lib/sessions/sessionApiClient.ts` still used `REQUEST_TIMEOUT_MS = 8000`, while `sessionMessagesApiClient` had already been repaired to `25000`.
+  - Added a failing timeout-budget regression test for the session client, then raised the session client timeout to `25000ms`.
+  - Created `agent-memory/RENAME_TIMEOUT_LATE_SUCCESS_REPAIR_REPORT.md`.
+- Files touched:
+  - `src/lib/sessions/sessionApiClient.ts`
+  - `tests/lib/sessions/sessionApiClient.test.ts`
+  - `agent-memory/RENAME_TIMEOUT_LATE_SUCCESS_REPAIR_REPORT.md`
+  - `agent-memory/DUAL_AGENT_SYNC_LOG.md`
+- Tests/checks run:
+  - `git branch --show-current`
+  - `git status --short`
+  - `git diff --name-only`
+  - `graphify query "sessionApiClient timeout rename session"`
+  - `graphify query "WorkspaceSelector renameSession error timeout"`
+  - `graphify query "PATCH sessions sessionId route rename"`
+  - `graphify query "sessionRepository updateSession title updatedAt"`
+  - `graphify query "page.tsx handleRenameSession local session state"`
+  - `npx vitest run tests/lib/sessions/sessionApiClient.test.ts` — red, then green
+  - `npx vitest run tests/lib/sessions/sessionApiClient.test.ts tests/server/workspaces/sessionRenameApiRoute.test.ts tests/server/workspaces/sessionSoftDeleteApiRoute.test.ts` — passed
+  - `npx tsc --noEmit` — passed
+  - `npx vitest run` — passed
+  - `npm run build` — passed
+  - `git diff --check` — passed
+  - `graphify update .` — updated
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): none
+  - Pushed: no
+- Handoff status:
+  - Current state: rename late-success false-failure window reduced by aligning the session client timeout with the safer grounded-message timeout budget
+  - Next recommended step: Nevo manual smoke on real rename flow, then move to the signed-in UI/settings smoke or the upload-with-session-context design batch
+  - Blockers/Risks: this is a timeout-budget repair, not an optimistic-UI redesign; extremely slow rename operations could still exceed the new budget

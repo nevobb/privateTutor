@@ -1,6 +1,6 @@
 import type { CreateSessionInput, DeleteSessionInput, RenameSessionInput, SessionApiSession } from "./sessionApiTypes";
 
-const REQUEST_TIMEOUT_MS = 8000;
+const REQUEST_TIMEOUT_MS = 25000;
 
 interface ErrorBody {
   error?: string;
