@@ -43,3 +43,6 @@ next-env.d.ts
 
 # Graphify generated output
 graphify-out/
+
+# Stitch generated artifacts
+.tmp/
