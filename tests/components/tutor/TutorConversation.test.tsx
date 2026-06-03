@@ -2,17 +2,22 @@ import { describe, expect, it } from "vitest";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import TutorConversation, {
+  buildStagedAttachment,
+  canAddMoreAttachments,
   ChatUploadCard,
   DecisionLogPanelBody,
   formatSourcesLabel,
   hasNewAssistantMessage,
   isTimeoutError,
+  MAX_STAGED_ATTACHMENTS,
   normalizeCitations,
   PlusMenu,
+  removeStagedAttachment,
   SourcesSection,
   shouldSubmitOnKeyDown,
+  StagedAttachmentChip,
 } from "../../../src/components/tutor/TutorConversation";
-import type { ChatUploadFeedback } from "../../../src/components/tutor/TutorConversation";
+import type { ChatUploadFeedback, StagedAttachment } from "../../../src/components/tutor/TutorConversation";
 import { SessionMessagesApiError } from "../../../src/lib/sessions/sessionMessagesApiClient";
 
 /* ── Composer layout ── */
@@ -362,6 +367,162 @@ describe("timeout recovery helpers", () => {
       baseline
     );
     expect(found).toBe(false);
+  });
+});
+
+/* ── Staged attachment helpers ── */
+
+describe("buildStagedAttachment", () => {
+  it("builds a StagedAttachment with the given file", () => {
+    const file = new File(["content"], "lecture.pdf", { type: "application/pdf" });
+    const att = buildStagedAttachment(file);
+    expect(att.file).toBe(file);
+    expect(att.localId).toBeTruthy();
+    expect(att.localId).toMatch(/^staged-/);
+  });
+
+  it("uses provided localId when given", () => {
+    const file = new File(["x"], "x.pdf", { type: "application/pdf" });
+    const att = buildStagedAttachment(file, "custom-id");
+    expect(att.localId).toBe("custom-id");
+  });
+
+  it("generates distinct localIds for two calls at the same time", () => {
+    const file = new File(["x"], "x.pdf", { type: "application/pdf" });
+    const ids = new Set(Array.from({ length: 5 }, () => buildStagedAttachment(file).localId));
+    expect(ids.size).toBeGreaterThan(1);
+  });
+});
+
+describe("removeStagedAttachment", () => {
+  function makeAtt(localId: string): StagedAttachment {
+    return { localId, file: new File([], "f.pdf") };
+  }
+
+  it("removes the matching attachment", () => {
+    const atts = [makeAtt("a"), makeAtt("b"), makeAtt("c")];
+    const result = removeStagedAttachment(atts, "b");
+    expect(result.map((a) => a.localId)).toEqual(["a", "c"]);
+  });
+
+  it("returns original list unchanged when id not found", () => {
+    const atts = [makeAtt("a"), makeAtt("b")];
+    const result = removeStagedAttachment(atts, "z");
+    expect(result).toHaveLength(2);
+  });
+
+  it("handles empty list", () => {
+    expect(removeStagedAttachment([], "x")).toEqual([]);
+  });
+});
+
+describe("canAddMoreAttachments", () => {
+  it("returns true when below limit", () => {
+    expect(canAddMoreAttachments(0)).toBe(true);
+    expect(canAddMoreAttachments(MAX_STAGED_ATTACHMENTS - 1)).toBe(true);
+  });
+
+  it("returns false at limit", () => {
+    expect(canAddMoreAttachments(MAX_STAGED_ATTACHMENTS)).toBe(false);
+  });
+
+  it("MAX_STAGED_ATTACHMENTS matches backend schema limit of 10", () => {
+    expect(MAX_STAGED_ATTACHMENTS).toBe(10);
+  });
+});
+
+/* ── StagedAttachmentChip ── */
+
+describe("StagedAttachmentChip", () => {
+  function renderChip(fileName: string, withRemove = false) {
+    return renderToStaticMarkup(
+      <StagedAttachmentChip
+        fileName={fileName}
+        onRemove={withRemove ? () => {} : undefined}
+      />
+    );
+  }
+
+  it("renders the file name", () => {
+    const html = renderChip("lecture-notes.pdf");
+    expect(html).toContain("lecture-notes.pdf");
+    expect(html).toContain('data-testid="staged-attachment-chip"');
+  });
+
+  it("renders remove button when onRemove provided", () => {
+    const html = renderChip("hw.pdf", true);
+    expect(html).toContain('data-testid="staged-attachment-remove"');
+    expect(html).toContain('aria-label="Remove hw.pdf"');
+  });
+
+  it("does not render remove button when onRemove absent", () => {
+    const html = renderChip("notes.pdf", false);
+    expect(html).not.toContain('data-testid="staged-attachment-remove"');
+  });
+
+  it("shows the file name in title attribute for truncation support", () => {
+    const html = renderChip("very-long-lecture-name.pdf");
+    expect(html).toContain('title="very-long-lecture-name.pdf"');
+  });
+});
+
+/* ── Composer staged attachment static render ── */
+
+describe("TutorConversation staged attachment prop wiring", () => {
+  it("renders without crashing when onUploadAttachmentFile is provided", () => {
+    const html = renderToStaticMarkup(
+      <TutorConversation
+        activeSessionId="session-1"
+        activeWorkspaceId="ws-1"
+        developerDiagnosticsEnabled={false}
+        workMode="Learning"
+        onWorkModeChange={() => {}}
+        costMode="Normal Learning"
+        onCostModeChange={() => {}}
+        activeTopicName={null}
+        getToken={async () => "token"}
+        onUploadAttachmentFile={async () => "file-id-1"}
+      />
+    );
+    expect(html).toContain('data-testid="plus-menu-button"');
+    expect(html).toContain('data-testid="message-textarea"');
+  });
+
+  it("plus menu shows upload file option when onUploadAttachmentFile provided", () => {
+    const html = renderToStaticMarkup(
+      <PlusMenu
+        workMode="Learning"
+        onWorkModeChange={() => {}}
+        costMode="Normal Learning"
+        onCostModeChange={() => {}}
+        workModeMenuOpen={false}
+        setWorkModeMenuOpen={() => {}}
+        costModeMenuOpen={false}
+        setCostModeMenuOpen={() => {}}
+        onUploadFile={async () => {}}
+      />
+    );
+    expect(html).toContain("Upload file");
+    // The file input must not be disabled (Upload image is separately disabled — that's expected)
+    expect(html).toContain('data-testid="plus-upload-file-input"');
+    expect(html).not.toContain('data-testid="plus-upload-file-input" disabled');
+  });
+
+  it("plus menu disables upload when no upload callback", () => {
+    const html = renderToStaticMarkup(
+      <PlusMenu
+        workMode="Learning"
+        onWorkModeChange={() => {}}
+        costMode="Normal Learning"
+        onCostModeChange={() => {}}
+        workModeMenuOpen={false}
+        setWorkModeMenuOpen={() => {}}
+        costModeMenuOpen={false}
+        setCostModeMenuOpen={() => {}}
+        onUploadFile={undefined}
+      />
+    );
+    expect(html).toContain('disabled=""');
   });
 });
 

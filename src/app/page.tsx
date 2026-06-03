@@ -410,6 +410,53 @@ export default function Home() {
     [activeWorkspaceId, authState, getToken, reloadWorkspaceFiles, runFileProcessingPipeline]
   );
 
+  const handleAttachmentUpload = useCallback(
+    async (file: File): Promise<string> => {
+      if (authState.status !== "signed-in" || !activeWorkspaceId || !authState.user?.userId) {
+        throw new Error("נדרש משתמש מחובר ומרחב פעיל להעלאה.");
+      }
+
+      const validation = validateLearningFile(file);
+      if (!validation.ok) {
+        throw new Error(validation.reason);
+      }
+
+      const fileId = crypto.randomUUID();
+      const uploaded = await uploadLearningFileToStorage({
+        file,
+        userId: authState.user.userId,
+        workspaceId: activeWorkspaceId,
+        fileId,
+      });
+
+      const token = await getToken();
+      if (!token) {
+        throw new Error("לא ניתן לאמת את המשתמש לשמירת המטא-דאטה.");
+      }
+
+      const createdFile = await createWorkspaceFileMetadata({
+        workspaceId: activeWorkspaceId,
+        idToken: token,
+        fileName: uploaded.fileName,
+        originalFileName: uploaded.originalFileName,
+        sourceType: uploaded.sourceType,
+        storagePath: uploaded.storagePath,
+      });
+
+      setPendingFilesByFileId((prev) => ({ ...prev, [createdFile.id]: file }));
+      await reloadWorkspaceFiles();
+      void runFileProcessingPipeline({
+        workspaceId: activeWorkspaceId,
+        fileId: createdFile.id,
+        token,
+        fileBytes: file,
+      });
+
+      return createdFile.id;
+    },
+    [activeWorkspaceId, authState, getToken, reloadWorkspaceFiles, runFileProcessingPipeline]
+  );
+
   const handleContinueProcessing = useCallback(
     async (fileId: string): Promise<void> => {
       if (authState.status !== "signed-in" || !activeWorkspaceId) return;
@@ -764,6 +811,7 @@ export default function Home() {
           developerDiagnosticsEnabled={developerDiagnosticsEnabled}
           uploadedFileCount={uploadedFiles.length}
           onFileSelected={authState.status === "signed-in" && activeWorkspaceId ? handleFileSelected : undefined}
+          onUploadAttachmentFile={authState.status === "signed-in" && activeWorkspaceId ? handleAttachmentUpload : undefined}
         />
       </MainLayout>
     </AuthShell>

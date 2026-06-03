@@ -26,6 +26,31 @@ import {
 const WORK_MODES: WorkMode[] = ["Learning", "Practice", "Research", "Build", "Temporary Chat"];
 const COST_MODES: CostMode[] = ["Normal Learning", "Cheap Practice", "Deep Research"];
 
+export const MAX_STAGED_ATTACHMENTS = 10;
+
+export interface StagedAttachment {
+  localId: string;
+  file: File;
+}
+
+export function buildStagedAttachment(file: File, localId?: string): StagedAttachment {
+  return {
+    localId: localId ?? `staged-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    file,
+  };
+}
+
+export function removeStagedAttachment(
+  attachments: StagedAttachment[],
+  localId: string
+): StagedAttachment[] {
+  return attachments.filter((a) => a.localId !== localId);
+}
+
+export function canAddMoreAttachments(count: number): boolean {
+  return count < MAX_STAGED_ATTACHMENTS;
+}
+
 const SCOPE_MODE_LABELS: Record<WorkMode, string> = {
   Learning: "Learn",
   Practice: "Practice",
@@ -49,6 +74,7 @@ interface TutorConversationProps {
   getToken: () => Promise<string | null>;
   uploadedFileCount?: number;
   onFileSelected?: (file: File) => Promise<void>;
+  onUploadAttachmentFile?: (file: File) => Promise<string>;
 }
 
 export type ChatUploadFeedback = {
@@ -75,6 +101,7 @@ export default function TutorConversation({
   getToken,
   uploadedFileCount,
   onFileSelected,
+  onUploadAttachmentFile,
 }: TutorConversationProps) {
   const [messages, setMessages] = useState<TutorMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -93,6 +120,7 @@ export default function TutorConversation({
   const [workModeMenuOpen, setWorkModeMenuOpen] = useState(false);
   const [costModeMenuOpen, setCostModeMenuOpen] = useState(false);
   const [chatUploadFeedback, setChatUploadFeedback] = useState<ChatUploadFeedback | null>(null);
+  const [stagedAttachments, setStagedAttachments] = useState<StagedAttachment[]>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const plusMenuContainerRef = useRef<HTMLDivElement>(null);
@@ -216,12 +244,24 @@ export default function TutorConversation({
         const token = await getToken();
         if (!token) throw new SessionMessagesApiError("Unauthorized.", 401);
 
+        // Upload staged attachments first; if any fail, do not send the message.
+        let attachedFileIds: string[] | undefined;
+        if (stagedAttachments.length > 0 && onUploadAttachmentFile) {
+          const ids: string[] = [];
+          for (const att of stagedAttachments) {
+            const fileId = await onUploadAttachmentFile(att.file);
+            ids.push(fileId);
+          }
+          attachedFileIds = ids;
+        }
+
         const result = await sendSessionMessage(token, {
           workspaceId: activeWorkspaceId,
           sessionId: activeSessionId,
           userMessage: trimmed,
           workMode,
           costMode,
+          attachedFileIds,
         });
 
         setMessages((prev) => [
@@ -229,12 +269,15 @@ export default function TutorConversation({
           result.userMessage,
           result.assistantMessage,
         ]);
+        // Clear staged chips only after a confirmed successful send.
+        setStagedAttachments([]);
         setComposerNotice(null);
         if (developerDiagnosticsEnabled) {
           setDecisionLogRefreshKey((prev) => prev + 1);
         }
       } catch (error: unknown) {
         console.error(error);
+        // Staged attachment chips are intentionally NOT cleared on any error path.
         if (isTimeoutError(error)) {
           setComposerNotice("המורה עדיין מעבד את התשובה...");
           const recovered = await recoverAfterTimeout({
@@ -245,6 +288,7 @@ export default function TutorConversation({
           });
           if (recovered) {
             setMessages(recovered.messages);
+            setStagedAttachments([]);
             setComposerNotice(null);
             if (developerDiagnosticsEnabled) {
               setDecisionLogRefreshKey((prev) => prev + 1);
@@ -255,7 +299,12 @@ export default function TutorConversation({
           }
         } else {
           setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-          setComposerNotice("שליחת ההודעה נכשלה. נסה שוב.");
+          const baseNotice = "שליחת ההודעה נכשלה. נסה שוב.";
+          const uploadHint =
+            stagedAttachments.length > 0 && error instanceof Error
+              ? ` (${error.message})`
+              : "";
+          setComposerNotice(baseNotice + uploadHint);
         }
       } finally {
         setIsTyping(false);
@@ -270,6 +319,8 @@ export default function TutorConversation({
       inputValue,
       isTyping,
       messages,
+      onUploadAttachmentFile,
+      stagedAttachments,
       workMode,
     ]
   );
@@ -292,6 +343,21 @@ export default function TutorConversation({
     },
     [onFileSelected]
   );
+
+  const handleStageAttachment = useCallback(
+    async (file: File): Promise<void> => {
+      if (!canAddMoreAttachments(stagedAttachments.length)) {
+        setComposerNotice(`לא ניתן לצרף יותר מ-${MAX_STAGED_ATTACHMENTS} קבצים.`);
+        return;
+      }
+      setStagedAttachments((prev) => [...prev, buildStagedAttachment(file)]);
+    },
+    [stagedAttachments.length]
+  );
+
+  const handleRemoveStagedAttachment = useCallback((localId: string) => {
+    setStagedAttachments((prev) => removeStagedAttachment(prev, localId));
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (shouldSubmitOnKeyDown(e.key, e.shiftKey)) {
@@ -478,7 +544,13 @@ export default function TutorConversation({
                 setWorkModeMenuOpen={setWorkModeMenuOpen}
                 costModeMenuOpen={costModeMenuOpen}
                 setCostModeMenuOpen={setCostModeMenuOpen}
-                onUploadFile={onFileSelected ? handleUploadWithFeedback : undefined}
+                onUploadFile={
+                  onUploadAttachmentFile
+                    ? handleStageAttachment
+                    : onFileSelected
+                      ? handleUploadWithFeedback
+                      : undefined
+                }
                 onMenuClose={() => setPlusMenuOpen(false)}
               />
             )}
@@ -492,6 +564,20 @@ export default function TutorConversation({
               boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)",
             }}
           >
+            {stagedAttachments.length > 0 && (
+              <div
+                className="flex flex-wrap gap-1.5 px-3 pt-3 pb-1"
+                data-testid="staged-attachments"
+              >
+                {stagedAttachments.map((att) => (
+                  <StagedAttachmentChip
+                    key={att.localId}
+                    fileName={att.file.name}
+                    onRemove={() => handleRemoveStagedAttachment(att.localId)}
+                  />
+                ))}
+              </div>
+            )}
             <textarea
               ref={inputRef}
               rows={1}
@@ -948,6 +1034,61 @@ export function ChatUploadCard({
         />
       </div>
     </div>
+  );
+}
+
+/* ── StagedAttachmentChip ── */
+
+export function StagedAttachmentChip({
+  fileName,
+  onRemove,
+}: {
+  fileName: string;
+  onRemove?: () => void;
+}) {
+  return (
+    <div
+      data-testid="staged-attachment-chip"
+      className="flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[11px]"
+      style={{
+        background: "var(--tutor-user-bubble)",
+        border: "1px solid var(--tutor-user-border)",
+        color: "var(--tutor-text)",
+        maxWidth: "180px",
+      }}
+    >
+      <PaperclipIcon />
+      <span className="truncate" title={fileName}>{fileName}</span>
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="flex-shrink-0 ml-0.5 rounded-full"
+          aria-label={`Remove ${fileName}`}
+          data-testid="staged-attachment-remove"
+          style={{ color: "var(--tutor-text-muted)" }}
+        >
+          <XSmallIcon />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PaperclipIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <path d="M10.5 5.5L5.5 10.5a3 3 0 01-4.24-4.24L6.76 1.76a2 2 0 012.83 2.83L4.06 10.1a1 1 0 01-1.41-1.41L7.5 3.83" />
+    </svg>
+  );
+}
+
+function XSmallIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+      <line x1="2" y1="2" x2="8" y2="8" />
+      <line x1="8" y1="2" x2="2" y2="8" />
+    </svg>
   );
 }
 
