@@ -50,6 +50,9 @@ graphify-out/
 # Evaluation run artifacts
 tests/evaluation/eval_report.json
 
+# Personal tutor instruction docs (external reference, not repo content)
+BaseTutorInstructionsFiles/
+
 # Firebase emulator debug logs
 firebase-debug.log
 firestore-debug.log
