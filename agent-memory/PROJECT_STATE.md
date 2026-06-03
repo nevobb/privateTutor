@@ -1,3 +1,10 @@
+# Project State — SUPERSEDED
+
+> **This file is outdated.** The canonical state is `agent-memory/PROJECT_STATE_CURRENT.md`.
+> Read that file instead. This file is preserved for historical reference only.
+
+---
+
 # Project State
 
 ## Project identity
