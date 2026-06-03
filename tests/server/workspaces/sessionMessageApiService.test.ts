@@ -860,12 +860,13 @@ describeService("sessionMessageApiService", () => {
         },
       });
 
-      const assistantMsg = result.assistantMessage as { citations?: Array<{ id: string; sourceId: string; referenceText: string }> };
+      const assistantMsg = result.assistantMessage as { citations?: Array<{ id: string; sourceId: string; referenceText: string; originalFileName?: string }> };
       expect(assistantMsg.citations).toBeDefined();
       expect(assistantMsg.citations![0]).toMatchObject({
         id: "ck-1",
         sourceId: "file-A:ck-1",
         referenceText: expect.stringContaining("Newton"),
+        originalFileName: "Physics.pdf",
       });
     });
 
