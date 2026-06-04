@@ -2690,3 +2690,29 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: manual smoke — with an active understood file that has detected questions, send `תפתור את שאלה N` (N = a question the file actually has) and confirm the answer is grounded in that question's content and the source card cites the file. Then send a ref that matches nothing (e.g. `שאלה 99`) and confirm it answers via the normal semantic path.
   - Blockers/Risks: none. Optional fast-follow: citation `pageNumber`/`sectionLabel` population from `StructuralMatch` (not in v1); relative refs (`התרגיל הבא`) are out of scope and fall through safely.
+
+## 2026-06-04 12:40 (Asia/Jerusalem) — Claude (team lead, structural-retrieval team)
+- Step/Task ID: Structural Retrieval v1 — review + smoke + finalize (follows sr-builder entry above)
+- Task summary: Spec+quality review of sr-builder's work, fix follow-ups, live smoke, finalize.
+- Review outcome: Approved with follow-ups. Verified independently: parsers moved byte-identical; subsection-letter fix genuinely correct (test not weakened); structural pre-step additive and C5D-safe; integration tests assert the real behaviors (semantic NOT called on structural match; fallback DOES call semantic; no-active-file keeps C5D clarification).
+- Follow-up fixes applied (commit `437777a`):
+  - Added unit test for a standalone `סעיף <letter>` reference (spec-listed case that lacked coverage).
+  - Fixed the `retrieval_executed` decision-log `detail` so the structural path no longer falsely reports `semantic_attempted=true`; it now emits `retrieval_method=structural; semantic_attempted=false; structural_match=true`.
+  - Strengthened the semantic-fallback integration test to assert `retrieval.why` contains `semantic` and not `structural`.
+- Manual smoke (emulator + playwright, by teammate sr-smoke): all 3 checks PASS.
+  - `תפתור את שאלה 3` with an active understood file (Physics.pdf, detected question "שאלה 3" → chunk q3-c1) → answer grounded in the q3 chunk content; source card cites Physics.pdf. Firestore decision log confirms q3-c1 was selected by ID (structural), not by semantic score.
+  - `תפתור את שאלה 99` (no matching artifact) → graceful honest fallback ("did not find question 99… search rest of course?"), no crash.
+  - Note: "structural" retrieval method is not surfaced in the UI (only in the decision log) — acceptable for v1.
+- Tests/checks run (final state, commit `437777a`):
+  - `npx tsc --noEmit` — passed (clean)
+  - `npx vitest run tests/server/workspaces/structuralRetrievalService.test.ts tests/server/workspaces/sessionMessageApiService.test.ts` — 94 passed
+  - `npx vitest run` (full suite, by sr-builder) — 1095 passed, 122 skipped, 0 failed
+  - `npm run build` — passed
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): `d06bc02`, `285da9d`, `5fbb03c` (sr-builder log), `437777a` (review fixes)
+  - Pushed: yes
+- Handoff status:
+  - Current state: done
+  - Next recommended step: roadmap step 7 — Learner Memory write-path audit (confirm tutor memory actually persists; implement read/write loop; keep separate from course content). Needs its own brainstorm.
+  - Blockers/Risks: none. Fast-follow still open: populate citation `pageNumber`/`sectionLabel` from `StructuralMatch` so Sources UI v1 badges light up on structural answers.
