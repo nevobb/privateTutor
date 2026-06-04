@@ -8,6 +8,13 @@ import {
 } from "../tutor/fileInventoryService";
 import { listFileChunks as defaultListFileChunks } from "./fileChunkRepository";
 import {
+  extractRequestedPages,
+  extractArtifactGroundingSignals,
+  matchesArtifactGroundingSignals,
+  resolveStructuralChunkTargets,
+} from "./structuralRetrievalService";
+import type { ArtifactGroundingSignal, StructuralMatch } from "./structuralRetrievalService";
+import {
   getDocumentOutline as defaultGetDocumentOutline,
   listDetectedQuestions as defaultListDetectedQuestions,
   listDocumentPages as defaultListDocumentPages,
@@ -1131,11 +1138,6 @@ type ArtifactAwareUploadedFile = {
   deepPdfStatus?: unknown;
 };
 
-type ArtifactGroundingSignal = {
-  number?: string;
-  letter?: string;
-};
-
 async function buildArtifactAwareGroundingContext(
   repositories: Repositories,
   userId: string,
@@ -1315,39 +1317,6 @@ function buildDeepPdfGroundingNote(deepPdfStatus: unknown): string | null {
   return null;
 }
 
-function extractRequestedPages(message: string): number[] {
-  return Array.from(message.matchAll(/עמוד\s+(\d+)/g), (match) => Number(match[1])).filter(
-    (value) => Number.isFinite(value) && value > 0
-  );
-}
-
-function extractArtifactGroundingSignals(message: string): ArtifactGroundingSignal[] {
-  const signals: ArtifactGroundingSignal[] = [];
-
-  for (const match of message.matchAll(/(?:שאלה|תרגיל|סעיף|מקטע|question|exercise|problem)\s+(\d+)/gi)) {
-    signals.push({ number: match[1] });
-  }
-
-  for (const match of message.matchAll(/(?:סעיף|מקטע)\s+([אבגדהוזחטיכלמנסעפצקרשת])[׳'"]?/g)) {
-    signals.push({ letter: normalizeHebrewGroundingLetter(match[1]) });
-  }
-
-  return signals;
-}
-
-function matchesArtifactGroundingSignals(label: string, signals: ArtifactGroundingSignal[]): boolean {
-  const numericMatch = label.match(/(?:שאלה|תרגיל|סעיף|מקטע|question|exercise|problem)\s+(\d+)/i);
-  const letterMatch = label.match(/(?:סעיף|מקטע)\s+([אבגדהוזחטיכלמנסעפצקרשת])[׳'"]?/);
-  const labelNumber = numericMatch?.[1];
-  const labelLetter = letterMatch ? normalizeHebrewGroundingLetter(letterMatch[1]) : undefined;
-
-  return signals.some(
-    (signal) =>
-      (signal.number && labelNumber === signal.number) ||
-      (signal.letter && labelLetter === signal.letter)
-  );
-}
-
 function buildArtifactGroundingPageLabel(pageStart?: number, pageEnd?: number): string | null {
   if (typeof pageStart === "number" && typeof pageEnd === "number") {
     return pageStart === pageEnd ? `page ${pageStart}` : `pages ${pageStart}-${pageEnd}`;
@@ -1359,10 +1328,6 @@ function buildArtifactGroundingPageLabel(pageStart?: number, pageEnd?: number): 
     return `page ${pageEnd}`;
   }
   return null;
-}
-
-function normalizeHebrewGroundingLetter(letter: string): string {
-  return letter.replace(/[׳'"]/g, "").trim();
 }
 
 function sanitizeArtifactGroundingText(text: string | undefined): string | null {
