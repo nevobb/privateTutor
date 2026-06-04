@@ -2733,4 +2733,175 @@ describeService("sessionMessageApiService", () => {
       expect((result.assistantMessage as { content?: string }).content).toContain("האם תרצה שאחפש בשאר חומרי הקורס?");
     });
   });
+
+  describe("structural retrieval routing", () => {
+    // A ready, understood file "file-A" with detected question 3 pointing to chunk "q3-c1".
+    const readyUnderstoodFile = {
+      id: "file-A",
+      name: "Physics.pdf",
+      originalFileName: "Physics.pdf",
+      workspaceId: "ws-1",
+      extractionStatus: "completed" as const,
+      chunkingStatus: "completed" as const,
+      understandingStatus: "completed",
+    };
+
+    const detectedQuestion3 = {
+      questionId: "dq-3",
+      fileId: "file-A",
+      label: "שאלה 3",
+      questionNumber: 3,
+      charStart: 0,
+      charEnd: 50,
+      sourceChunkIds: ["q3-c1"],
+      subsections: [],
+      confidence: 1,
+    };
+
+    const fileChunkQ3 = {
+      chunkId: "q3-c1",
+      fileId: "file-A",
+      workspaceId: "ws-1",
+      chunkIndex: 0,
+      text: "Question 3 content: solve the integral",
+      tokenEstimate: 80,
+    };
+
+    const structuralTutorDecision = {
+      ...tutorResponse,
+      internalUpdate: {
+        ...tutorResponse.internalUpdate,
+        retrieval_decision: {
+          needs_retrieval: true,
+          retrieval_scope: "topic" as const,
+          max_chunks: 4,
+          max_tokens: 5000,
+          should_ask_clarification_first: false,
+        },
+      },
+    };
+
+    it("routes 'תפתור את שאלה 3' to that question's chunks without calling the semantic retriever when a file is active", async () => {
+      const repos = makeRepos({
+        getUploadedFile: vi.fn(async (_uid: string, fileId: string) =>
+          fileId === "file-A" ? readyUnderstoodFile : null
+        ),
+        listUploadedFiles: vi.fn(async () => [readyUnderstoodFile]),
+        listDetectedQuestions: vi.fn(async (_uid: string, fileId: string) =>
+          fileId === "file-A" ? [detectedQuestion3] : []
+        ),
+        listFileChunks: vi.fn(async (_uid: string, _wsId: string, fileId: string) =>
+          fileId === "file-A" ? [fileChunkQ3] : []
+        ),
+        retrieveFileChunks: vi.fn(async () => ({ chunks: [], eligibleFileCount: 0 })),
+        appendMessage: vi.fn(
+          async (_uid: string, _wsId: string, _sessId: string, input: Record<string, unknown>) =>
+            input.role === "user"
+              ? { ...baseMessage, attachedFileIds: input.attachedFileIds }
+              : { ...tutorMessage, citations: input.citations }
+        ),
+        getMockTutorResponse: vi.fn(async () => structuralTutorDecision),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "תפתור את שאלה 3",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        attachedFileIds: ["file-A"],
+      });
+
+      // Semantic retriever must NOT be called — structural match short-circuits it.
+      expect(repos.retrieveFileChunks).not.toHaveBeenCalled();
+
+      // retrieval.why must reference structural routing.
+      expect(result.internalUpdate).toMatchObject({
+        retrieval: {
+          used: true,
+          why: expect.stringContaining("structural"),
+        },
+      });
+
+      // Citations carry the file name.
+      const assistantMsg = result.assistantMessage as { citations?: Array<{ originalFileName?: string }> };
+      expect(assistantMsg.citations).toBeDefined();
+      expect(assistantMsg.citations![0]).toMatchObject({
+        originalFileName: "Physics.pdf",
+      });
+    });
+
+    it("falls back to semantic retrieval when the structural reference matches no artifact", async () => {
+      // Active file present, but no DetectedQuestion matches "שאלה 99".
+      const semanticChunk = {
+        chunkId: "sem-1",
+        fileId: "file-A",
+        workspaceId: "ws-1",
+        text: "general physics content",
+        chunkIndex: 0,
+        tokenEstimate: 80,
+        score: 1,
+        sourceLabel: "Physics.pdf",
+        retrievalMethod: "semantic" as const,
+      };
+
+      const repos = makeRepos({
+        getUploadedFile: vi.fn(async (_uid: string, fileId: string) =>
+          fileId === "file-A" ? readyUnderstoodFile : null
+        ),
+        listUploadedFiles: vi.fn(async () => [readyUnderstoodFile]),
+        listDetectedQuestions: vi.fn(async () => [detectedQuestion3]), // only question 3, not 99
+        listFileChunks: vi.fn(async () => [fileChunkQ3]),
+        retrieveFileChunks: vi.fn(async () => ({
+          chunks: [semanticChunk],
+          eligibleFileCount: 1,
+        })),
+        appendMessage: vi.fn(
+          async (_uid: string, _wsId: string, _sessId: string, input: Record<string, unknown>) =>
+            input.role === "user"
+              ? { ...baseMessage, attachedFileIds: input.attachedFileIds }
+              : tutorMessage
+        ),
+        getMockTutorResponse: vi.fn(async () => structuralTutorDecision),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "תפתור את שאלה 99",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        attachedFileIds: ["file-A"],
+      });
+
+      // Structural match fails → semantic retriever IS called.
+      expect(repos.retrieveFileChunks).toHaveBeenCalled();
+    });
+
+    it("does not route structurally and keeps the C5D clarification when no file is active", async () => {
+      // No attachedFileIds — existing C5D path returns a clarification message.
+      const repos = makeRepos({
+        appendMessage: vi.fn(
+          async (_uid: string, _wsId: string, _sessId: string, input: Record<string, unknown>) =>
+            input.role === "user"
+              ? { ...baseMessage }
+              : { ...tutorMessage, content: input.content as string }
+        ),
+      });
+
+      const service = mod.createSessionMessageApiService(repos);
+      const result = await service.sendMessageForUser("alice", "s-1", {
+        workspaceId: "ws-1",
+        userMessage: "תפתור את שאלה 3",
+        workMode: "Learning",
+        costMode: "Normal Learning",
+        // no attachedFileIds
+      });
+
+      // Semantic retriever not called — C5D clarification path fires deterministically.
+      expect(repos.retrieveFileChunks).not.toHaveBeenCalled();
+      // The response asks which file/material to use.
+      expect((result.assistantMessage as { content?: string }).content).toMatch(/איזה קובץ|איזה חומר/);
+    });
+  });
 });

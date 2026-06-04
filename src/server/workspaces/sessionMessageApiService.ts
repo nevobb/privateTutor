@@ -719,6 +719,27 @@ async function executeRetrievalForTutorResponse(
     );
   }
 
+  if (prioritizedFileIds && prioritizedFileIds.length > 0) {
+    const structuralMatches = await resolveStructuralChunkTargets(
+      { listDetectedQuestions: repositories.listDetectedQuestions, listDocumentPages: repositories.listDocumentPages },
+      userId,
+      prioritizedFileIds,
+      userMessage
+    );
+    if (structuralMatches.length > 0) {
+      const structuralChunks = await loadStructuralChunks(repositories, userId, workspaceId, structuralMatches);
+      if (structuralChunks.length > 0) {
+        return executeChunkRetrieval(
+          tutorResponse,
+          decision,
+          { chunks: structuralChunks, eligibleFileCount: structuralMatches.length },
+          Math.max(structuralChunks.length, 1),
+          decision.max_tokens
+        );
+      }
+    }
+  }
+
   try {
     const modeBudget = getRetrievalBudgetForCostMode(costMode);
     const effectiveMaxChunks = Math.max(1, Math.min(decision.max_chunks, modeBudget.maxChunks));
@@ -868,6 +889,61 @@ async function executeWebSearchRetrieval(
   }
 }
 
+async function loadStructuralChunks(
+  repositories: Repositories,
+  userId: string,
+  workspaceId: string,
+  matches: StructuralMatch[]
+): Promise<RetrievedFileChunk[]> {
+  const out: RetrievedFileChunk[] = [];
+  for (const match of matches) {
+    let fileChunks: Awaited<ReturnType<typeof repositories.listFileChunks>> = [];
+    try {
+      fileChunks = await repositories.listFileChunks(userId, workspaceId, match.fileId);
+    } catch {
+      continue;
+    }
+    const file = (await safeListUploadedFiles(repositories, userId, workspaceId)).find(
+      (f) => String(f.id) === match.fileId
+    );
+    const sourceLabel = String(
+      (file as { originalFileName?: string; name?: string } | undefined)?.originalFileName ??
+      (file as { name?: string } | undefined)?.name ??
+      match.fileId
+    );
+    const byId = new Map(fileChunks.map((c) => [c.chunkId, c]));
+    for (const chunkId of match.chunkIds) {
+      const c = byId.get(chunkId);
+      if (!c) continue;
+      out.push({
+        chunkId: c.chunkId,
+        fileId: match.fileId,
+        workspaceId,
+        text: c.text,
+        chunkIndex: c.chunkIndex,
+        tokenEstimate: c.tokenEstimate,
+        score: 1,
+        finalScore: 1,
+        sourceLabel,
+        retrievalMethod: "structural",
+      });
+    }
+  }
+  return out;
+}
+
+async function safeListUploadedFiles(
+  repositories: Repositories,
+  userId: string,
+  workspaceId: string
+) {
+  try {
+    return await repositories.listUploadedFiles(userId, workspaceId);
+  } catch {
+    return [];
+  }
+}
+
 function executeChunkRetrieval(
   tutorResponse: TutorBoundaryResponse,
   decision: RetrievalBoundaryDecision,
@@ -902,11 +978,13 @@ function executeChunkRetrieval(
     scope: decision.retrieval_scope,
     source_ids: chunkIds,
     why:
-      retrievalMethod === "semantic"
-        ? `semantic_retrieval_executed_selected_${chunks.length}_file_chunks`
-        : retrievalMethod === "keyword_fallback"
-          ? `keyword_fallback_retrieval_executed_selected_${chunks.length}_file_chunks`
-          : `retrieval_executed_selected_${chunks.length}_file_chunks`,
+      retrievalMethod === "structural"
+        ? `structural_retrieval_executed_${chunks.length}_file_chunks`
+        : retrievalMethod === "semantic"
+          ? `semantic_retrieval_executed_selected_${chunks.length}_file_chunks`
+          : retrievalMethod === "keyword_fallback"
+            ? `keyword_fallback_retrieval_executed_selected_${chunks.length}_file_chunks`
+            : `retrieval_executed_selected_${chunks.length}_file_chunks`,
   };
 
   const citations = chunks.map((chunk) => ({

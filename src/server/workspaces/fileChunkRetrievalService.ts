@@ -28,7 +28,7 @@ export type RetrievedFileChunk = {
   keywordScore?: number;
   finalScore?: number;
   sourceLabel: string;
-  retrievalMethod?: "semantic" | "keyword_fallback" | "keyword_only";
+  retrievalMethod?: "semantic" | "keyword_fallback" | "keyword_only" | "structural";
 };
 
 export type FileChunkRetrievalResult = {
