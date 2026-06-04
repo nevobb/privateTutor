@@ -2619,3 +2619,32 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: roadmap step 4 — Clear Context v1 (show active files, remove one, clear all). Note: it also edits `TutorConversation.tsx`, so do it before/after — not in parallel with — further source-card work.
   - Blockers/Risks: page/section badges never populate yet (artifact→chunk join is the documented fast-follow); web-search citations still fall back to `מקור N` with no icon (known v1 limitation).
+
+## 2026-06-04 03:05 (Asia/Jerusalem) — Claude
+- Step/Task ID: Clear Context v1 (roadmap step 4)
+- Task summary: Add a simple "clear context" experience — see active materials, remove one, clear all, keep UI minimal, ensure context does not silently grow.
+- What I changed:
+  - FINDING: Clear Context was already ~90% built and wired — active-context chip area (`חומר פעיל בשיחה`), per-chip remove (`onRemoveStagedContext` + X button), clear-all button (`נקה קונטקסט` → `onClearStagedContext`), and an attachment limit (`MAX_STAGED_ATTACHMENTS` / `canAddMoreAttachments`). Remove-one and the limit were already tested.
+  - Did NOT rebuild existing behavior. Closed the two real gaps only:
+    - UI: added an active-context count to the label → `חומר פעיל בשיחה (N)` so the active set size is obvious (plan: "make it obvious which files are currently active").
+    - Tests: added coverage for the previously-untested clear-all `נקה קונטקסט` button (present when files exist; absent when none) and for the count.
+- Files touched:
+  - `src/components/tutor/TutorConversation.tsx`
+  - `tests/components/tutor/TutorConversation.test.tsx`
+- Tests/checks run:
+  - `npx tsc --noEmit`
+  - Result: passed
+  - `npx vitest run`
+  - Result: passed (1082 passed, 122 skipped)
+  - `npm run build`
+  - Result: passed
+  - Manual visual smoke (emulator + playwright): select 2 files → label `חומר פעיל בשיחה (2)` + 2 chips + clear button; remove one → `(1)` with only the other file; clear all → chip area gone entirely; then `תפתור את שאלה 3` with no active context → tutor asks which material (context truly cleared).
+  - Result: all 4 smoke checks passed
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): `2f282bd`
+  - Pushed: yes
+- Handoff status:
+  - Current state: done
+  - Next recommended step: roadmap step 6 — improve structural retrieval (references like `שאלה 1`/`סעיף ב`/`עמוד 3`/`התרגיל הבא`). Existing machinery: `extractRequestedPages`, `extractArtifactGroundingSignals`, `matchesArtifactGroundingSignals` in `sessionMessageApiService.ts` produce grounding HINTS, not true retrieval ROUTING — needs a design pass.
+  - Blockers/Risks: emulator fixtures can show duplicate file names with different processing states (pre-existing data-quality quirk, not a Clear Context bug).
