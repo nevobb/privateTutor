@@ -556,7 +556,7 @@ export default function TutorConversation({
                   className="text-[11px] font-medium ml-1"
                   style={{ color: "var(--tutor-text-secondary)" }}
                 >
-                  חומר פעיל בשיחה
+                  חומר פעיל בשיחה ({contextFiles.length})
                 </span>
                 {contextFiles.map((att) => (
                   <StagedAttachmentChip

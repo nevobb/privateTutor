@@ -561,6 +561,30 @@ describe("TutorConversation staged attachment prop wiring", () => {
     expect(html).toContain("lecture.pdf");
   });
 
+  it("shows the active-context count and a clear-all button when files are present", () => {
+    const html = renderToStaticMarkup(
+      <TutorConversation
+        activeSessionId="session-1"
+        activeWorkspaceId="ws-1"
+        developerDiagnosticsEnabled={false}
+        workMode="Learning"
+        onWorkModeChange={() => {}}
+        costMode="Normal Learning"
+        onCostModeChange={() => {}}
+        activeTopicName={null}
+        getToken={async () => "token"}
+        stagedContextFiles={[
+          { localId: "l1", fileId: "f1", fileName: "lecture.pdf" },
+          { localId: "l2", fileId: "f2", fileName: "hw.pdf" },
+        ]}
+        onRemoveStagedContext={() => {}}
+        onClearStagedContext={() => {}}
+      />
+    );
+    expect(html).toContain("חומר פעיל בשיחה (2)");
+    expect(html).toContain("נקה קונטקסט");
+  });
+
   it("renders without crashing when no context files provided", () => {
     const html = renderToStaticMarkup(
       <TutorConversation
@@ -578,6 +602,7 @@ describe("TutorConversation staged attachment prop wiring", () => {
     expect(html).toContain('data-testid="plus-menu-button"');
     expect(html).toContain('data-testid="message-textarea"');
     expect(html).not.toContain('data-testid="staged-attachments"');
+    expect(html).not.toContain("נקה קונטקסט");
   });
 
   it("plus menu shows study-material upload option when onUploadAttachmentFile provided", () => {
