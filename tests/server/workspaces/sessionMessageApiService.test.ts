@@ -2866,7 +2866,7 @@ describeService("sessionMessageApiService", () => {
       });
 
       const service = mod.createSessionMessageApiService(repos);
-      await service.sendMessageForUser("alice", "s-1", {
+      const result = await service.sendMessageForUser("alice", "s-1", {
         workspaceId: "ws-1",
         userMessage: "תפתור את שאלה 99",
         workMode: "Learning",
@@ -2876,6 +2876,11 @@ describeService("sessionMessageApiService", () => {
 
       // Structural match fails → semantic retriever IS called.
       expect(repos.retrieveFileChunks).toHaveBeenCalled();
+
+      // The result's why confirms the semantic path ran, not structural.
+      const why = (result.internalUpdate as { retrieval?: { why?: string } }).retrieval?.why ?? "";
+      expect(why).toContain("semantic");
+      expect(why).not.toContain("structural");
     });
 
     it("does not route structurally and keeps the C5D clarification when no file is active", async () => {

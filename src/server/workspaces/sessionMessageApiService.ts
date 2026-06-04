@@ -997,7 +997,9 @@ function executeChunkRetrieval(
   tutorResponse.decisionLogEvents?.push({
     type: "retrieval_executed",
     title: "Retrieval executed",
-    detail: `selected_chunk_ids=${chunkIds.join(",")}; selected_file_ids=${fileIds.join(",")}; total_candidates=${eligibleFileCount}; applied_max_chunks=${effectiveMaxChunks}; applied_max_tokens=${effectiveMaxTokens}; retrieval_method=${retrievalMethod}; semantic_attempted=true; semantic_used=${retrievalMethod === "semantic" ? "true" : "false"}; fallback_reason=${retrievalMethod === "keyword_fallback" ? "semantic_unavailable_or_empty" : "none"}; grounding_context_injected=true`,
+    detail: retrievalMethod === "structural"
+      ? `selected_chunk_ids=${chunkIds.join(",")}; selected_file_ids=${fileIds.join(",")}; total_candidates=${eligibleFileCount}; applied_max_chunks=${effectiveMaxChunks}; applied_max_tokens=${effectiveMaxTokens}; retrieval_method=structural; semantic_attempted=false; structural_match=true; grounding_context_injected=true`
+      : `selected_chunk_ids=${chunkIds.join(",")}; selected_file_ids=${fileIds.join(",")}; total_candidates=${eligibleFileCount}; applied_max_chunks=${effectiveMaxChunks}; applied_max_tokens=${effectiveMaxTokens}; retrieval_method=${retrievalMethod}; semantic_attempted=true; semantic_used=${retrievalMethod === "semantic" ? "true" : "false"}; fallback_reason=${retrievalMethod === "keyword_fallback" ? "semantic_unavailable_or_empty" : "none"}; grounding_context_injected=true`,
   });
 
   return { citations, retrievedChunks: chunks };

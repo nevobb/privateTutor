@@ -88,6 +88,22 @@ describe("resolveStructuralChunkTargets", () => {
     expect(result[0]?.chunkIds).toEqual(["q2-b"]);
   });
 
+  it("routes a standalone 'סעיף ב' to the matching subsection by letter", async () => {
+    const deps = makeDeps({
+      questions: [
+        question({
+          subsections: [
+            { label: "סעיף א", charStart: 0, charEnd: 1, sourceChunkIds: ["q2-a"] },
+            { label: "סעיף ב", charStart: 2, charEnd: 3, sourceChunkIds: ["q2-b"] },
+          ],
+        }),
+      ],
+    });
+    const result = await resolveStructuralChunkTargets(deps, "u", ["file-A"], "תסביר את סעיף ב");
+    expect(result[0]?.matchKind).toBe("subsection");
+    expect(result[0]?.chunkIds).toEqual(["q2-b"]);
+  });
+
   it("returns [] when a signal is present but no artifact matches", async () => {
     const deps = makeDeps({ questions: [question({ questionNumber: 2, label: "שאלה 2" })] });
     const result = await resolveStructuralChunkTargets(deps, "u", ["file-A"], "תפתור את שאלה 9");
