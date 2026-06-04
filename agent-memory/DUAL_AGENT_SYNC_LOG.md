@@ -2648,3 +2648,45 @@ Copy this block and fill all fields:
   - Current state: done
   - Next recommended step: roadmap step 6 — improve structural retrieval (references like `שאלה 1`/`סעיף ב`/`עמוד 3`/`התרגיל הבא`). Existing machinery: `extractRequestedPages`, `extractArtifactGroundingSignals`, `matchesArtifactGroundingSignals` in `sessionMessageApiService.ts` produce grounding HINTS, not true retrieval ROUTING — needs a design pass.
   - Blockers/Risks: emulator fixtures can show duplicate file names with different processing states (pre-existing data-quality quirk, not a Clear Context bug).
+
+## 2026-06-04 12:26 (Asia/Jerusalem) — Claude
+- Step/Task ID: Structural Retrieval v1 (plan: docs/superpowers/plans/2026-06-04-structural-retrieval-v1.md)
+- Task summary: Route retrieval to the right area of the active file when the learner refers to `שאלה N` / `סעיף <letter>` / `עמוד N`, using semantic search only as a fallback when structural matching fails.
+- What I changed:
+  - NEW `src/server/workspaces/structuralRetrievalService.ts`: owns structural reference parsing + artifact→chunkId resolution. Exports `ArtifactGroundingSignal` type, `normalizeHebrewGroundingLetter`, `extractRequestedPages`, `extractArtifactGroundingSignals`, `matchesArtifactGroundingSignals` (moved verbatim from `sessionMessageApiService.ts`), plus new `StructuralRetrievalDeps`, `StructuralMatch`, and `resolveStructuralChunkTargets`.
+  - MODIFIED `src/server/workspaces/sessionMessageApiService.ts`: removed the five moved definitions; added import from `structuralRetrievalService`; added `loadStructuralChunks` + `safeListUploadedFiles` helpers; inserted structural pre-step in `executeRetrievalForTutorResponse` (gated on `prioritizedFileIds.length > 0`, short-circuits semantic on positive match); updated `executeChunkRetrieval` `why` derivation to include `structural_retrieval_executed_N_file_chunks` branch.
+  - MODIFIED `src/server/workspaces/fileChunkRetrievalService.ts`: added `"structural"` to `retrievalMethod` union (1-line change).
+  - NEW `tests/server/workspaces/structuralRetrievalService.test.ts`: 9 unit tests covering all resolver paths (no signal, question/trgil/exercise, page, subsection, no-match, first-file-wins, error-resilience, no-files).
+  - MODIFIED `tests/server/workspaces/sessionMessageApiService.test.ts`: added `describe("structural retrieval routing", ...)` with 3 integration tests.
+- Plan fix applied: the plan's subsection-matching skeleton used `s.label.match(/[HEBREW_LETTERS]/)` which grabbed the first Hebrew letter in the label (e.g. `ס` from `"סעיף ב"`) rather than the letter following `סעיף|מקטע`. Fixed to use `(?:סעיף|מקטע)\s+([HEBREW_LETTERS])` against the subsection label — consistent with `matchesArtifactGroundingSignals`. Caught by the test for "שאלה 2 סעיף ב".
+- Citation page/section metadata: SKIPPED for v1. Citations carry `originalFileName` (via `sourceLabel`) and text excerpt. `StructuralMatch.matchLabel` / `matchKind` are available for a fast-follow pass to populate `pageNumber`/`sectionLabel` on citations.
+- Fast-follow notes:
+  - Relative references (`התרגיל הבא`, "next exercise") — not in scope; fall through to existing semantic behavior safely.
+  - Cross-file structural refs with multiple active files — v1 is first-match-wins; multi-file expansion deferred.
+  - Citation `pageNumber`/`sectionLabel` from structural matches — deferred; `matchLabel` + `matchKind` available on `StructuralMatch` when ready.
+- Files touched:
+  - `src/server/workspaces/structuralRetrievalService.ts` (new)
+  - `src/server/workspaces/sessionMessageApiService.ts`
+  - `src/server/workspaces/fileChunkRetrievalService.ts`
+  - `tests/server/workspaces/structuralRetrievalService.test.ts` (new)
+  - `tests/server/workspaces/sessionMessageApiService.test.ts`
+- Tests/checks run:
+  - `npx vitest run tests/server/workspaces/structuralRetrievalService.test.ts`
+  - Result: 9/9 passed
+  - `npx vitest run tests/server/workspaces/sessionMessageApiService.test.ts`
+  - Result: 84/84 passed (81 pre-existing + 3 new structural routing tests)
+  - `npx tsc --noEmit`
+  - Result: passed (clean)
+  - `npx vitest run` (full suite)
+  - Result: 1094 passed, 122 skipped, 0 failed (80 test files)
+  - `npm run build`
+  - Result: passed
+  - Manual smoke: not performed by this agent — browser/emulator smoke is the team lead's responsibility per task instructions.
+- Git status:
+  - Branch: `repair/workspace-cleanup-fit-check`
+  - Commit(s): `d06bc02` (Task 1: resolver + parser move), `285da9d` (Task 2: wiring + integration tests)
+  - Pushed: no
+- Handoff status:
+  - Current state: done
+  - Next recommended step: manual smoke — with an active understood file that has detected questions, send `תפתור את שאלה N` (N = a question the file actually has) and confirm the answer is grounded in that question's content and the source card cites the file. Then send a ref that matches nothing (e.g. `שאלה 99`) and confirm it answers via the normal semantic path.
+  - Blockers/Risks: none. Optional fast-follow: citation `pageNumber`/`sectionLabel` population from `StructuralMatch` (not in v1); relative refs (`התרגיל הבא`) are out of scope and fall through safely.
